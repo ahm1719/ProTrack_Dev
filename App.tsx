@@ -407,6 +407,12 @@ function App() {
     const completedTasks = tasks.filter(t => t.status === Status.DONE).length;
     const activeTasksTotal = tasks.filter(t => t.status === Status.IN_PROGRESS || t.status === Status.WAITING).length;
 
+    // Status Counts for "Active Tasks This Week" card
+    const countNotStarted = tasks.filter(t => t.status === Status.NOT_STARTED).length;
+    const countInProgress = tasks.filter(t => t.status === Status.IN_PROGRESS).length;
+    const countWaiting = tasks.filter(t => t.status === Status.WAITING).length;
+    const countDone = tasks.filter(t => t.status === Status.DONE).length;
+
     // Observation Stats
     const obsNew = observations.filter(o => o.status === ObservationStatus.NEW).length;
     const obsWip = observations.filter(o => o.status === ObservationStatus.REVIEWING).length;
@@ -417,13 +423,29 @@ function App() {
       <div className="space-y-6 animate-fade-in pb-12">
         {/* Top Level Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-indigo-100">Total Active</h3>
-              <ListTodo className="opacity-50" />
+          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg shadow-indigo-200">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-semibold text-indigo-100 text-sm">Active Tasks This Week</h3>
+              <ListTodo className="opacity-50" size={20} />
             </div>
-            <p className="text-4xl font-bold">{tasks.length}</p>
-            <p className="text-xs text-indigo-200 mt-2">{activeTasksTotal} Active / {completedTasks} Done</p>
+            <div className="grid grid-cols-2 gap-2">
+                <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between">
+                    <span className="text-[10px] text-indigo-200 uppercase tracking-wide">Not Started</span>
+                    <span className="text-xl font-bold">{countNotStarted}</span>
+                </div>
+                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between">
+                    <span className="text-[10px] text-indigo-200 uppercase tracking-wide">In Progress</span>
+                    <span className="text-xl font-bold">{countInProgress}</span>
+                </div>
+                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between">
+                    <span className="text-[10px] text-indigo-200 uppercase tracking-wide">Waiting</span>
+                    <span className="text-xl font-bold">{countWaiting}</span>
+                </div>
+                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between">
+                    <span className="text-[10px] text-indigo-200 uppercase tracking-wide">Done</span>
+                    <span className="text-xl font-bold">{countDone}</span>
+                </div>
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative overflow-hidden group hover:border-red-300 transition-colors">
@@ -456,27 +478,29 @@ function App() {
               <p className="text-4xl font-bold text-slate-800">{logsThisWeek.length}</p>
               <span className="text-sm text-slate-500 mb-1.5">entries</span>
             </div>
-            <p className="text-xs text-slate-400 mt-2">Across {activeTasksThisWeek} tasks this week</p>
+            <p className="text-xs text-slate-400 mt-2 leading-snug">
+              Updates made across {activeTasksThisWeek} tasks in the current week.
+            </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Column: Priority & Deadlines */}
           <div className="lg:col-span-2 space-y-6">
-             {/* Urgent Tasks Section */}
-             {(overdueTasks.length > 0 || dueTodayTasks.length > 0) && (
+             {/* Urgent Tasks Section - Focused on Overdue */}
+             {overdueTasks.length > 0 && (
                <div className="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
                  <div className="bg-red-50 px-6 py-4 border-b border-red-100 flex items-center gap-2">
                     <AlertTriangle size={18} className="text-red-600"/>
-                    <h3 className="font-bold text-red-900">Attention Needed</h3>
+                    <h3 className="font-bold text-red-900">Attention Needed: Overdue</h3>
                  </div>
                  <div className="divide-y divide-red-50">
-                    {[...overdueTasks, ...dueTodayTasks].slice(0, 5).map(task => (
+                    {overdueTasks.map(task => (
                       <div key={task.id} className="p-4 hover:bg-red-50/50 transition-colors flex items-center justify-between group">
                          <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded text-white ${task.dueDate < todayStr ? 'bg-red-500' : 'bg-amber-500'}`}>
-                                 {task.dueDate < todayStr ? 'OVERDUE' : 'DUE TODAY'}
+                               <span className="text-[10px] font-bold px-2 py-0.5 rounded text-white bg-red-500">
+                                 OVERDUE
                                </span>
                                <span className="text-xs font-mono font-medium text-slate-500">{task.displayId}</span>
                             </div>
@@ -560,33 +584,6 @@ function App() {
                     <div style={{ width: `${totalObs ? (obsWip / totalObs) * 100 : 0}%`}} className="bg-amber-400 h-full" />
                     <div style={{ width: `${totalObs ? (obsNew / totalObs) * 100 : 0}%`}} className="bg-blue-400 h-full" />
                  </div>
-               </div>
-            </div>
-
-            {/* Weekly Detailed Stats */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-               <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                    <BarChart3 size={18} className="text-indigo-500"/>
-                    Week Statistics
-                  </h3>
-                  <span className="text-xs text-slate-400">Current CW</span>
-               </div>
-               <div className="space-y-3">
-                  <div className="flex justify-between items-center text-sm">
-                     <span className="text-slate-600">Daily Logs Logged</span>
-                     <span className="font-bold text-slate-800">{logsThisWeek.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                     <span className="text-slate-600">Unique Tasks Touched</span>
-                     <span className="font-bold text-slate-800">{activeTasksThisWeek}</span>
-                  </div>
-                   <div className="flex justify-between items-center text-sm">
-                     <span className="text-slate-600">Completion Rate</span>
-                     <span className="font-bold text-slate-800">
-                       {tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0}%
-                     </span>
-                  </div>
                </div>
             </div>
           </div>
