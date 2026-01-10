@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Observation, ObservationStatus } from '../types';
-import { StickyNote, Plus, Trash2, Save, Edit2, X, Circle, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
+import { StickyNote, Plus, Trash2, Save, Edit2, X, Circle, Clock, CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ObservationsLogProps {
@@ -58,7 +58,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
     setStatus(ObservationStatus.NEW);
   };
 
-  // Helper to move card to next status easily
+  // Helper to move card to next status
   const advanceStatus = (obs: Observation) => {
       let nextStatus = obs.status;
       if (obs.status === ObservationStatus.NEW) nextStatus = ObservationStatus.REVIEWING;
@@ -66,6 +66,17 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
       
       if (nextStatus !== obs.status) {
           onEditObservation({ ...obs, status: nextStatus });
+      }
+  };
+
+  // Helper to move card to previous status
+  const regressStatus = (obs: Observation) => {
+      let prevStatus = obs.status;
+      if (obs.status === ObservationStatus.RESOLVED) prevStatus = ObservationStatus.REVIEWING;
+      else if (obs.status === ObservationStatus.REVIEWING) prevStatus = ObservationStatus.NEW;
+      
+      if (prevStatus !== obs.status) {
+          onEditObservation({ ...obs, status: prevStatus });
       }
   };
 
@@ -185,15 +196,28 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
                                             >
                                                 <Trash2 size={12} />
                                             </button>
-                                            {obs.status !== ObservationStatus.RESOLVED && (
-                                                <button 
-                                                    onClick={() => advanceStatus(obs)}
-                                                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-emerald-600 transition-colors"
-                                                    title="Move Next"
-                                                >
-                                                    <ArrowRight size={12} />
-                                                </button>
-                                            )}
+                                            
+                                            {/* Action Buttons Container */}
+                                            <div className="flex items-center gap-1 ml-1 pl-1 border-l border-slate-100">
+                                                {obs.status !== ObservationStatus.NEW && (
+                                                    <button 
+                                                        onClick={() => regressStatus(obs)}
+                                                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-amber-600 transition-colors"
+                                                        title="Move Back"
+                                                    >
+                                                        <ArrowLeft size={12} />
+                                                    </button>
+                                                )}
+                                                {obs.status !== ObservationStatus.RESOLVED && (
+                                                    <button 
+                                                        onClick={() => advanceStatus(obs)}
+                                                        className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-emerald-600 transition-colors"
+                                                        title="Move Next"
+                                                    >
+                                                        <ArrowRight size={12} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
