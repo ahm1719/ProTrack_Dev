@@ -1,0 +1,5 @@
+{
+  "name": "ProTrack AI",
+  "description": "A robust, offline-capable weekly task tracker with AI-powered progress summarization. Replaces Excel with a modern, responsive dashboard.",
+  "requestFramePermissions": []
+}
