@@ -1,6 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
 import { Task, DailyLog } from "../types";
 
+// Helper to handle process.env for local dev without crashing production build
+declare const process: any;
+
 const getStartOfWeek = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();
@@ -8,10 +11,26 @@ const getStartOfWeek = (date: Date) => {
   return new Date(d.setDate(diff));
 };
 
+const getApiKey = () => {
+  // 1. Check Local Storage (Production/Deployed App)
+  const localKey = localStorage.getItem('protrack_gemini_key');
+  if (localKey) return localKey;
+
+  // 2. Check process.env (Local Dev), safely
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+      return process.env.API_KEY;
+    }
+  } catch (e) {
+    // Ignore error if process is not defined
+  }
+
+  return '';
+};
+
 export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[]): Promise<string> => {
   try {
-    // UPDATED: Try to get key from localStorage first (for deployed apps), fallback to process.env (local dev)
-    const apiKey = localStorage.getItem('protrack_gemini_key') || process.env.API_KEY;
+    const apiKey = getApiKey();
     
     if (!apiKey) {
       throw new Error("API Key is missing. Please go to Settings and enter your Gemini API Key.");
