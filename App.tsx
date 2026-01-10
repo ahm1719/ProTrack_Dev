@@ -622,6 +622,37 @@ function App() {
                </div>
              )}
 
+             {/* Due Today Section */}
+             {dueTodayTasks.length > 0 && (
+               <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
+                 <div className="bg-amber-50 px-6 py-4 border-b border-amber-100 flex items-center gap-2">
+                    <CalendarDays size={18} className="text-amber-600"/>
+                    <h3 className="font-bold text-amber-900">Actions Due Today</h3>
+                 </div>
+                 <div className="divide-y divide-amber-50">
+                    {dueTodayTasks.map(task => (
+                      <div key={task.id} className="p-4 hover:bg-amber-50/50 transition-colors flex items-center justify-between group">
+                         <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                               <span className="text-xs font-mono font-medium text-slate-500">{task.displayId}</span>
+                               <span className="text-[10px] font-bold px-2 py-0.5 rounded text-white bg-amber-500">
+                                 {task.priority}
+                               </span>
+                            </div>
+                            <p className="text-sm font-medium text-slate-800">{task.description}</p>
+                         </div>
+                         <button 
+                            onClick={() => { setJournalTaskId(task.id); setCurrentView(ViewMode.TASKS); }}
+                            className="text-slate-300 hover:text-indigo-600 p-2"
+                         >
+                            <ArrowRight size={18}/>
+                         </button>
+                      </div>
+                    ))}
+                 </div>
+               </div>
+             )}
+
              {/* Priority Items */}
              <div>
                 <div className="flex justify-between items-center mb-4">
