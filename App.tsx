@@ -120,6 +120,10 @@ function App() {
   // Modal State
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  
+  // Controlled inputs for Modal to support auto-ID generation
+  const [modalProjectId, setModalProjectId] = useState('');
+  const [modalDisplayId, setModalDisplayId] = useState('');
 
   // AI Summary State
   const [summary, setSummary] = useState<string>('');
@@ -237,18 +241,69 @@ function App() {
     window.open(window.location.href, '_blank');
   };
 
+  // --- HELPER: ID Generation ---
+  const generateNextDisplayId = (projectId: string) => {
+    if (!projectId) return '';
+    const cleanPid = projectId.trim().toUpperCase();
+    
+    // Find all tasks belonging to this project
+    const projectTasks = tasks.filter(t => t.projectId && t.projectId.toUpperCase() === cleanPid);
+    
+    if (projectTasks.length === 0) {
+      return `${cleanPid}-1`;
+    }
+
+    // Extract sequence numbers
+    let maxSeq = 0;
+    // Regex matches PROJECTID-123
+    const regex = new RegExp(`^${escapeRegExp(cleanPid)}-(\\d+)$`, 'i');
+
+    projectTasks.forEach(t => {
+      const match = t.displayId.match(regex);
+      if (match) {
+        const seq = parseInt(match[1], 10);
+        if (seq > maxSeq) maxSeq = seq;
+      }
+    });
+
+    return `${cleanPid}-${maxSeq + 1}`;
+  };
+
+  function escapeRegExp(string: string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
 
   // --- ACTIONS ---
+  
+  const openTaskModal = (task?: Task) => {
+    setEditingTask(task || null);
+    setModalProjectId(task?.projectId || '');
+    setModalDisplayId(task?.displayId || '');
+    setIsTaskModalOpen(true);
+  };
+
+  const handleProjectIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVal = e.target.value;
+    setModalProjectId(newVal);
+    // Only auto-generate ID if we are creating a new task
+    if (!editingTask) {
+       setModalDisplayId(generateNextDisplayId(newVal));
+    }
+  };
 
   const handleCreateOrUpdateTask = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
+    // Use the state values for ID and Project ID
+    const displayId = modalDisplayId || `T-${Math.floor(Math.random() * 1000)}`;
+    const projectId = modalProjectId.toUpperCase();
+
     const newTask: Task = {
       id: editingTask ? editingTask.id : uuidv4(),
-      displayId: (formData.get('displayId') as string) || `T-${Math.floor(Math.random() * 1000)}`,
+      displayId: displayId,
       source: (formData.get('source') as string) || getCurrentCW(),
-      projectId: (formData.get('projectId') as string) || '',
+      projectId: projectId,
       description: formData.get('description') as string,
       dueDate: formData.get('dueDate') as string,
       priority: formData.get('priority') as Priority,
@@ -376,12 +431,17 @@ function App() {
   };
 
   // --- FILTERS ---
-  const filteredTasks = tasks.filter(t => 
-    t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.displayId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.source.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.projectId.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTasks = tasks.filter(t => {
+    const term = searchTerm.toLowerCase();
+    const inDescription = t.description.toLowerCase().includes(term);
+    const inDisplayId = t.displayId.toLowerCase().includes(term);
+    const inSource = t.source.toLowerCase().includes(term);
+    const inProject = t.projectId ? t.projectId.toLowerCase().includes(term) : false;
+    const inDueDate = t.dueDate.toLowerCase().includes(term);
+    const inUpdates = t.updates.some(u => u.content.toLowerCase().includes(term));
+    
+    return inDescription || inDisplayId || inSource || inProject || inDueDate || inUpdates;
+  });
 
   // Get active Project IDs for dropdown
   const activeProjectIds = Array.from(new Set(
@@ -523,7 +583,7 @@ function App() {
                         key={task.id} 
                         task={task} 
                         onUpdateStatus={updateTaskStatus} 
-                        onEdit={(t) => { setEditingTask(t); setIsTaskModalOpen(true); }}
+                        onEdit={(t) => openTaskModal(t)}
                         onDelete={deleteTask}
                         onAddUpdate={addUpdateToTask}
                         isReadOnly={true}
@@ -614,7 +674,7 @@ function App() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h2 className="text-2xl font-bold text-slate-800">Task Board</h2>
           <button 
-            onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}
+            onClick={() => openTaskModal()}
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
           >
             <Plus size={18} />
@@ -626,7 +686,7 @@ function App() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
             type="text" 
-            placeholder="Search by ID, Source, or Description..." 
+            placeholder="Search by ID, Due Date, Update Content..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm"
@@ -639,7 +699,7 @@ function App() {
               key={task.id} 
               task={task} 
               onUpdateStatus={updateTaskStatus}
-              onEdit={(t) => { setEditingTask(t); setIsTaskModalOpen(true); }}
+              onEdit={(t) => openTaskModal(t)}
               onDelete={deleteTask}
               onAddUpdate={addUpdateToTask}
             />
@@ -741,7 +801,6 @@ function App() {
           >
             <ListTodo size={20} /> Tasks & Journal
           </button>
-          {/* Daily Journal standalone link removed, now combined with Tasks */}
           <button 
             onClick={() => setCurrentView(ViewMode.REPORT)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.REPORT ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
@@ -826,7 +885,16 @@ function App() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Display ID</label>
-                  <input name="displayId" defaultValue={editingTask?.displayId} placeholder="e.g. P1130-28" className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" required />
+                  <input 
+                    name="displayId" 
+                    value={modalDisplayId} 
+                    onChange={(e) => setModalDisplayId(e.target.value)}
+                    placeholder="e.g. P1130-28" 
+                    className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 text-slate-900 font-mono" 
+                    required 
+                    readOnly={!editingTask} // Auto-generated for new tasks, usually separate field for updates but keeping flexibility
+                  />
+                  {!editingTask && <p className="text-[10px] text-indigo-500 mt-1">Auto-generated based on Project ID</p>}
                 </div>
               </div>
 
@@ -835,9 +903,11 @@ function App() {
                 <input 
                   list="projectIds" 
                   name="projectId" 
-                  defaultValue={editingTask?.projectId} 
+                  value={modalProjectId} 
+                  onChange={handleProjectIdChange}
                   placeholder="Select or Type Project ID..." 
                   className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" 
+                  required
                 />
                 <datalist id="projectIds">
                   {activeProjectIds.map(pid => <option key={pid} value={pid} />)}
