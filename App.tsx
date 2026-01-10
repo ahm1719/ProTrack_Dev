@@ -466,7 +466,15 @@ function App() {
   )).sort();
 
   // --- GROUPING LOGIC ---
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Fix: Use local time instead of UTC to ensure Due Today/Tomorrow logic aligns with user's clock
+  const getLocalTodayStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  const todayStr = getLocalTodayStr();
   
   // Active Tasks: Filter out Done AND Archived, Sort by Due Date ASC (Older at top)
   const activeTasks = filteredTasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED)
@@ -494,6 +502,7 @@ function App() {
     const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
 
     // Calc Stats
+    // Fix: Use local todayStr and ensure status is open
     const overdueTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate < todayStr);
     const dueTodayTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate === todayStr);
     
