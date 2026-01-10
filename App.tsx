@@ -459,11 +459,13 @@ function App() {
   // --- GROUPING LOGIC ---
   const todayStr = new Date().toISOString().split('T')[0];
   
+  // Active Tasks: Filter out Done AND Archived, Sort by Due Date ASC (Older at top)
   const activeTasks = filteredTasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate)); // Older (smaller date) at top
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
+  // Completed Tasks: Done OR Archived, Sort by Due Date DESC (Newest at top)
   const completedTasks = filteredTasks.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED)
-    .sort((a, b) => b.dueDate.localeCompare(a.dueDate)); // Recent at top for completed
+    .sort((a, b) => b.dueDate.localeCompare(a.dueDate));
 
   // Group active tasks by due date chunks for clarity
   const overdueActive = activeTasks.filter(t => t.dueDate < todayStr);
@@ -495,6 +497,7 @@ function App() {
     const countInProgress = tasks.filter(t => t.status === Status.IN_PROGRESS).length;
     const countWaiting = tasks.filter(t => t.status === Status.WAITING).length;
     const countDone = tasks.filter(t => t.status === Status.DONE).length;
+    const countArchived = tasks.filter(t => t.status === Status.ARCHIVED).length;
 
     // Observation Stats
     const obsNew = observations.filter(o => o.status === ObservationStatus.NEW).length;
@@ -512,22 +515,27 @@ function App() {
               <h3 className="font-semibold text-indigo-100 text-sm">Active Tasks This Week</h3>
               <ListTodo className="opacity-50" size={20} />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            {/* Adjusted Grid to fit Archived */}
+            <div className="grid grid-cols-3 gap-2">
                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between">
-                    <span className="text-[10px] text-indigo-200 uppercase tracking-wide">Not Started</span>
+                    <span className="text-[10px] text-indigo-200 uppercase tracking-wide truncate">Not Started</span>
                     <span className="text-xl font-bold">{countNotStarted}</span>
                 </div>
                  <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between">
-                    <span className="text-[10px] text-indigo-200 uppercase tracking-wide">In Progress</span>
+                    <span className="text-[10px] text-indigo-200 uppercase tracking-wide truncate">In Progress</span>
                     <span className="text-xl font-bold">{countInProgress}</span>
                 </div>
                  <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between">
-                    <span className="text-[10px] text-indigo-200 uppercase tracking-wide">Waiting</span>
+                    <span className="text-[10px] text-indigo-200 uppercase tracking-wide truncate">Waiting</span>
                     <span className="text-xl font-bold">{countWaiting}</span>
                 </div>
                  <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between">
-                    <span className="text-[10px] text-indigo-200 uppercase tracking-wide">Done</span>
+                    <span className="text-[10px] text-indigo-200 uppercase tracking-wide truncate">Done</span>
                     <span className="text-xl font-bold">{countDone}</span>
+                </div>
+                <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between">
+                    <span className="text-[10px] text-indigo-200 uppercase tracking-wide truncate">Archived</span>
+                    <span className="text-xl font-bold">{countArchived}</span>
                 </div>
             </div>
           </div>
