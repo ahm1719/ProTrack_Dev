@@ -1,9 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { Task, DailyLog } from "../types";
 
-// Helper to handle process.env for local dev without crashing production build
-declare const process: any;
-
 const getStartOfWeek = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();
@@ -12,17 +9,19 @@ const getStartOfWeek = (date: Date) => {
 };
 
 const getApiKey = () => {
-  // 1. Check Local Storage (Production/Deployed App)
+  // 1. Check Local Storage (Production/Deployed App) - This is the primary way for users
   const localKey = localStorage.getItem('protrack_gemini_key');
   if (localKey) return localKey;
 
-  // 2. Check process.env (Local Dev), safely
+  // 2. Safe check for environment variables (Local Dev)
+  // We avoid declaring 'process' globally to prevent build errors
   try {
-    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-      return process.env.API_KEY;
+    const env = (window as any).process?.env || (import.meta as any).env;
+    if (env && env.API_KEY) {
+      return env.API_KEY;
     }
   } catch (e) {
-    // Ignore error if process is not defined
+    // Ignore error if env is not accessible
   }
 
   return '';
