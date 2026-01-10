@@ -280,6 +280,16 @@ function App() {
     updateObservations(updatedObs);
   };
 
+  const deleteTask = (id: string) => {
+    if (window.confirm('Are you sure you want to permanently delete this task? Associated logs will also be removed.')) {
+      const updatedTasks = tasks.filter(t => t.id !== id);
+      const updatedLogs = logs.filter(l => l.taskId !== id);
+      setTasks(updatedTasks);
+      setLogs(updatedLogs);
+      persistData(updatedTasks, updatedLogs, observations);
+    }
+  };
+
   const handleImportData = (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[] }) => {
     setTasks(data.tasks);
     setLogs(data.logs);
@@ -358,6 +368,7 @@ function App() {
                 task={task} 
                 onUpdateStatus={updateTaskStatus} 
                 onEdit={(t) => { setEditingTask(t); setIsTaskModalOpen(true); }}
+                onDelete={deleteTask}
                 onAddUpdate={addUpdateToTask}
               />
            ))}
@@ -402,6 +413,7 @@ function App() {
             task={task} 
             onUpdateStatus={updateTaskStatus}
             onEdit={(t) => { setEditingTask(t); setIsTaskModalOpen(true); }}
+            onDelete={deleteTask}
             onAddUpdate={addUpdateToTask}
           />
         ))}

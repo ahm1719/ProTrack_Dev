@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { Task, Status, Priority } from '../types';
-import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2 } from 'lucide-react';
+import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2 } from 'lucide-react';
 
 interface TaskCardProps {
   task: Task;
   onUpdateStatus: (id: string, status: Status) => void;
   onEdit: (task: Task) => void;
+  onDelete: (id: string) => void;
   onAddUpdate: (id: string, content: string) => void;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onAddUpdate }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onDelete, onAddUpdate }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [newUpdate, setNewUpdate] = useState('');
 
@@ -59,9 +60,22 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onAdd
               {task.priority}
             </span>
           </div>
-          <button onClick={() => onEdit(task)} className="text-slate-400 hover:text-indigo-600">
-            <Edit2 size={16} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => onEdit(task)} 
+              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+              title="Edit Task"
+            >
+              <Edit2 size={16} />
+            </button>
+            <button 
+              onClick={() => onDelete(task.id)} 
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="Delete Task"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
         </div>
 
         <h3 className="text-lg font-semibold text-slate-800 mb-2 leading-tight">

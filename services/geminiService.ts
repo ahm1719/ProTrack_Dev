@@ -14,9 +14,9 @@ const getApiKey = () => {
   if (localKey) return localKey;
 
   // 2. Safe check for environment variables (Local Dev)
-  // We avoid declaring 'process' globally to prevent build errors
   try {
-    const env = (window as any).process?.env || (import.meta as any).env;
+    // @ts-ignore
+    const env = window.process?.env || (import.meta as any).env;
     if (env && env.API_KEY) {
       return env.API_KEY;
     }
