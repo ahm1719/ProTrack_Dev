@@ -69,104 +69,68 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps
     setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
   };
 
-  const renderDays = () => {
-    const days = [];
+  // Generate Week Data for Grid
+  const generateWeeks = () => {
+    const weeks = [];
     const totalSlots = Math.ceil((daysInMonth + startOffset) / 7) * 7;
     
-    // Fill empty slots before start of month
-    for (let i = 0; i < startOffset; i++) {
-        days.push(<div key={`empty-${i}`} className="h-8 w-8"></div>);
-    }
-
-    // Fill days
-    for (let i = 1; i <= daysInMonth; i++) {
-      // Create local date object for this specific day
-      const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), i);
-      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      
-      const isSelected = dateStr === selectedDate;
-      const isToday = dateStr === todayStr;
-      
-      const dayOfWeek = d.getDay(); // 0 = Sun, 6 = Sat
-      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-      const isOffDay = offDays.includes(dateStr);
-
-      let bgClass = 'hover:bg-slate-100 text-slate-700';
-      
-      if (isOffDay) {
-          bgClass = 'bg-red-50 text-red-400 line-through decoration-red-300';
-      } else if (isWeekend) {
-          bgClass = 'bg-slate-100 text-slate-400';
-      }
-
-      if (isSelected) {
-          bgClass = 'bg-indigo-600 text-white shadow-md shadow-indigo-200 scale-110 font-semibold';
-      } else if (!isSelected && isToday) {
-          bgClass = 'border-2 border-indigo-500 text-indigo-700 font-bold';
-      }
-
-      days.push(
-        <button
-          key={dateStr}
-          onClick={() => onSelectDate(dateStr)}
-          className={`h-8 w-8 rounded-full flex items-center justify-center text-xs transition-all duration-200
-            ${bgClass}
-          `}
-          title={isOffDay ? "Off Day" : isWeekend ? "Weekend" : dateStr}
-        >
-          {i}
-        </button>
-      );
-    }
+    let currentWeek: { cw: number; days: (React.ReactNode | null)[] } = { cw: 0, days: [] };
     
-    // Fill remaining slots
-    const remaining = totalSlots - days.length;
-    for(let i=0; i<remaining; i++) {
-         days.push(<div key={`empty-end-${i}`} className="h-8 w-8"></div>);
-    }
+    for (let i = 0; i < totalSlots; i++) {
+        const dayNum = i - startOffset + 1;
+        
+        if (i % 7 === 0) {
+            // Start of a new week
+            // Calculate CW based on Thursday of this week
+            const thursdayOffset = i + 3; 
+            const thursdayDayNum = thursdayOffset - startOffset + 1;
+            // Handle boundary dates for CW calc (approximate is fine for UI, but let's try to be accurate)
+            const safeDay = Math.max(1, Math.min(thursdayDayNum, daysInMonth)); 
+            const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), safeDay);
+            currentWeek = { cw: getWeekNumber(d), days: [] };
+        }
 
-    return days;
+        if (dayNum > 0 && dayNum <= daysInMonth) {
+            // Valid Day
+            const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), dayNum);
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            
+            const isSelected = dateStr === selectedDate;
+            const isToday = dateStr === todayStr;
+            const dayOfWeek = d.getDay(); // 0 = Sun
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            const isOffDay = offDays.includes(dateStr);
+
+            let bgClass = 'hover:bg-slate-100 text-slate-700';
+            if (isOffDay) bgClass = 'bg-red-50 text-red-400 line-through decoration-red-300';
+            else if (isWeekend) bgClass = 'bg-slate-100 text-slate-400';
+
+            if (isSelected) bgClass = 'bg-indigo-600 text-white shadow-md shadow-indigo-200 scale-110 font-bold';
+            else if (!isSelected && isToday) bgClass = 'border-2 border-indigo-500 text-indigo-700 font-bold';
+
+            currentWeek.days.push(
+                <button
+                    key={dateStr}
+                    onClick={() => onSelectDate(dateStr)}
+                    className={`h-8 w-8 rounded-full flex items-center justify-center text-xs transition-all duration-200 ${bgClass}`}
+                    title={isOffDay ? "Off Day" : isWeekend ? "Weekend" : dateStr}
+                >
+                    {dayNum}
+                </button>
+            );
+        } else {
+            // Empty Slot
+            currentWeek.days.push(null);
+        }
+
+        if (currentWeek.days.length === 7) {
+            weeks.push(currentWeek);
+        }
+    }
+    return weeks;
   };
 
-  const renderWeeks = () => {
-    const dayElements = renderDays();
-    const rows = [];
-    const totalWeeks = dayElements.length / 7;
-
-    for (let w = 0; w < totalWeeks; w++) {
-        // Determine the CW for this week row
-        // We pick the first valid day in this row (or falling back to the 1st of month logic) to calculate the ISO week
-        // Ideally, we take the Thursday of the week to determine CW correctly
-        let thursdayDate = null;
-        
-        // Find the date corresponding to the Thursday column (index 3 in 0-6 range)
-        // The index in dayElements for Thursday of week w is: w*7 + 3
-        const thursdayIndex = w * 7 + 3;
-        
-        // We need to map this index back to a real Date. 
-        // Logic: dayElements index X corresponds to day number: X - startOffset + 1
-        const dayNum = thursdayIndex - startOffset + 1;
-        
-        // Handle overlap with previous/next months for CW calculation purposes if needed
-        // For simplicity in this mini calendar, we estimate based on the current view month
-        const safeDayNum = Math.max(1, Math.min(dayNum, daysInMonth));
-        thursdayDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), safeDayNum);
-
-        const cw = getWeekNumber(thursdayDate);
-
-        rows.push(
-            <div key={w} className="flex items-center">
-                <div className="w-8 h-8 flex items-center justify-center text-[10px] text-slate-400 font-mono border-r border-slate-100 mr-2 bg-slate-50 select-none">
-                    {cw}
-                </div>
-                <div className="flex gap-1">
-                    {dayElements.slice(w * 7, (w + 1) * 7)}
-                </div>
-            </div>
-        );
-    }
-    return rows;
-  };
+  const weeks = generateWeeks();
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 w-full">
@@ -178,17 +142,37 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps
         <button onClick={nextMonth} className="p-1 hover:bg-slate-100 rounded text-slate-500"><ChevronRight size={16} /></button>
       </div>
       
-      <div className="flex mb-2 items-center">
-         <div className="w-8 mr-2 text-[10px] text-center font-bold text-slate-400 select-none">CW</div>
-         <div className="flex gap-1">
-             {['M','T','W','T','F','S','S'].map((d, i) => (
-                 <div key={i} className="w-8 text-center text-[10px] font-bold text-slate-400 select-none">{d}</div>
+      {/* Grid Layout for Calendar */}
+      <div className="w-full">
+          {/* Header Row */}
+          <div className="grid grid-cols-[2rem_1fr] gap-2 mb-2 items-center">
+             <div className="text-[10px] font-bold text-slate-400 select-none text-center">CW</div>
+             <div className="grid grid-cols-7">
+                 {['M','T','W','T','F','S','S'].map((d, i) => (
+                     <div key={i} className="text-center text-[10px] font-bold text-slate-400 select-none">{d}</div>
+                 ))}
+             </div>
+          </div>
+
+          {/* Week Rows */}
+          <div className="space-y-1">
+             {weeks.map((week, idx) => (
+                 <div key={idx} className="grid grid-cols-[2rem_1fr] gap-2 items-center">
+                     {/* CW Column */}
+                     <div className="h-8 flex items-center justify-center text-[10px] text-slate-400 font-mono bg-slate-50 rounded-sm border border-slate-100">
+                        {week.cw}
+                     </div>
+                     {/* Days Grid */}
+                     <div className="grid grid-cols-7 justify-items-center">
+                        {week.days.map((day, dIdx) => (
+                            <div key={dIdx} className="h-8 w-8 flex items-center justify-center">
+                                {day || <div className="h-full w-full" />}
+                            </div>
+                        ))}
+                     </div>
+                 </div>
              ))}
-         </div>
-      </div>
-      
-      <div className="space-y-1">
-        {renderWeeks()}
+          </div>
       </div>
     </div>
   );
