@@ -387,6 +387,19 @@ function App() {
     persistData(updatedTasks, updatedLogs, observations);
   };
 
+  const editTaskUpdate = (taskId: string, updateId: string, newContent: string) => {
+    const updatedTasks = tasks.map(t => {
+      if (t.id === taskId) {
+        return {
+          ...t,
+          updates: t.updates.map(u => u.id === updateId ? { ...u, content: newContent } : u)
+        };
+      }
+      return t;
+    });
+    updateTasks(updatedTasks);
+  };
+
   const addDailyLog = (logData: Omit<DailyLog, 'id'>) => {
     const newLog = { ...logData, id: uuidv4() };
     const updatedLogs = [...logs, newLog];
@@ -690,6 +703,7 @@ function App() {
                         onEdit={(t) => openTaskModal(t)}
                         onDelete={deleteTask}
                         onAddUpdate={addUpdateToTask}
+                        onEditUpdate={editTaskUpdate}
                         isReadOnly={true}
                         onNavigate={() => {
                             setJournalTaskId(task.id);
@@ -776,7 +790,7 @@ function App() {
       {/* Right Column: Task Board */}
       <div className="lg:col-span-2 space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h2 className="text-2xl font-bold text-slate-800">Task Board</h2>
+          <h2 className="text-2xl font-bold text-slate-800">Task List</h2>
           <button 
             onClick={() => openTaskModal()}
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
@@ -810,6 +824,7 @@ function App() {
                   onEdit={(t) => openTaskModal(t)}
                   onDelete={deleteTask}
                   onAddUpdate={addUpdateToTask}
+                  onEditUpdate={editTaskUpdate}
                 />
               ))}
             </div>
@@ -827,6 +842,7 @@ function App() {
                   onEdit={(t) => openTaskModal(t)}
                   onDelete={deleteTask}
                   onAddUpdate={addUpdateToTask}
+                  onEditUpdate={editTaskUpdate}
                 />
               ))}
             </div>
@@ -844,6 +860,7 @@ function App() {
                   onEdit={(t) => openTaskModal(t)}
                   onDelete={deleteTask}
                   onAddUpdate={addUpdateToTask}
+                  onEditUpdate={editTaskUpdate}
                 />
               ))}
             </div>
@@ -877,6 +894,7 @@ function App() {
                         onEdit={(t) => openTaskModal(t)}
                         onDelete={deleteTask}
                         onAddUpdate={addUpdateToTask}
+                        onEditUpdate={editTaskUpdate}
                       />
                     ))}
                  </div>
@@ -1127,12 +1145,12 @@ function App() {
                  </div>
 
                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Display ID (Auto-Generated)</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Display ID (Manual Override)</label>
                     <input 
                       type="text"
                       value={modalDisplayId}
-                      readOnly
-                      className="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-500 font-mono"
+                      onChange={(e) => setModalDisplayId(e.target.value)}
+                      className="w-full p-2.5 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
                  </div>
 

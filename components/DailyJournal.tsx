@@ -101,8 +101,7 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
   return (
     <div className="space-y-6 h-full flex flex-col">
       <div className="flex flex-col gap-2">
-        <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <Plus size={24} className="text-indigo-600"/>
+        <h2 className="text-2xl font-bold text-slate-800">
           Daily Journal
         </h2>
       </div>

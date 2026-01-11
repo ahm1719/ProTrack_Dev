@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Task, Status, Priority } from '../types';
-import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive } from 'lucide-react';
+import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save } from 'lucide-react';
 
 interface TaskCardProps {
   task: Task;
@@ -8,6 +8,7 @@ interface TaskCardProps {
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
   onAddUpdate: (id: string, content: string) => void;
+  onEditUpdate?: (taskId: string, updateId: string, newContent: string) => void;
   allowDelete?: boolean;
   isReadOnly?: boolean;
   onNavigate?: () => void;
@@ -18,13 +19,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onUpdateStatus, 
   onEdit, 
   onDelete, 
-  onAddUpdate, 
+  onAddUpdate,
+  onEditUpdate,
   allowDelete = true, 
   isReadOnly = false,
   onNavigate 
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [newUpdate, setNewUpdate] = useState('');
+  
+  // State for editing existing updates
+  const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
+  const [editUpdateContent, setEditUpdateContent] = useState('');
 
   const getPriorityColor = (p: Priority) => {
     switch (p) {
@@ -52,6 +58,24 @@ const TaskCard: React.FC<TaskCardProps> = ({
     if (newUpdate.trim()) {
       onAddUpdate(task.id, newUpdate);
       setNewUpdate('');
+    }
+  };
+
+  const startEditingUpdate = (update: { id: string, content: string }) => {
+    if (isReadOnly) return;
+    setEditingUpdateId(update.id);
+    setEditUpdateContent(update.content);
+  };
+
+  const cancelEditingUpdate = () => {
+    setEditingUpdateId(null);
+    setEditUpdateContent('');
+  };
+
+  const saveEditedUpdate = (updateId: string) => {
+    if (onEditUpdate && editUpdateContent.trim()) {
+      onEditUpdate(task.id, updateId, editUpdateContent.trim());
+      setEditingUpdateId(null);
     }
   };
 
@@ -110,7 +134,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
           </div>
         </div>
 
-        <h3 className={`text-lg font-semibold text-slate-800 mb-2 leading-tight ${isCompleted ? 'line-through text-slate-500' : ''}`}>
+        <h3 className={`text-lg font-semibold text-slate-800 mb-2 leading-tight whitespace-pre-wrap ${isCompleted ? 'line-through text-slate-500' : ''}`}>
           {task.description}
         </h3>
 
@@ -188,12 +212,50 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <p className="text-center text-xs text-slate-400 py-2">No updates recorded yet.</p>
               )}
               {task.updates.slice().reverse().map((update) => (
-                <div key={update.id} className="flex gap-3 text-sm">
+                <div key={update.id} className="flex gap-3 text-sm group">
                   <div className="flex-shrink-0 w-24 text-xs text-slate-400 text-right pt-0.5">
                     {new Date(update.timestamp).toLocaleDateString()}
                   </div>
-                  <div className="flex-grow p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs">
-                    {update.content}
+                  
+                  <div className="flex-grow">
+                    {editingUpdateId === update.id ? (
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          value={editUpdateContent}
+                          onChange={(e) => setEditUpdateContent(e.target.value)}
+                          className="flex-grow p-2 text-xs border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                          autoFocus
+                        />
+                        <button 
+                          onClick={() => saveEditedUpdate(update.id)}
+                          className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                        >
+                          <Save size={14} />
+                        </button>
+                        <button 
+                          onClick={cancelEditingUpdate}
+                          className="p-1 text-red-500 hover:bg-red-50 rounded"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-8">
+                          {update.content}
+                        </div>
+                        {!isReadOnly && onEditUpdate && (
+                          <button
+                            onClick={() => startEditingUpdate(update)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-indigo-600"
+                            title="Edit Update"
+                          >
+                            <Edit2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
