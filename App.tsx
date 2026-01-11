@@ -28,7 +28,8 @@ import {
   Archive,
   Copy,
   CheckCircle2,
-  Circle
+  Circle,
+  Calendar
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -78,6 +79,26 @@ const getCurrentCW = (): string => {
   const week1 = new Date(d.getFullYear(), 0, 4);
   const weekNumber = 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
   return `CW${weekNumber.toString().padStart(2, '0')}`;
+};
+
+// Helper: Get formatted date strings for the current week (Mon-Sun)
+const getWeekDays = (refDate: Date): string[] => {
+  const d = new Date(refDate);
+  const day = d.getDay(); // 0 Sun, 1 Mon ...
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+  const monday = new Date(d.setDate(diff));
+  
+  const week = [];
+  for (let i = 0; i < 7; i++) {
+    const wDay = new Date(monday);
+    wDay.setDate(monday.getDate() + i);
+    // Format YYYY-MM-DD locally
+    const y = wDay.getFullYear();
+    const m = String(wDay.getMonth() + 1).padStart(2, '0');
+    const da = String(wDay.getDate()).padStart(2, '0');
+    week.push(`${y}-${m}-${da}`);
+  }
+  return week;
 };
 
 // Helper: Get local ISO date string
@@ -168,7 +189,7 @@ const App: React.FC = () => {
 
   // UI State for groupings
   const [isCompletedExpanded, setIsCompletedExpanded] = useState(false);
-  const [isFutureExpanded, setIsFutureExpanded] = useState(false);
+  const [isFutureExpanded, setIsFutureExpanded] = useState(true);
 
   // AI Summary State
   const [summary, setSummary] = useState<string>('');
@@ -510,19 +531,36 @@ const App: React.FC = () => {
     }
   };
 
-  const filteredTasks = tasks
-    .filter(t => t.status !== Status.ARCHIVED)
-    .filter(t => 
-      t.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      t.displayId.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    .sort((a, b) => {
-        const prioScore = { [Priority.HIGH]: 3, [Priority.MEDIUM]: 2, [Priority.LOW]: 1 };
-        if (prioScore[a.priority] !== prioScore[b.priority]) return prioScore[b.priority] - prioScore[a.priority];
-        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+  const renderTasksAndJournal = () => {
+    const todayStr = getLocalISODate(new Date());
+    const weekDays = getWeekDays(new Date());
+    const weekStart = weekDays[0];
+    const weekEnd = weekDays[6];
+
+    // Filter Logic
+    const activeTasks = tasks
+      .filter(t => t.status !== Status.ARCHIVED && t.status !== Status.DONE)
+      .filter(t => t.description.toLowerCase().includes(searchTerm.toLowerCase()) || t.displayId.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    // Grouping
+    const overdueTasks = activeTasks.filter(t => t.dueDate < todayStr && t.dueDate < weekStart);
+    const weekTasks: Record<string, Task[]> = {};
+    weekDays.forEach(day => weekTasks[day] = []);
+    
+    // Future or No Date
+    const backlogTasks = activeTasks.filter(t => {
+        if (!t.dueDate) return true;
+        if (t.dueDate > weekEnd) return true;
+        return false;
     });
 
-  const renderTasksAndJournal = () => {
+    // Populate Week
+    activeTasks.forEach(t => {
+        if (t.dueDate >= weekStart && t.dueDate <= weekEnd) {
+            weekTasks[t.dueDate]?.push(t);
+        }
+    });
+
     return (
       <div className="animate-fade-in grid grid-cols-1 lg:grid-cols-4 gap-8 pb-12">
         {/* Left Column: Daily Journal */}
@@ -540,12 +578,12 @@ const App: React.FC = () => {
            </div>
         </div>
 
-        {/* Right Column: Task Board */}
-        <div className="lg:col-span-3 space-y-6">
+        {/* Right Column: Weekly Task Board */}
+        <div className="lg:col-span-3 space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                <div>
                   <h1 className="text-2xl font-bold text-slate-900">Task Board</h1>
-                  <p className="text-sm text-slate-500">Manage your projects and priorities.</p>
+                  <p className="text-sm text-slate-500">Weekly schedule from {formatDateDDMMYYYY(weekStart)} to {formatDateDDMMYYYY(weekEnd)}.</p>
                </div>
                <div className="flex items-center gap-2 w-full md:w-auto">
                   <div className="relative flex-1 md:w-64">
@@ -567,38 +605,125 @@ const App: React.FC = () => {
                </div>
             </div>
 
-            {/* Task List */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-               {filteredTasks.length === 0 ? (
-                  <div className="col-span-full py-12 text-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200">
-                     <ListTodo size={48} className="mx-auto mb-4 opacity-20" />
-                     <p>No active tasks found.</p>
-                  </div>
-               ) : (
-                  filteredTasks.map(task => (
-                     <TaskCard 
-                        key={task.id} 
-                        task={task} 
-                        onUpdateStatus={updateTaskStatus}
-                        onEdit={openTaskModal}
-                        onDelete={deleteTask}
-                        onAddUpdate={addUpdateToTask}
-                        onEditUpdate={editTaskUpdate}
-                        onDeleteUpdate={deleteTaskUpdate}
-                        onUpdateTask={updateTaskFields}
-                     />
-                  ))
-               )}
+            {/* 1. Overdue Section */}
+            {overdueTasks.length > 0 && (
+                <div className="bg-red-50 rounded-2xl border border-red-200 p-4">
+                    <h3 className="text-red-800 font-bold mb-3 flex items-center gap-2">
+                        <AlertTriangle size={18} /> Overdue Items
+                    </h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {overdueTasks.map(task => (
+                             <TaskCard 
+                                key={task.id} 
+                                task={task} 
+                                onUpdateStatus={updateTaskStatus}
+                                onEdit={openTaskModal}
+                                onDelete={deleteTask}
+                                onAddUpdate={addUpdateToTask}
+                                onEditUpdate={editTaskUpdate}
+                                onDeleteUpdate={deleteTaskUpdate}
+                                onUpdateTask={updateTaskFields}
+                             />
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* 2. Weekly Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+               {weekDays.map(dateStr => {
+                   const isToday = dateStr === todayStr;
+                   const dayTasks = weekTasks[dateStr] || [];
+                   const dateObj = new Date(dateStr);
+                   const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                   const displayDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                   
+                   // Styles for Today vs Standard Day
+                   const containerClass = isToday 
+                    ? "bg-indigo-50 border-indigo-300 shadow-md shadow-indigo-100 ring-1 ring-indigo-200" 
+                    : "bg-slate-50 border-slate-200";
+                   
+                   const headerClass = isToday
+                    ? "text-indigo-800"
+                    : "text-slate-700";
+
+                   return (
+                       <div key={dateStr} className={`rounded-xl border p-3 flex flex-col gap-3 min-h-[150px] ${containerClass}`}>
+                           <div className={`flex justify-between items-center pb-2 border-b ${isToday ? 'border-indigo-200' : 'border-slate-200'}`}>
+                               <div className={headerClass}>
+                                   <span className="block text-xs font-bold uppercase opacity-70">{dayName}</span>
+                                   <span className="block text-sm font-bold">{displayDate}</span>
+                               </div>
+                               {isToday && <span className="text-[10px] bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded-full font-bold">TODAY</span>}
+                           </div>
+                           
+                           <div className="flex flex-col gap-3 flex-1">
+                               {dayTasks.length === 0 ? (
+                                   <div className="flex-1 flex items-center justify-center text-slate-300 text-xs italic py-4">
+                                       No tasks due
+                                   </div>
+                               ) : (
+                                   dayTasks.map(task => (
+                                     <TaskCard 
+                                        key={task.id} 
+                                        task={task} 
+                                        onUpdateStatus={updateTaskStatus}
+                                        onEdit={openTaskModal}
+                                        onDelete={deleteTask}
+                                        onAddUpdate={addUpdateToTask}
+                                        onEditUpdate={editTaskUpdate}
+                                        onDeleteUpdate={deleteTaskUpdate}
+                                        onUpdateTask={updateTaskFields}
+                                     />
+                                   ))
+                               )}
+                           </div>
+                       </div>
+                   );
+               })}
+            </div>
+
+            {/* 3. Backlog / No Date */}
+            <div className="border-t border-slate-200 pt-4">
+                <button 
+                    onClick={() => setIsFutureExpanded(!isFutureExpanded)}
+                    className="flex items-center gap-2 font-bold text-slate-600 mb-4 hover:text-indigo-600 transition-colors"
+                >
+                    {isFutureExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                    Future & No Date ({backlogTasks.length})
+                </button>
+                
+                {isFutureExpanded && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 bg-slate-50/50 p-4 rounded-xl border border-slate-200 border-dashed">
+                        {backlogTasks.length === 0 ? (
+                            <p className="col-span-full text-center text-slate-400 text-sm py-4">No future tasks found.</p>
+                        ) : (
+                            backlogTasks.map(task => (
+                                <TaskCard 
+                                    key={task.id} 
+                                    task={task} 
+                                    onUpdateStatus={updateTaskStatus}
+                                    onEdit={openTaskModal}
+                                    onDelete={deleteTask}
+                                    onAddUpdate={addUpdateToTask}
+                                    onEditUpdate={editTaskUpdate}
+                                    onDeleteUpdate={deleteTaskUpdate}
+                                    onUpdateTask={updateTaskFields}
+                                />
+                            ))
+                        )}
+                    </div>
+                )}
             </div>
             
-            {/* Completed / Archived Toggle */}
-            <div className="pt-8 border-t border-slate-200">
+            {/* 4. Archived Section */}
+            <div className="pt-4 border-t border-slate-200">
                <button 
                  onClick={() => setIsCompletedExpanded(!isCompletedExpanded)}
                  className="flex items-center gap-2 text-slate-500 font-bold text-sm hover:text-indigo-600 transition-colors"
                >
                   {isCompletedExpanded ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
-                  Show Archived Tasks
+                  Show Archived / Completed
                </button>
                {isCompletedExpanded && (
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4 opacity-75">
