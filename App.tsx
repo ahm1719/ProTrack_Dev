@@ -301,6 +301,16 @@ function App() {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  // --- Helper: Priority Color (Matching TaskBoard) ---
+  const getPriorityColor = (p: Priority) => {
+    switch (p) {
+      case Priority.HIGH: return 'bg-red-100 text-red-800 border-red-200';
+      case Priority.MEDIUM: return 'bg-amber-100 text-amber-800 border-amber-200';
+      case Priority.LOW: return 'bg-green-100 text-green-800 border-green-200';
+      default: return 'bg-slate-100 text-slate-800 border-slate-200';
+    }
+  };
+
   // --- ACTIONS ---
   
   const openTaskModal = (task?: Task) => {
@@ -634,8 +644,8 @@ function App() {
                       <div key={task.id} className="p-4 hover:bg-red-50/50 transition-colors flex items-center justify-between group">
                          <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                               <span className="text-[10px] font-bold px-2 py-0.5 rounded text-white bg-red-500">
-                                 OVERDUE
+                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getPriorityColor(task.priority)}`}>
+                                 {task.priority}
                                </span>
                                <span className="text-xs font-mono font-medium text-slate-500">{task.displayId}</span>
                             </div>
@@ -672,8 +682,8 @@ function App() {
                             <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
                                 <span className="text-xs font-mono font-medium text-slate-500">{task.displayId}</span>
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded text-white bg-red-500">
-                                    HIGH PRIORITY
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getPriorityColor(task.priority)}`}>
+                                    {task.priority}
                                 </span>
                                 </div>
                                 <p className="text-sm font-medium text-slate-800">{task.description}</p>
@@ -694,38 +704,6 @@ function App() {
                  </div>
                </div>
              )}
-
-             {/* Priority Items */}
-             <div>
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-bold text-slate-800">High Priority</h2>
-                  <button onClick={() => setCurrentView(ViewMode.TASKS)} className="text-sm text-indigo-600 font-medium hover:underline">View All</button>
-                </div>
-                <div className="space-y-4">
-                  {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.DONE && t.status !== Status.ARCHIVED).slice(0, 3).map(task => (
-                    <TaskCard 
-                        key={task.id} 
-                        task={task} 
-                        onUpdateStatus={updateTaskStatus} 
-                        onEdit={(t) => openTaskModal(t)}
-                        onDelete={deleteTask}
-                        onAddUpdate={addUpdateToTask}
-                        onEditUpdate={editTaskUpdate}
-                        onDeleteUpdate={deleteTaskUpdate}
-                        isReadOnly={true}
-                        onNavigate={() => {
-                            setJournalTaskId(task.id);
-                            setCurrentView(ViewMode.TASKS);
-                        }}
-                      />
-                  ))}
-                  {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.DONE && t.status !== Status.ARCHIVED).length === 0 && (
-                    <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
-                      No high priority tasks pending.
-                    </div>
-                  )}
-                </div>
-             </div>
           </div>
 
           {/* Right Column: Summaries */}
@@ -861,7 +839,7 @@ function App() {
            {/* Upcoming Section */}
           {upcomingActive.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide px-1">Upcoming</h3>
+              <h3 className="text-xs font-bold text-green-600 uppercase tracking-wide px-1">Upcoming</h3>
               {upcomingActive.map(task => (
                  <TaskCard 
                   key={task.id} 
