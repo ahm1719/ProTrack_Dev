@@ -31,7 +31,7 @@ export const initFirebase = (config: FirebaseConfig) => {
 };
 
 export const subscribeToData = (
-  callback: (data: { tasks: any[], logs: any[], observations: any[] }) => void
+  callback: (data: { tasks: any[], logs: any[], observations: any[], offDays: any[] }) => void
 ) => {
   if (!db) {
     console.warn("Attempted to subscribe but Firestore is not initialized.");
@@ -50,7 +50,8 @@ export const subscribeToData = (
           callback({
             tasks: data.tasks || [],
             logs: data.logs || [],
-            observations: data.observations || []
+            observations: data.observations || [],
+            offDays: data.offDays || []
           });
         }
       }
@@ -64,7 +65,7 @@ export const subscribeToData = (
   return unsubscribe;
 };
 
-export const saveDataToCloud = async (data: { tasks: any[], logs: any[], observations: any[] }) => {
+export const saveDataToCloud = async (data: { tasks: any[], logs: any[], observations: any[], offDays: any[] }) => {
   if (!db) return;
   try {
     await setDoc(doc(db, 'protrack', 'user_data'), data, { merge: true });

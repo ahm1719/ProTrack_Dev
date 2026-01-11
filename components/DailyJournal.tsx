@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Task, DailyLog, Status } from '../types';
-import { Calendar as CalendarIcon, Save, Plus, Clock, Calendar, Filter, RotateCcw, X, Info, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Filter, RotateCcw, ChevronLeft, ChevronRight, Ban } from 'lucide-react';
 
 interface DailyJournalProps {
   tasks: Task[];
@@ -8,6 +8,8 @@ interface DailyJournalProps {
   onAddLog: (log: Omit<DailyLog, 'id'>) => void;
   onUpdateTask: (taskId: string, updates: { status?: Status; dueDate?: string }) => void;
   initialTaskId?: string;
+  offDays?: string[];
+  onToggleOffDay?: (date: string) => void;
 }
 
 const getStartOfWeek = (date: Date) => {
@@ -34,7 +36,13 @@ const getWeekNumber = (d: Date): number => {
   return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 };
 
-const MiniCalendar = ({ selectedDate, onSelectDate }: { selectedDate: string, onSelectDate: (date: string) => void }) => {
+interface MiniCalendarProps {
+  selectedDate: string;
+  onSelectDate: (date: string) => void;
+  offDays: string[];
+}
+
+const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps) => {
   const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate));
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
@@ -67,15 +75,33 @@ const MiniCalendar = ({ selectedDate, onSelectDate }: { selectedDate: string, on
       const dateStr = date.toISOString().split('T')[0];
       const isSelected = dateStr === selectedDate;
       const isToday = dateStr === todayStr;
+      
+      const dayOfWeek = date.getDay(); // 0 = Sun, 6 = Sat
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+      const isOffDay = offDays.includes(dateStr);
+
+      let bgClass = 'hover:bg-slate-100 text-slate-700';
+      
+      if (isOffDay) {
+          bgClass = 'bg-red-50 text-red-400 line-through decoration-red-300';
+      } else if (isWeekend) {
+          bgClass = 'bg-slate-100 text-slate-400';
+      }
+
+      if (isSelected) {
+          bgClass = 'bg-indigo-600 text-white shadow-md shadow-indigo-200 scale-110';
+      } else if (!isSelected && isToday) {
+          bgClass = 'border border-indigo-500 text-indigo-600 font-bold';
+      }
 
       days.push(
         <button
           key={dateStr}
           onClick={() => onSelectDate(dateStr)}
-          className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium transition-colors
-            ${isSelected ? 'bg-indigo-600 text-white' : 'hover:bg-slate-100 text-slate-700'}
-            ${!isSelected && isToday ? 'border border-indigo-500 text-indigo-600 font-bold' : ''}
+          className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-200
+            ${bgClass}
           `}
+          title={isOffDay ? "Off Day" : isWeekend ? "Weekend" : ""}
         >
           {i}
         </button>
@@ -97,12 +123,8 @@ const MiniCalendar = ({ selectedDate, onSelectDate }: { selectedDate: string, on
     const totalWeeks = dayElements.length / 7;
 
     for (let w = 0; w < totalWeeks; w++) {
-        // Calculate the date of the first day in this row (can be from previous month logic if needed, but simplified here)
-        // We know the date of the first cell in this specific row index relative to the month start
-        // Find the first valid date in this row to determine CW
         let weekRefDate = null;
         for (let d = 0; d < 7; d++) {
-             // Logic to find a valid date in this row
              const dayIndex = (w * 7 + d) - startOffset + 1;
              if (dayIndex > 0 && dayIndex <= daysInMonth) {
                  weekRefDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dayIndex);
@@ -110,9 +132,7 @@ const MiniCalendar = ({ selectedDate, onSelectDate }: { selectedDate: string, on
              }
         }
         
-        // If row is entirely trailing empty cells (unlikely with this logic) fallback
         if (!weekRefDate) {
-             // Fallback to start of next month logic or similar, but simplified:
              weekRefDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
         }
 
@@ -158,41 +178,14 @@ const MiniCalendar = ({ selectedDate, onSelectDate }: { selectedDate: string, on
   );
 };
 
-const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUpdateTask, initialTaskId }) => {
-  // State for the New Entry Form
+const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUpdateTask, initialTaskId, offDays = [], onToggleOffDay }) => {
   const [entryDate, setEntryDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [selectedTaskId, setSelectedTaskId] = useState<string>(initialTaskId || '');
-  const [content, setContent] = useState('');
 
   // State for the View/Filter
   const [viewRange, setViewRange] = useState({
     start: getStartOfWeek(new Date()),
     end: getEndOfWeek(new Date())
   });
-
-  // Sync state if prop changes (e.g. navigation from dashboard)
-  useEffect(() => {
-    if (initialTaskId) {
-      setSelectedTaskId(initialTaskId);
-    }
-  }, [initialTaskId]);
-
-  const selectedTask = tasks.find(t => t.id === selectedTaskId);
-
-  const handleAddEntry = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedTaskId || !content.trim()) return;
-
-    onAddLog({
-      date: entryDate, // Use the specific entry date
-      taskId: selectedTaskId,
-      content: content.trim()
-    });
-    
-    // Reset form but keep date
-    setContent('');
-    setSelectedTaskId('');
-  };
 
   const handleSetCurrentWeek = () => {
     setViewRange({
@@ -214,131 +207,40 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
   // Sort dates descending
   const sortedDates = Object.keys(logsByDate).sort().reverse();
 
-  // Sort tasks: Active first (by due date asc), then Completed/Archived (by due date desc)
-  const sortedTasks = [...tasks].sort((a, b) => {
-    const aIsComplete = a.status === Status.DONE || a.status === Status.ARCHIVED;
-    const bIsComplete = b.status === Status.DONE || b.status === Status.ARCHIVED;
-
-    if (aIsComplete && !bIsComplete) return 1;
-    if (!aIsComplete && bIsComplete) return -1;
-    
-    // If both active, sort by due date ascending (older first)
-    if (!aIsComplete && !bIsComplete) {
-       return a.dueDate.localeCompare(b.dueDate);
-    }
-    // If both complete, sort by due date descending (newest first)
-    return b.dueDate.localeCompare(a.dueDate);
-  });
+  const isSelectedDateOff = offDays.includes(entryDate);
 
   return (
     <div className="space-y-6 h-full flex flex-col">
       <div className="flex flex-col gap-2">
         <h2 className="text-2xl font-bold text-slate-800">
-          Daily Journal
+          History & Calendar
         </h2>
       </div>
 
-      {/* Calendar & Input Area */}
+      {/* Calendar Area */}
       <div className="space-y-4">
-        <MiniCalendar selectedDate={entryDate} onSelectDate={setEntryDate} />
+        <MiniCalendar selectedDate={entryDate} onSelectDate={setEntryDate} offDays={offDays} />
         
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-            <form onSubmit={handleAddEntry} className="space-y-4">
-            <div>
-                <div className="flex justify-between items-center mb-1">
-                    <label className="block text-xs font-medium text-slate-500">Task Reference</label>
-                    {selectedTaskId && (
-                        <button 
-                            type="button" 
-                            onClick={() => setSelectedTaskId('')} 
-                            className="text-xs text-slate-400 hover:text-red-500 flex items-center gap-1"
-                        >
-                            <X size={12}/> Clear Selection
-                        </button>
-                    )}
-                </div>
-                
-                <div className="relative">
-                    <select 
-                    value={selectedTaskId}
-                    onChange={(e) => setSelectedTaskId(e.target.value)}
-                    className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 appearance-none"
-                    required
-                    >
-                    <option value="">Select a task...</option>
-                    {sortedTasks.map(t => (
-                        <option key={t.id} value={t.id}>
-                        {t.displayId} - {t.description}
-                        </option>
-                    ))}
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                        <ChevronDownIcon />
-                    </div>
-                </div>
-
-                {/* Display Full Description if Selected */}
-                {selectedTask && (
-                    <div className="mt-2 p-3 bg-slate-50 border border-slate-100 rounded-lg text-xs text-slate-600 leading-relaxed whitespace-pre-wrap flex gap-2 items-start">
-                        <Info size={14} className="text-indigo-400 flex-shrink-0 mt-0.5" />
-                        <span>{selectedTask.description}</span>
-                    </div>
-                )}
+        {/* Date Context Controls */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+            <div className="text-sm">
+                <span className="text-slate-500 text-xs uppercase font-bold block">Selected Date</span>
+                <span className="font-medium text-slate-800">{new Date(entryDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
             </div>
-
-            {/* Quick Edit Controls for Selected Task */}
-            {selectedTask && (
-                <div className="grid grid-cols-2 gap-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100 animate-fade-in">
-                <div>
-                    <label className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 uppercase mb-1">
-                        <Clock size={10} /> Status
-                    </label>
-                    <select
-                        value={selectedTask.status}
-                        onChange={(e) => onUpdateTask(selectedTask.id, { status: e.target.value as Status })}
-                        className="w-full p-1.5 text-xs border border-indigo-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none bg-white text-slate-800"
-                    >
-                        {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                </div>
-                <div>
-                    <label className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 uppercase mb-1">
-                        <Calendar size={10} /> Due Date
-                    </label>
-                    <input 
-                        type="date"
-                        value={selectedTask.dueDate}
-                        onChange={(e) => onUpdateTask(selectedTask.id, { dueDate: e.target.value })}
-                        className="w-full p-1.5 text-xs border border-indigo-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none bg-white text-slate-800"
-                    />
-                </div>
-                </div>
+            {onToggleOffDay && (
+                <button 
+                  onClick={() => onToggleOffDay(entryDate)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-colors ${isSelectedDateOff ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                >
+                  <Ban size={14} />
+                  {isSelectedDateOff ? 'Marked as Off' : 'Mark as Off'}
+                </button>
             )}
-            
-            <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1">Activity / Progress</label>
-                <textarea 
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="What did you work on?"
-                className="w-full p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none bg-slate-50"
-                required
-                />
-            </div>
-
-            <button 
-                type="submit" 
-                className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg font-medium transition-colors shadow-sm"
-            >
-                <Save size={18} />
-                Log Activity
-            </button>
-            </form>
         </div>
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-col gap-2 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+      <div className="flex flex-col gap-2 bg-white p-3 rounded-lg border border-slate-200 shadow-sm mt-4">
         <div className="flex items-center justify-between">
            <div className="flex items-center gap-2 text-slate-600">
              <Filter size={16} />
@@ -406,12 +308,5 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
     </div>
   );
 };
-
-// Simple Chevron Icon Component for Select
-const ChevronDownIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="m6 9 6 6 6-6"/>
-    </svg>
-);
 
 export default DailyJournal;
