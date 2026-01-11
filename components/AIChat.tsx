@@ -7,9 +7,10 @@ import { v4 as uuidv4 } from 'uuid';
 interface AIChatProps {
   tasks: Task[];
   logs: DailyLog[];
+  onOpenSettings: () => void;
 }
 
-const AIChat: React.FC<AIChatProps> = ({ tasks, logs }) => {
+const AIChat: React.FC<AIChatProps> = ({ tasks, logs, onOpenSettings }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -47,15 +48,7 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs }) => {
     setIsLoading(true);
 
     try {
-      // Pass the *previous* messages (excluding the one we just added to UI state, 
-      // but actually the service handles the history array + new message pattern usually. 
-      // Our service signature takes (history, newMessage, context).
-      // So we pass the current 'messages' state as history (which doesn't include userMsg yet in this render cycle strictly speaking, 
-      // but let's be safe and filter out the welcome message if needed or just pass valid conversation).
-      
-      // Filter out the welcome message for API logic if it confuses the model, but usually it's fine.
       const apiHistory = messages.filter(m => m.id !== 'welcome');
-      
       const responseText = await chatWithAI(apiHistory, userMsg.text, tasks, logs);
 
       const botMsg: ChatMessage = {
@@ -69,7 +62,7 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs }) => {
       const errorMsg: ChatMessage = {
         id: uuidv4(),
         role: 'model',
-        text: `Error: ${error.message}`,
+        text: error.message || 'Unknown error',
         timestamp: Date.now()
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -135,7 +128,20 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs }) => {
                     : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none shadow-sm'
                 }`}
               >
-                 {msg.text.startsWith('Error:') ? (
+                 {msg.text.includes('API Key is missing') ? (
+                    <div className="flex flex-col gap-2">
+                        <span className="text-red-500 font-medium flex items-center gap-1">
+                            <AlertCircle size={14} /> API Key Missing
+                        </span>
+                        <p className="text-xs text-slate-500">You need a Google Gemini API Key to use the chat.</p>
+                        <button 
+                            onClick={onOpenSettings}
+                            className="bg-red-50 hover:bg-red-100 text-red-600 px-3 py-2 rounded-lg text-xs font-bold transition-colors text-left"
+                        >
+                            Go to Settings →
+                        </button>
+                    </div>
+                 ) : msg.text.startsWith('Error:') ? (
                     <span className="text-red-500 font-medium flex items-center gap-1">
                         <AlertCircle size={14} /> {msg.text}
                     </span>
