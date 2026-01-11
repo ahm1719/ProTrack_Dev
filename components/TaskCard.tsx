@@ -40,6 +40,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [editUpdateContent, setEditUpdateContent] = useState('');
   const [editUpdateDate, setEditUpdateDate] = useState('');
 
+  // State for inline field editing
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [tempValue, setTempValue] = useState('');
+
   useEffect(() => {
     if (autoExpand) {
       setIsExpanded(true);
@@ -126,25 +130,99 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
+  // Inline Edit Handlers
+  const handleFieldClick = (field: string, value: string) => {
+    if (isReadOnly || !onUpdateTask) return;
+    setEditingField(field);
+    setTempValue(value);
+  };
+
+  const handleFieldSave = () => {
+    if (editingField && onUpdateTask) {
+       onUpdateTask(task.id, { [editingField]: tempValue });
+       setEditingField(null);
+    }
+  };
+
+  const handleFieldKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          if (editingField !== 'description') handleFieldSave();
+      }
+      if (e.key === 'Escape') {
+          setEditingField(null);
+      }
+  };
+
   return (
     <div ref={cardRef} className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-300 hover:shadow-md ${isCompleted ? 'opacity-60 bg-slate-50' : ''} ${autoExpand ? 'ring-2 ring-indigo-500 shadow-lg' : ''}`}>
       <div className="p-5">
         <div className="flex justify-between items-start mb-3">
           <div className="flex flex-wrap gap-2 items-center">
              {/* Source (CW) */}
-            <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded border border-transparent">
-                {task.source}
-            </span>
+             {editingField === 'source' ? (
+                 <input 
+                    autoFocus
+                    className="font-mono text-xs font-bold text-slate-700 bg-white border border-indigo-300 px-2 py-1 rounded w-16 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    value={tempValue}
+                    onChange={(e) => setTempValue(e.target.value)}
+                    onBlur={handleFieldSave}
+                    onKeyDown={handleFieldKeyDown}
+                 />
+             ) : (
+                <span 
+                  onClick={() => handleFieldClick('source', task.source)}
+                  className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded cursor-pointer hover:bg-slate-200 hover:text-slate-700 transition-colors border border-transparent hover:border-slate-300"
+                  title="Click to Edit Source"
+                >
+                  {task.source}
+                </span>
+             )}
 
              {/* Display ID */}
-            <span className="font-mono text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded border border-transparent">
-                {task.displayId}
-            </span>
+             {editingField === 'displayId' ? (
+                 <input 
+                    autoFocus
+                    className="font-mono text-sm font-bold text-indigo-700 bg-white border border-indigo-300 px-2 py-1 rounded w-24 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    value={tempValue}
+                    onChange={(e) => setTempValue(e.target.value)}
+                    onBlur={handleFieldSave}
+                    onKeyDown={handleFieldKeyDown}
+                 />
+             ) : (
+                <span 
+                  onClick={() => handleFieldClick('displayId', task.displayId)}
+                  className="font-mono text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded cursor-pointer hover:bg-indigo-100 transition-colors border border-transparent hover:border-indigo-200"
+                  title="Click to Edit ID"
+                >
+                  {task.displayId}
+                </span>
+             )}
 
              {/* Priority */}
-            <span className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(task.priority)} font-medium`}>
-                {task.priority}
-            </span>
+             {editingField === 'priority' ? (
+                 <select
+                    autoFocus
+                    className="text-xs font-medium px-2 py-1 rounded border border-indigo-300 outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    value={tempValue}
+                    onChange={(e) => {
+                        setTempValue(e.target.value);
+                        onUpdateTask && onUpdateTask(task.id, { priority: e.target.value as Priority });
+                        setEditingField(null);
+                    }}
+                    onBlur={() => setEditingField(null)}
+                 >
+                     {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+                 </select>
+             ) : (
+                <span 
+                  onClick={() => handleFieldClick('priority', task.priority)}
+                  className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(task.priority)} font-medium cursor-pointer hover:brightness-95 transition-all`}
+                  title="Click to Change Priority"
+                >
+                  {task.priority}
+                </span>
+             )}
           </div>
           <div className="flex items-center gap-1">
             {isReadOnly ? (
@@ -162,7 +240,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <button 
                   onClick={() => onEdit(task)} 
                   className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                  title="Edit Task Details"
+                  title="Full Edit"
                 >
                   <Edit2 size={16} />
                 </button>
@@ -181,18 +259,56 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </div>
 
         {/* Description */}
-        <h3 className={`text-lg font-semibold text-slate-800 mb-2 leading-tight whitespace-pre-wrap ${isCompleted ? 'line-through text-slate-500' : ''}`}>
-            {task.description}
-        </h3>
+        {editingField === 'description' ? (
+            <textarea
+                autoFocus
+                className="w-full text-lg font-medium text-slate-800 bg-white border border-indigo-300 rounded p-2 outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                rows={3}
+                value={tempValue}
+                onChange={(e) => setTempValue(e.target.value)}
+                onBlur={handleFieldSave}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.ctrlKey) handleFieldSave(); // Ctrl+Enter to save
+                    if (e.key === 'Escape') setEditingField(null);
+                }}
+            />
+        ) : (
+            <h3 
+              onClick={() => handleFieldClick('description', task.description)}
+              className={`text-lg font-semibold text-slate-800 mb-2 leading-tight whitespace-pre-wrap cursor-pointer hover:text-indigo-700 transition-colors border border-transparent hover:border-dashed hover:border-slate-300 rounded p-0.5 -m-0.5 ${isCompleted ? 'line-through text-slate-500' : ''}`}
+              title="Click to Edit Description"
+            >
+              {task.description}
+            </h3>
+        )}
 
         <div className="flex items-center justify-between mt-4">
           <div className="flex items-center gap-4 text-sm text-slate-500">
             {/* Due Date */}
             <div className="flex items-center gap-1 group relative">
-              <Calendar size={14} />
-              <span className={task.dueDate ? '' : 'text-slate-300 italic'}>
-                  {task.dueDate ? formatDate(task.dueDate) : 'No Date'}
-              </span>
+              <Calendar size={14} className={editingField === 'dueDate' ? 'text-indigo-500' : ''} />
+              {editingField === 'dueDate' ? (
+                  <input 
+                    type="date"
+                    autoFocus
+                    value={tempValue}
+                    onChange={(e) => {
+                        setTempValue(e.target.value);
+                        onUpdateTask && onUpdateTask(task.id, { dueDate: e.target.value });
+                        setEditingField(null);
+                    }}
+                    onBlur={() => setEditingField(null)}
+                    className="text-xs border border-indigo-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-indigo-500 outline-none"
+                  />
+              ) : (
+                <span 
+                    onClick={() => handleFieldClick('dueDate', task.dueDate)}
+                    className="cursor-pointer hover:text-indigo-600 hover:underline decoration-dashed decoration-indigo-300 underline-offset-2"
+                    title="Click to Edit Due Date"
+                >
+                    {task.dueDate ? formatDate(task.dueDate) : 'No Date'}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1">
                {task.status === Status.DONE ? <CheckCircle2 size={14} className="text-emerald-500"/> : 

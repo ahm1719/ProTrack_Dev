@@ -30,8 +30,7 @@ import {
   CheckCircle2,
   Circle,
   Calendar,
-  Hourglass,
-  FileText
+  Hourglass
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -898,33 +897,35 @@ const App: React.FC = () => {
              </div>
            </div>
 
-           {/* Simplified Observations Widget matching Screenshot */}
-           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex items-center justify-between h-full">
-              <div className="flex items-center gap-4">
-                  <div className="p-3 bg-purple-50 text-purple-600 rounded-xl">
-                      <FileText size={24} />
-                  </div>
-                  <div>
-                      <h3 className="font-bold text-slate-800 text-base">Observations</h3>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">TRACKER</p>
-                  </div>
-              </div>
-              
-              <div className="flex items-center gap-6">
-                  <div className="text-center">
-                      <div className="text-xl font-bold text-slate-800 leading-none">{obsNew}</div>
-                      <div className="text-[10px] text-slate-500 font-bold uppercase mt-1">New</div>
-                  </div>
-                  <div className="w-px h-8 bg-slate-200"></div>
-                   <div className="text-center">
-                      <div className="text-xl font-bold text-slate-800 leading-none">{obsWip}</div>
-                      <div className="text-[10px] text-slate-500 font-bold uppercase mt-1">WIP</div>
-                  </div>
-                  <div className="w-px h-8 bg-slate-200"></div>
-                   <div className="text-center">
-                      <div className="text-xl font-bold text-slate-800 leading-none">{obsResolved}</div>
-                      <div className="text-[10px] text-slate-500 font-bold uppercase mt-1">Done</div>
-                  </div>
+           {/* Simplified Observations Overview (Reverted) */}
+           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                        <StickyNote size={20} />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-slate-800 text-sm">Observations</h3>
+                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Tracker</p>
+                    </div>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                    <div className="text-center">
+                        <div className="text-lg font-bold text-slate-800 leading-none">{obsNew}</div>
+                        <div className="text-[10px] text-slate-500 font-bold uppercase mt-1">New</div>
+                    </div>
+                    <div className="w-px h-8 bg-slate-100"></div>
+                     <div className="text-center">
+                        <div className="text-lg font-bold text-slate-800 leading-none">{obsWip}</div>
+                        <div className="text-[10px] text-slate-500 font-bold uppercase mt-1">WIP</div>
+                    </div>
+                    <div className="w-px h-8 bg-slate-100"></div>
+                     <div className="text-center">
+                        <div className="text-lg font-bold text-slate-800 leading-none">{obsResolved}</div>
+                        <div className="text-[10px] text-slate-500 font-bold uppercase mt-1">Done</div>
+                    </div>
+                </div>
               </div>
            </div>
          </div>
