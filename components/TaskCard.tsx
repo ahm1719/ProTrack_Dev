@@ -60,6 +60,26 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+        if (dateStr.includes('T')) {
+            // Timestamp: 2024-01-01T12:00:00 -> 01/01/2024
+            const date = new Date(dateStr);
+            const d = String(date.getDate()).padStart(2, '0');
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const y = date.getFullYear();
+            return `${d}/${m}/${y}`;
+        } else {
+            // YYYY-MM-DD -> DD/MM/YYYY
+            const [y, m, d] = dateStr.split('-');
+            return `${d}/${m}/${y}`;
+        }
+    } catch (e) {
+        return dateStr;
+    }
+  };
+
   const isCompleted = task.status === Status.DONE || task.status === Status.ARCHIVED;
 
   const handleSubmitUpdate = (e: React.FormEvent) => {
@@ -281,7 +301,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     className="cursor-pointer hover:text-indigo-600 hover:underline decoration-dashed decoration-indigo-300 underline-offset-2"
                     title="Click to Edit Due Date"
                 >
-                    {task.dueDate}
+                    {formatDate(task.dueDate)}
                 </span>
               )}
             </div>
@@ -366,7 +386,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                             className="w-full text-xs p-1 border border-indigo-300 rounded outline-none"
                         />
                     ) : (
-                        new Date(update.timestamp).toLocaleDateString()
+                        formatDate(update.timestamp)
                     )}
                   </div>
                   

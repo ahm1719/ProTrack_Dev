@@ -104,6 +104,12 @@ const getLocalISODate = (d: Date) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+const formatDateDDMMYYYY = (dateStr: string) => {
+    if (!dateStr) return '';
+    const [y, m, d] = dateStr.split('-');
+    return `${d}/${m}/${y}`;
+};
+
 // --- LOGO COMPONENT ---
 const Logo = () => (
   <div className="flex items-center gap-2 select-none">
@@ -530,10 +536,6 @@ const App: React.FC = () => {
 
   // --- VIEW RENDERING ---
   const renderDashboard = () => {
-    // ... existing dashboard code ...
-    // Since the request only mentioned Task Board, I will abbreviate this for brevity unless changes needed
-    // Assuming Dashboard component is largely unchanged from previous prompt, just injecting for compilation
-    // ... Copying dashboard logic from previous context ...
     const todayStr = getLocalISODate(new Date());
     const overdueTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate < todayStr);
     const dueTodayTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate === todayStr);
@@ -545,12 +547,6 @@ const App: React.FC = () => {
     const countDone = tasks.filter(t => t.status === Status.DONE).length;
     const countArchived = tasks.filter(t => t.status === Status.ARCHIVED).length;
     
-    const obsNew = observations.filter(o => o.status === ObservationStatus.NEW).length;
-    const obsWip = observations.filter(o => o.status === ObservationStatus.REVIEWING).length;
-    const obsResolved = observations.filter(o => o.status === ObservationStatus.RESOLVED).length;
-    const totalObs = observations.length;
-    const activeObsTotal = obsNew + obsWip + obsResolved;
-
     return (
       <div className="space-y-6 animate-fade-in pb-12">
         {/* Date/Time Header */}
@@ -594,15 +590,30 @@ const App: React.FC = () => {
                  <div className="bg-red-50 px-6 py-4 border-b border-red-100 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <AlertTriangle size={18} className="text-red-600"/>
-                        <h3 className="font-bold text-red-900">Overdue Tasks</h3>
+                        <h3 className="font-bold text-red-900">Attention Needed: Overdue</h3>
                     </div>
                     <span className="bg-red-200 text-red-800 text-xs font-bold px-2 py-1 rounded-full">{overdueTasks.length}</span>
                  </div>
-                 <div className="divide-y divide-red-50 p-4">
+                 <div className="divide-y divide-red-50">
                      {overdueTasks.map(t => (
-                         <div key={t.id} className="py-2 flex justify-between items-center cursor-pointer hover:bg-red-50/50 rounded px-2" onClick={() => { setJournalTaskId(t.id); setCurrentView(ViewMode.TASKS); }}>
-                             <span className="text-sm font-medium text-slate-800">{t.displayId}: {t.description.substring(0, 50)}...</span>
-                             <ArrowRight size={16} className="text-red-300"/>
+                         <div key={t.id} className="p-4 flex justify-between items-start cursor-pointer hover:bg-red-50/50 transition-colors" onClick={() => { setJournalTaskId(t.id); setCurrentView(ViewMode.TASKS); }}>
+                             <div className="flex flex-col gap-2 w-full">
+                                 {/* Properties Row */}
+                                 <div className="flex flex-wrap items-center gap-2 text-xs">
+                                    <span className="font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{t.source}</span>
+                                    <span className="font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">{t.displayId}</span>
+                                    <span className="font-bold text-red-600 flex items-center gap-1 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
+                                       <CalendarDays size={10}/> {formatDateDDMMYYYY(t.dueDate)}
+                                    </span>
+                                    <span className={`px-1.5 py-0.5 rounded-full border text-[10px] font-bold ${getPriorityColor(t.priority)}`}>{t.priority}</span>
+                                    <span className="text-slate-500 font-medium">({t.status})</span>
+                                 </div>
+                                 {/* Full Description */}
+                                 <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
+                                    {t.description}
+                                 </p>
+                             </div>
+                             <ArrowRight size={16} className="text-red-300 mt-1 flex-shrink-0 ml-4"/>
                          </div>
                      ))}
                  </div>
@@ -617,11 +628,23 @@ const App: React.FC = () => {
                     </div>
                     <span className="bg-amber-200 text-amber-800 text-xs font-bold px-2 py-1 rounded-full">{dueTodayTasks.length}</span>
                  </div>
-                  <div className="divide-y divide-amber-50 p-4">
+                  <div className="divide-y divide-amber-50">
                      {dueTodayTasks.map(t => (
-                         <div key={t.id} className="py-2 flex justify-between items-center cursor-pointer hover:bg-amber-50/50 rounded px-2" onClick={() => { setJournalTaskId(t.id); setCurrentView(ViewMode.TASKS); }}>
-                             <span className="text-sm font-medium text-slate-800">{t.displayId}: {t.description.substring(0, 50)}...</span>
-                             <ArrowRight size={16} className="text-amber-300"/>
+                         <div key={t.id} className="p-4 flex justify-between items-start cursor-pointer hover:bg-amber-50/50 transition-colors" onClick={() => { setJournalTaskId(t.id); setCurrentView(ViewMode.TASKS); }}>
+                             <div className="flex flex-col gap-2 w-full">
+                                 {/* Properties Row */}
+                                 <div className="flex flex-wrap items-center gap-2 text-xs">
+                                    <span className="font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">{t.source}</span>
+                                    <span className="font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">{t.displayId}</span>
+                                    <span className={`px-1.5 py-0.5 rounded-full border text-[10px] font-bold ${getPriorityColor(t.priority)}`}>{t.priority}</span>
+                                    <span className="text-slate-500 font-medium">({t.status})</span>
+                                 </div>
+                                 {/* Description */}
+                                 <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
+                                     {t.description}
+                                 </p>
+                             </div>
+                             <ArrowRight size={16} className="text-amber-300 mt-1 flex-shrink-0 ml-4"/>
                          </div>
                      ))}
                  </div>
@@ -664,8 +687,8 @@ const App: React.FC = () => {
     const noDate = pendingTasks.filter(t => !t.dueDate);
 
     return (
-    <div className="animate-fade-in grid grid-cols-1 lg:grid-cols-3 gap-8">
-      {/* Left Column: Daily Journal */}
+    <div className="animate-fade-in grid grid-cols-1 lg:grid-cols-4 gap-8">
+      {/* Left Column: Daily Journal - Adjusted to 1/4 width */}
       <div className="lg:col-span-1 lg:sticky lg:top-8 h-fit space-y-4">
          <DailyJournal 
             tasks={tasks} 
@@ -678,8 +701,8 @@ const App: React.FC = () => {
          />
       </div>
 
-      {/* Right Column: Task Board (Monday - Sunday Distribution) */}
-      <div className="lg:col-span-2 space-y-6">
+      {/* Right Column: Task Board - Adjusted to 3/4 width */}
+      <div className="lg:col-span-3 space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h2 className="text-2xl font-bold text-slate-800">Task Board</h2>
           <button 
@@ -745,7 +768,7 @@ const App: React.FC = () => {
                     <h3 className="font-bold text-sm uppercase tracking-wide">This Week</h3>
                 </div>
                 
-                {/* Responsive Grid for Days */}
+                {/* Responsive Grid for Days - Updated for 3-col width */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {currentWeekDays.map((dayISO) => {
                         // Find tasks for this day
@@ -789,8 +812,7 @@ const App: React.FC = () => {
                                         </div>
                                     ) : (
                                         dayTasks.map(task => (
-                                            <div key={task.id} className="scale-95 origin-top-left w-full"> 
-                                            {/* Scaling down slightly to fit columns better */}
+                                            <div key={task.id} className="w-full"> 
                                                 <TaskCard 
                                                     task={task} 
                                                     onUpdateStatus={updateTaskStatus}
@@ -800,7 +822,7 @@ const App: React.FC = () => {
                                                     onEditUpdate={editTaskUpdate}
                                                     onDeleteUpdate={deleteTaskUpdate}
                                                     onUpdateTask={updateTaskFields}
-                                                    isReadOnly={false} // Allow edits
+                                                    isReadOnly={false} 
                                                 />
                                             </div>
                                         ))
