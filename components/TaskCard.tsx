@@ -12,6 +12,7 @@ interface TaskCardProps {
   onDeleteUpdate?: (taskId: string, updateId: string) => void;
   allowDelete?: boolean;
   isReadOnly?: boolean;
+  allowStatusChange?: boolean;
   onNavigate?: () => void;
   onUpdateTask?: (id: string, fields: Partial<Task>) => void;
   autoExpand?: boolean;
@@ -27,6 +28,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onDeleteUpdate,
   allowDelete = true, 
   isReadOnly = false,
+  allowStatusChange,
   onNavigate,
   onUpdateTask,
   autoExpand = false
@@ -91,6 +93,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const isCompleted = task.status === Status.DONE || task.status === Status.ARCHIVED;
+  const canChangeStatus = allowStatusChange ?? !isReadOnly;
 
   const handleSubmitUpdate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -319,7 +322,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </div>
           </div>
 
-          {isReadOnly ? (
+          {!canChangeStatus ? (
              <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${getStatusColor(task.status)}`}>
                {task.status}
              </span>

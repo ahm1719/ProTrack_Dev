@@ -799,6 +799,7 @@ const App: React.FC = () => {
                             onDelete={deleteTask}
                             onAddUpdate={addUpdateToTask}
                             isReadOnly={true}
+                            allowStatusChange={true}
                             autoExpand={task.id === highlightedTaskId}
                          />
                      ))}
