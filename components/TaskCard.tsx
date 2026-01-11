@@ -89,12 +89,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
              <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
               {task.source}
             </span>
-             {task.projectId && (
-              <span className="flex items-center gap-1 font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                <FolderGit2 size={10} />
-                {task.projectId}
-              </span>
-            )}
             <span className="font-mono text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
               {task.displayId}
             </span>

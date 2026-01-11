@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Task, DailyLog, Status } from '../types';
-import { Calendar as CalendarIcon, Save, Plus, Clock, Calendar, Filter, RotateCcw } from 'lucide-react';
+import { Calendar as CalendarIcon, Save, Plus, Clock, Calendar, Filter, RotateCcw, X, Info } from 'lucide-react';
 
 interface DailyJournalProps {
   tasks: Task[];
@@ -120,20 +120,45 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
 
         <form onSubmit={handleAddEntry} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Task Reference</label>
-            <select 
-              value={selectedTaskId}
-              onChange={(e) => setSelectedTaskId(e.target.value)}
-              className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50"
-              required
-            >
-              <option value="">Select a task...</option>
-              {sortedTasks.map(t => (
-                <option key={t.id} value={t.id}>
-                  {t.displayId} - {t.description.length > 100 ? `${t.description.substring(0, 100)}...` : t.description}
-                </option>
-              ))}
-            </select>
+            <div className="flex justify-between items-center mb-1">
+                <label className="block text-xs font-medium text-slate-500">Task Reference</label>
+                {selectedTaskId && (
+                    <button 
+                        type="button" 
+                        onClick={() => setSelectedTaskId('')} 
+                        className="text-xs text-slate-400 hover:text-red-500 flex items-center gap-1"
+                    >
+                        <X size={12}/> Clear Selection
+                    </button>
+                )}
+            </div>
+            
+            <div className="relative">
+                <select 
+                value={selectedTaskId}
+                onChange={(e) => setSelectedTaskId(e.target.value)}
+                className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 appearance-none"
+                required
+                >
+                <option value="">Select a task...</option>
+                {sortedTasks.map(t => (
+                    <option key={t.id} value={t.id}>
+                    {t.displayId} - {t.description}
+                    </option>
+                ))}
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <ChevronDownIcon />
+                </div>
+            </div>
+
+            {/* Display Full Description if Selected */}
+            {selectedTask && (
+                <div className="mt-2 p-3 bg-slate-50 border border-slate-100 rounded-lg text-xs text-slate-600 leading-relaxed whitespace-pre-wrap flex gap-2 items-start">
+                    <Info size={14} className="text-indigo-400 flex-shrink-0 mt-0.5" />
+                    <span>{selectedTask.description}</span>
+                </div>
+            )}
           </div>
 
           {/* Quick Edit Controls for Selected Task */}
@@ -171,7 +196,7 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="What did you work on?"
-              className="w-full p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none h-24 resize-none bg-slate-50"
+              className="w-full p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none bg-slate-50"
               required
             />
           </div>
@@ -215,7 +240,7 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
       </div>
 
       {/* Timeline Display */}
-      <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-[300px]">
+      <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-[500px]">
         {sortedDates.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-center p-4">
             <p className="text-slate-400 text-sm">No logs in selected range.</p>
@@ -255,5 +280,12 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
     </div>
   );
 };
+
+// Simple Chevron Icon Component for Select
+const ChevronDownIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m6 9 6 6 6-6"/>
+    </svg>
+);
 
 export default DailyJournal;
