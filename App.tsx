@@ -836,15 +836,37 @@ const App: React.FC = () => {
               <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
                 {now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </h2>
-              <div className="flex items-center gap-2 mt-2 text-slate-500">
-                 <Clock size={20} className="text-indigo-600" />
-                 <span className="text-xl font-medium font-mono">{now.toLocaleTimeString()}</span>
+              <div className="flex flex-wrap items-center gap-4 mt-2">
+                 <div className="flex items-center gap-2 text-slate-500">
+                    <Clock size={20} className="text-indigo-600" />
+                    <span className="text-xl font-medium font-mono">{now.toLocaleTimeString()}</span>
+                 </div>
+                 
+                 {/* CW Indicator Moved Here */}
+                 <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">CW</span>
+                    <span className="text-lg font-bold text-slate-700">{getCurrentCW()}</span>
+                 </div>
               </div>
            </div>
-           <div className="mt-4 md:mt-0 px-4 py-2 bg-slate-50 rounded-lg border border-slate-100 hidden md:block">
-              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Current Week</div>
-              <div className="text-xl font-bold text-slate-700">{getCurrentCW()}</div>
-           </div>
+           
+           {/* Observation Summary - Conditional Display */}
+           {(obsNew > 0 || obsWip > 0) && (
+               <div className="mt-4 md:mt-0 flex bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="flex flex-col items-center justify-center px-5 py-2 bg-blue-50 border-r border-slate-100 min-w-[80px]">
+                      <span className="text-xl font-bold text-blue-600 leading-none">{obsNew}</span>
+                      <span className="text-[10px] font-extrabold text-blue-400 uppercase mt-1 tracking-wide">New</span>
+                  </div>
+                  <div className="flex flex-col items-center justify-center px-5 py-2 bg-amber-50 border-r border-slate-100 min-w-[80px]">
+                      <span className="text-xl font-bold text-amber-500 leading-none">{obsWip}</span>
+                      <span className="text-[10px] font-extrabold text-amber-400 uppercase mt-1 tracking-wide">WIP</span>
+                  </div>
+                   <div className="flex flex-col items-center justify-center px-5 py-2 bg-emerald-50 min-w-[80px]">
+                      <span className="text-xl font-bold text-emerald-600 leading-none">{obsResolved}</span>
+                      <span className="text-[10px] font-extrabold text-emerald-400 uppercase mt-1 tracking-wide">Done</span>
+                  </div>
+               </div>
+           )}
         </div>
 
         {/* Dashboard Grid - Stats */}
