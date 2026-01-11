@@ -178,9 +178,9 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps
         <button onClick={nextMonth} className="p-1 hover:bg-slate-100 rounded text-slate-500"><ChevronRight size={16} /></button>
       </div>
       
-      <div className="flex mb-2">
+      <div className="flex mb-2 items-center">
          <div className="w-8 mr-2 text-[10px] text-center font-bold text-slate-400 select-none">CW</div>
-         <div className="flex gap-1 flex-1 justify-between">
+         <div className="flex gap-1">
              {['M','T','W','T','F','S','S'].map((d, i) => (
                  <div key={i} className="w-8 text-center text-[10px] font-bold text-slate-400 select-none">{d}</div>
              ))}

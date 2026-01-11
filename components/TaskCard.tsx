@@ -8,7 +8,7 @@ interface TaskCardProps {
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
   onAddUpdate: (id: string, content: string) => void;
-  onEditUpdate?: (taskId: string, updateId: string, newContent: string) => void;
+  onEditUpdate?: (taskId: string, updateId: string, newContent: string, newTimestamp?: string) => void;
   onDeleteUpdate?: (taskId: string, updateId: string) => void;
   allowDelete?: boolean;
   isReadOnly?: boolean;
@@ -35,6 +35,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   // State for editing existing updates
   const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
   const [editUpdateContent, setEditUpdateContent] = useState('');
+  const [editUpdateDate, setEditUpdateDate] = useState(''); // New state for editing date
 
   // State for inline field editing
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -69,20 +70,34 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
-  const startEditingUpdate = (update: { id: string, content: string }) => {
+  const startEditingUpdate = (update: { id: string, content: string, timestamp: string }) => {
     if (isReadOnly) return;
     setEditingUpdateId(update.id);
     setEditUpdateContent(update.content);
+    
+    // Parse YYYY-MM-DD manually to avoid timezone shift
+    const d = new Date(update.timestamp);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    setEditUpdateDate(`${year}-${month}-${day}`);
   };
 
   const cancelEditingUpdate = () => {
     setEditingUpdateId(null);
     setEditUpdateContent('');
+    setEditUpdateDate('');
   };
 
   const saveEditedUpdate = (updateId: string) => {
     if (onEditUpdate && editUpdateContent.trim()) {
-      onEditUpdate(task.id, updateId, editUpdateContent.trim());
+      // Reconstruct ISO string from editUpdateDate. Append a fixed time (noon) to avoid date shifting
+      let newTimestamp = undefined;
+      if (editUpdateDate) {
+         newTimestamp = new Date(`${editUpdateDate}T12:00:00`).toISOString();
+      }
+
+      onEditUpdate(task.id, updateId, editUpdateContent.trim(), newTimestamp);
       setEditingUpdateId(null);
     }
   };
@@ -340,8 +355,19 @@ const TaskCard: React.FC<TaskCardProps> = ({
               )}
               {task.updates.slice().reverse().map((update) => (
                 <div key={update.id} className="flex gap-3 text-sm group">
+                   
                   <div className="flex-shrink-0 w-24 text-xs text-slate-400 text-right pt-0.5">
-                    {new Date(update.timestamp).toLocaleDateString()}
+                    {/* Date Display */}
+                    {editingUpdateId === update.id ? (
+                        <input 
+                            type="date"
+                            value={editUpdateDate}
+                            onChange={(e) => setEditUpdateDate(e.target.value)}
+                            className="w-full text-xs p-1 border border-indigo-300 rounded outline-none"
+                        />
+                    ) : (
+                        new Date(update.timestamp).toLocaleDateString()
+                    )}
                   </div>
                   
                   <div className="flex-grow">

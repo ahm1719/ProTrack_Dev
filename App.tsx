@@ -432,12 +432,17 @@ const App: React.FC = () => {
     persistData(updatedTasks, updatedLogs, observations, offDays);
   };
 
-  const editTaskUpdate = (taskId: string, updateId: string, newContent: string) => {
+  const editTaskUpdate = (taskId: string, updateId: string, newContent: string, newTimestamp?: string) => {
     const updatedTasks = tasks.map(t => {
       if (t.id === taskId) {
         return {
           ...t,
-          updates: t.updates.map(u => u.id === updateId ? { ...u, content: newContent } : u)
+          updates: t.updates.map(u => {
+            if (u.id === updateId) {
+                return { ...u, content: newContent, timestamp: newTimestamp || u.timestamp };
+            }
+            return u;
+          })
         };
       }
       return t;
