@@ -373,7 +373,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               {task.updates.length === 0 && (
                 <p className="text-center text-xs text-slate-400 py-2">No updates recorded yet.</p>
               )}
-              {task.updates.slice().reverse().map((update) => (
+              {task.updates.slice().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((update) => (
                 <div key={update.id} className="flex gap-3 text-sm group">
                    
                   <div className="flex-shrink-0 w-24 text-xs text-slate-400 text-right pt-0.5">

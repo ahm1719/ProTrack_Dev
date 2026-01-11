@@ -415,13 +415,14 @@ const App: React.FC = () => {
   };
 
   const addUpdateToTask = (taskId: string, content: string) => {
+    const sharedId = uuidv4(); // Use same ID for linking
     const newUpdate = {
-      id: uuidv4(),
+      id: sharedId,
       timestamp: new Date().toISOString(),
       content
     };
     const newLog = {
-      id: uuidv4(),
+      id: sharedId,
       date: new Date().toISOString().split('T')[0],
       taskId,
       content
@@ -436,6 +437,13 @@ const App: React.FC = () => {
   };
 
   const editTaskUpdate = (taskId: string, updateId: string, newContent: string, newTimestamp?: string) => {
+    let oldContent = '';
+    
+    // Find old content for legacy matching if needed
+    const task = tasks.find(t => t.id === taskId);
+    const update = task?.updates.find(u => u.id === updateId);
+    if (update) oldContent = update.content;
+
     const updatedTasks = tasks.map(t => {
       if (t.id === taskId) {
         return {
@@ -450,26 +458,68 @@ const App: React.FC = () => {
       }
       return t;
     });
-    updateTasks(updatedTasks);
+
+    // Update Logs: Try match by ID (sharedId) first, then fallback to legacy content match
+    const updatedLogs = logs.map(l => {
+        // Direct Match (New Items)
+        if (l.id === updateId) {
+            return {
+                ...l,
+                content: newContent,
+                date: newTimestamp ? newTimestamp.split('T')[0] : l.date
+            };
+        }
+        // Legacy Match (Old Items)
+        if (l.taskId === taskId && l.content === oldContent) {
+             return {
+                ...l,
+                content: newContent,
+                date: newTimestamp ? newTimestamp.split('T')[0] : l.date
+            };
+        }
+        return l;
+    });
+
+    setTasks(updatedTasks);
+    setLogs(updatedLogs);
+    persistData(updatedTasks, updatedLogs, observations, offDays);
   };
 
   const deleteTaskUpdate = (taskId: string, updateId: string) => {
     if (window.confirm('Delete this update?')) {
+        let oldContent = '';
+        const task = tasks.find(t => t.id === taskId);
+        const update = task?.updates.find(u => u.id === updateId);
+        if (update) oldContent = update.content;
+
         const updatedTasks = tasks.map(t => {
             if (t.id === taskId) {
                 return { ...t, updates: t.updates.filter(u => u.id !== updateId) };
             }
             return t;
         });
-        updateTasks(updatedTasks);
+
+        // Also delete from logs
+        const updatedLogs = logs.filter(l => {
+             if (l.id === updateId) return false;
+             if (l.taskId === taskId && l.content === oldContent) return false;
+             return true;
+        });
+
+        setTasks(updatedTasks);
+        setLogs(updatedLogs);
+        persistData(updatedTasks, updatedLogs, observations, offDays);
     }
   };
 
   const addDailyLog = (logData: Omit<DailyLog, 'id'>) => {
-    const newLog = { ...logData, id: uuidv4() };
+    const sharedId = uuidv4();
+    const newLog = { ...logData, id: sharedId };
     const updatedLogs = [...logs, newLog];
+    
+    // Sync to Task Updates as well using same ID
     const updateEntry = {
-      id: uuidv4(),
+      id: sharedId,
       timestamp: new Date().toISOString(),
       content: `[Log Entry: ${logData.date}] ${logData.content}`
     };
@@ -593,8 +643,16 @@ const App: React.FC = () => {
                         placeholder="Search tasks..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                        className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
                      />
+                     {searchTerm && (
+                       <button 
+                         onClick={() => setSearchTerm('')}
+                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                       >
+                         <X size={14} />
+                       </button>
+                     )}
                   </div>
                   <button 
                     onClick={() => openTaskModal()}
