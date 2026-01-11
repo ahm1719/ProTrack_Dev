@@ -522,6 +522,105 @@ const App: React.FC = () => {
         return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
     });
 
+  const renderTasksAndJournal = () => {
+    return (
+      <div className="animate-fade-in grid grid-cols-1 lg:grid-cols-4 gap-8 pb-12">
+        {/* Left Column: Daily Journal */}
+        <div className="lg:col-span-1 space-y-4">
+           <div className="lg:sticky lg:top-0">
+             <DailyJournal 
+                tasks={tasks} 
+                logs={logs} 
+                onAddLog={addDailyLog} 
+                onUpdateTask={updateTaskFields}
+                initialTaskId={journalTaskId}
+                offDays={offDays}
+                onToggleOffDay={toggleOffDay}
+             />
+           </div>
+        </div>
+
+        {/* Right Column: Task Board */}
+        <div className="lg:col-span-3 space-y-6">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+               <div>
+                  <h1 className="text-2xl font-bold text-slate-900">Task Board</h1>
+                  <p className="text-sm text-slate-500">Manage your projects and priorities.</p>
+               </div>
+               <div className="flex items-center gap-2 w-full md:w-auto">
+                  <div className="relative flex-1 md:w-64">
+                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                     <input 
+                        type="text" 
+                        placeholder="Search tasks..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                     />
+                  </div>
+                  <button 
+                    onClick={() => openTaskModal()}
+                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-medium transition-colors shadow-lg shadow-indigo-200 whitespace-nowrap"
+                  >
+                    <Plus size={18} /> <span className="hidden sm:inline">New Task</span>
+                  </button>
+               </div>
+            </div>
+
+            {/* Task List */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+               {filteredTasks.length === 0 ? (
+                  <div className="col-span-full py-12 text-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200">
+                     <ListTodo size={48} className="mx-auto mb-4 opacity-20" />
+                     <p>No active tasks found.</p>
+                  </div>
+               ) : (
+                  filteredTasks.map(task => (
+                     <TaskCard 
+                        key={task.id} 
+                        task={task} 
+                        onUpdateStatus={updateTaskStatus}
+                        onEdit={openTaskModal}
+                        onDelete={deleteTask}
+                        onAddUpdate={addUpdateToTask}
+                        onEditUpdate={editTaskUpdate}
+                        onDeleteUpdate={deleteTaskUpdate}
+                        onUpdateTask={updateTaskFields}
+                     />
+                  ))
+               )}
+            </div>
+            
+            {/* Completed / Archived Toggle */}
+            <div className="pt-8 border-t border-slate-200">
+               <button 
+                 onClick={() => setIsCompletedExpanded(!isCompletedExpanded)}
+                 className="flex items-center gap-2 text-slate-500 font-bold text-sm hover:text-indigo-600 transition-colors"
+               >
+                  {isCompletedExpanded ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
+                  Show Archived Tasks
+               </button>
+               {isCompletedExpanded && (
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4 opacity-75">
+                     {tasks.filter(t => t.status === Status.ARCHIVED || t.status === Status.DONE).map(task => (
+                         <TaskCard 
+                            key={task.id} 
+                            task={task} 
+                            onUpdateStatus={updateTaskStatus}
+                            onEdit={openTaskModal}
+                            onDelete={deleteTask}
+                            onAddUpdate={addUpdateToTask}
+                            isReadOnly={true}
+                         />
+                     ))}
+                  </div>
+               )}
+            </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderDashboard = () => {
     const todayStr = getLocalISODate(new Date());
     const overdueTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate < todayStr);
@@ -773,96 +872,7 @@ const App: React.FC = () => {
           <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar relative">
              {currentView === ViewMode.DASHBOARD && renderDashboard()}
              
-             {currentView === ViewMode.TASKS && (
-               <div className="space-y-6 animate-fade-in pb-12">
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Task Board</h1>
-                        <p className="text-sm text-slate-500">Manage your projects and priorities.</p>
-                     </div>
-                     <div className="flex items-center gap-2 w-full md:w-auto">
-                        <div className="relative flex-1 md:w-64">
-                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                           <input 
-                              type="text" 
-                              placeholder="Search tasks..." 
-                              value={searchTerm}
-                              onChange={(e) => setSearchTerm(e.target.value)}
-                              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                           />
-                        </div>
-                        <button 
-                          onClick={() => openTaskModal()}
-                          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-medium transition-colors shadow-lg shadow-indigo-200 whitespace-nowrap"
-                        >
-                          <Plus size={18} /> <span className="hidden sm:inline">New Task</span>
-                        </button>
-                     </div>
-                  </div>
-
-                  {/* Task List */}
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                     {filteredTasks.length === 0 ? (
-                        <div className="col-span-full py-12 text-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200">
-                           <ListTodo size={48} className="mx-auto mb-4 opacity-20" />
-                           <p>No active tasks found.</p>
-                        </div>
-                     ) : (
-                        filteredTasks.map(task => (
-                           <TaskCard 
-                              key={task.id} 
-                              task={task} 
-                              onUpdateStatus={updateTaskStatus}
-                              onEdit={openTaskModal}
-                              onDelete={deleteTask}
-                              onAddUpdate={addUpdateToTask}
-                              onEditUpdate={editTaskUpdate}
-                              onDeleteUpdate={deleteTaskUpdate}
-                              onUpdateTask={updateTaskFields}
-                           />
-                        ))
-                     )}
-                  </div>
-                  
-                  {/* Completed / Archived Toggle */}
-                  <div className="pt-8 border-t border-slate-200">
-                     <button 
-                       onClick={() => setIsCompletedExpanded(!isCompletedExpanded)}
-                       className="flex items-center gap-2 text-slate-500 font-bold text-sm hover:text-indigo-600 transition-colors"
-                     >
-                        {isCompletedExpanded ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}
-                        Show Archived Tasks
-                     </button>
-                     {isCompletedExpanded && (
-                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4 opacity-75">
-                           {tasks.filter(t => t.status === Status.ARCHIVED || t.status === Status.DONE).map(task => (
-                               <TaskCard 
-                                  key={task.id} 
-                                  task={task} 
-                                  onUpdateStatus={updateTaskStatus}
-                                  onEdit={openTaskModal}
-                                  onDelete={deleteTask}
-                                  onAddUpdate={addUpdateToTask}
-                                  isReadOnly={true}
-                               />
-                           ))}
-                        </div>
-                     )}
-                  </div>
-               </div>
-             )}
-
-             {currentView === ViewMode.JOURNAL && (
-                <DailyJournal 
-                  tasks={tasks} 
-                  logs={logs} 
-                  onAddLog={addDailyLog} 
-                  onUpdateTask={updateTaskFields}
-                  initialTaskId={journalTaskId}
-                  offDays={offDays}
-                  onToggleOffDay={toggleOffDay}
-                />
-             )}
+             {(currentView === ViewMode.TASKS || currentView === ViewMode.JOURNAL) && renderTasksAndJournal()}
 
              {currentView === ViewMode.OBSERVATIONS && (
                 <ObservationsLog 
