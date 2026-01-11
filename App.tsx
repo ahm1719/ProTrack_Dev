@@ -25,7 +25,9 @@ import {
   ChevronRight,
   StickyNote,
   Archive,
-  Copy
+  Copy,
+  CheckCircle2,
+  Circle
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -547,6 +549,10 @@ const App: React.FC = () => {
     const countDone = tasks.filter(t => t.status === Status.DONE).length;
     const countArchived = tasks.filter(t => t.status === Status.ARCHIVED).length;
     
+    const obsNew = observations.filter(o => o.status === ObservationStatus.NEW).length;
+    const obsWip = observations.filter(o => o.status === ObservationStatus.REVIEWING).length;
+    const obsResolved = observations.filter(o => o.status === ObservationStatus.RESOLVED).length;
+
     return (
       <div className="space-y-6 animate-fade-in pb-12">
         {/* Date/Time Header */}
@@ -566,8 +572,9 @@ const App: React.FC = () => {
            </div>
         </div>
 
-        {/* Dashboard Grid */}
-         <div className="grid grid-cols-1 gap-6">
+        {/* Dashboard Grid - Stats */}
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+           {/* Task Overview */}
            <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg shadow-indigo-200">
              <div className="flex justify-between items-center mb-3">
                <h3 className="font-semibold text-indigo-100 text-sm">Task Overview</h3>
@@ -579,6 +586,37 @@ const App: React.FC = () => {
                  <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between"><span className="text-[10px] text-indigo-200 uppercase truncate">Waiting</span><span className="text-xl font-bold">{countWaiting}</span></div>
                  <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between"><span className="text-[10px] text-indigo-200 uppercase truncate">Done</span><span className="text-xl font-bold">{countDone}</span></div>
                  <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between"><span className="text-[10px] text-indigo-200 uppercase truncate">Archived</span><span className="text-xl font-bold">{countArchived}</span></div>
+             </div>
+           </div>
+
+           {/* Observations Overview */}
+           <div className="bg-gradient-to-br from-fuchsia-600 to-purple-600 rounded-2xl p-5 text-white shadow-lg shadow-purple-200">
+             <div className="flex justify-between items-center mb-3">
+               <h3 className="font-semibold text-purple-100 text-sm">Observations Tracker</h3>
+               <StickyNote className="opacity-50" size={20} />
+             </div>
+             <div className="flex justify-between gap-2 text-center h-full max-h-[60px]">
+                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex-1 flex flex-col justify-center">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                        <Circle size={10} className="text-white fill-white"/>
+                        <span className="text-[10px] text-purple-200 uppercase">New</span>
+                    </div>
+                    <span className="text-xl font-bold leading-none">{obsNew}</span>
+                 </div>
+                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex-1 flex flex-col justify-center">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                        <Clock size={10} className="text-white"/>
+                        <span className="text-[10px] text-purple-200 uppercase">WIP</span>
+                    </div>
+                    <span className="text-xl font-bold leading-none">{obsWip}</span>
+                 </div>
+                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex-1 flex flex-col justify-center">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                        <CheckCircle2 size={10} className="text-white"/>
+                        <span className="text-[10px] text-purple-200 uppercase">Resolved</span>
+                    </div>
+                    <span className="text-xl font-bold leading-none">{obsResolved}</span>
+                 </div>
              </div>
            </div>
          </div>
