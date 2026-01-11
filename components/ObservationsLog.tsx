@@ -141,8 +141,8 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
   const advanceStatus = (obs: Observation) => {
       const currentIndex = columns.indexOf(obs.status);
       if (currentIndex !== -1 && currentIndex < columns.length - 1) {
-          // Cast to ObservationStatus to match type expectation
-          onEditObservation({ ...obs, status: columns[currentIndex + 1] as ObservationStatus });
+          // Cast to any to handle potential type mismatch if Observation uses Enum
+          onEditObservation({ ...obs, status: columns[currentIndex + 1] as any });
       }
   };
 
@@ -150,8 +150,8 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
   const regressStatus = (obs: Observation) => {
       const currentIndex = columns.indexOf(obs.status);
       if (currentIndex > 0) {
-          // Cast to ObservationStatus to match type expectation
-          onEditObservation({ ...obs, status: columns[currentIndex - 1] as ObservationStatus });
+          // Cast to any to handle potential type mismatch if Observation uses Enum
+          onEditObservation({ ...obs, status: columns[currentIndex - 1] as any });
       }
   };
 
@@ -264,7 +264,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                 {/* Image Previews in Form */}
                 {images.length > 0 && (
                   <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
-                    {images.map((img, idx) => (
+                    {images.map((img: string, idx: number) => (
                       <div key={idx} className="relative flex-shrink-0 group">
                         <img src={img} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-slate-200" />
                         <button 
@@ -318,7 +318,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                                     {/* Image Thumbnails in Card */}
                                     {obs.images && obs.images.length > 0 && (
                                       <div className="flex gap-2 mb-2 overflow-x-auto custom-scrollbar pb-1">
-                                        {obs.images.map((img, i) => (
+                                        {obs.images.map((img: string, i: number) => (
                                           <div 
                                             key={i} 
                                             className="relative flex-shrink-0 cursor-pointer hover:opacity-90"
