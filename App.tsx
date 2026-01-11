@@ -828,8 +828,7 @@ const App: React.FC = () => {
           <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
              {[
                { mode: ViewMode.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
-               { mode: ViewMode.TASKS, icon: ListTodo, label: 'Tasks' },
-               { mode: ViewMode.JOURNAL, icon: BookOpen, label: 'Journal' },
+               { mode: ViewMode.TASKS, icon: ListTodo, label: 'Task Board' },
                { mode: ViewMode.OBSERVATIONS, icon: StickyNote, label: 'Observations' },
              ].map(item => (
                 <button
@@ -872,7 +871,7 @@ const App: React.FC = () => {
           <div className="flex-1 overflow-y-auto p-4 md:p-8 custom-scrollbar relative">
              {currentView === ViewMode.DASHBOARD && renderDashboard()}
              
-             {(currentView === ViewMode.TASKS || currentView === ViewMode.JOURNAL) && renderTasksAndJournal()}
+             {currentView === ViewMode.TASKS && renderTasksAndJournal()}
 
              {currentView === ViewMode.OBSERVATIONS && (
                 <ObservationsLog 
