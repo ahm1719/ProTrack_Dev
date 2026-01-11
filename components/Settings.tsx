@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, RefreshCw, Key, Eye, EyeOff, Copy, Smartphone, Sparkles, FileText, RotateCcw } from 'lucide-react';
-import { Task, DailyLog, Observation, FirebaseConfig } from '../types';
+import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, RefreshCw, Key, Eye, EyeOff, Copy, Smartphone, Sparkles, FileText, RotateCcw, Database, Trash2, ImageMinus, History, HardDrive, PieChart, ExternalLink } from 'lucide-react';
+import { Task, DailyLog, Observation, FirebaseConfig, Status, ObservationStatus } from '../types';
 import { initFirebase } from '../services/firebaseService';
 
 interface SettingsProps {
@@ -23,6 +23,22 @@ const PRECONFIGURED_FIREBASE: FirebaseConfig = {
   measurementId: "G-D2SKT81MGL"
 };
 
+const getSizeInBytes = (obj: any) => {
+    try {
+        return new Blob([JSON.stringify(obj)]).size;
+    } catch (e) {
+        return 0;
+    }
+};
+
+const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
 const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImportData, onSyncConfigUpdate, isSyncEnabled }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -39,6 +55,15 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
 
   // Custom Report Instruction State
   const [reportInstruction, setReportInstruction] = useState('');
+
+  // Storage Stats
+  const [storageStats, setStorageStats] = useState({
+      totalSize: 0,
+      tasksSize: 0,
+      logsSize: 0,
+      obsSize: 0,
+      imageCount: 0
+  });
 
   // Load existing config into text area if available (overrides default if they changed it)
   useEffect(() => {
@@ -57,6 +82,27 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
       setReportInstruction(savedInstruction);
     }
   }, []);
+
+  // Update storage stats when data changes
+  useEffect(() => {
+     const tasksBytes = getSizeInBytes(tasks);
+     const logsBytes = getSizeInBytes(logs);
+     const obsBytes = getSizeInBytes(observations);
+     // Rough estimation of full cloud payload including keys not in raw arrays
+     const total = getSizeInBytes({ tasks, logs, observations, offDays: [] }); // offDays is small
+     
+     // Count images
+     let imgs = 0;
+     observations.forEach(o => { if (o.images) imgs += o.images.length; });
+
+     setStorageStats({
+         totalSize: total,
+         tasksSize: tasksBytes,
+         logsSize: logsBytes,
+         obsSize: obsBytes,
+         imageCount: imgs
+     });
+  }, [tasks, logs, observations]);
 
   const handleSaveGeminiKey = () => {
     localStorage.setItem('protrack_gemini_key', geminiKey);
@@ -164,6 +210,50 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
       });
   };
 
+  // Cleanup Actions
+  const cleanArchivedTasks = () => {
+      const activeTasks = tasks.filter(t => t.status !== Status.ARCHIVED);
+      const activeTaskIds = new Set(activeTasks.map(t => t.id));
+      // Also clean logs associated with deleted tasks
+      const keptLogs = logs.filter(l => activeTaskIds.has(l.taskId));
+      
+      if (confirm(`This will permanently delete ${tasks.length - activeTasks.length} archived tasks and their logs. This cannot be undone.`)) {
+          onImportData({ tasks: activeTasks, logs: keptLogs, observations });
+      }
+  };
+
+  const cleanOldLogs = () => {
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      const cutoff = ninetyDaysAgo.toISOString().split('T')[0];
+      
+      const keptLogs = logs.filter(l => l.date >= cutoff);
+      const removedCount = logs.length - keptLogs.length;
+
+      if (confirm(`This will permanently delete ${removedCount} logs older than 90 days. This cannot be undone.`)) {
+          onImportData({ tasks, logs: keptLogs, observations });
+      }
+  };
+
+  const cleanResolvedImages = () => {
+      const cleanedObs = observations.map(o => {
+          if (o.status === ObservationStatus.RESOLVED) {
+              return { ...o, images: [] };
+          }
+          return o;
+      });
+      if (confirm("This will remove all images attached to 'Resolved' observations to save space. Text content will remain.")) {
+          onImportData({ tasks, logs, observations: cleanedObs });
+      }
+  };
+
+  // Limits
+  const FIRESTORE_DOC_LIMIT = 1048576; // 1 MB
+  const LOCAL_STORAGE_SOFT_LIMIT = 5242880; // 5 MB
+
+  const usagePercentCloud = Math.min((storageStats.totalSize / FIRESTORE_DOC_LIMIT) * 100, 100);
+  const usagePercentLocal = Math.min((storageStats.totalSize / LOCAL_STORAGE_SOFT_LIMIT) * 100, 100);
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
       <div className="text-center space-y-4">
@@ -212,8 +302,9 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
                     Save Key
                 </button>
                 </div>
-                <p className="text-xs text-slate-400 mt-2">
-                Get a key at <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline">Google AI Studio</a>. stored locally in your browser.
+                <p className="text-xs text-slate-400 mt-2 flex justify-between items-center">
+                   <span>Get a key at <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline">Google AI Studio</a>.</span>
+                   <span className="flex items-center gap-1 text-slate-500"><Sparkles size={12} /> Free Tier: 15 req/min, 1M tokens/min</span>
                 </p>
             </div>
 
@@ -369,6 +460,114 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
                </div>
              )}
           </div>
+        </section>
+
+        {/* Storage & Quotas Section */}
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+             <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-blue-50">
+                 <div className="p-2 rounded-lg bg-blue-200 text-blue-700">
+                   <HardDrive size={24} />
+                 </div>
+                 <div>
+                   <h2 className="text-lg font-bold text-slate-800">Storage & Quotas</h2>
+                   <p className="text-xs text-slate-500">Manage local resources and cloud limits.</p>
+                 </div>
+             </div>
+             
+             <div className="p-6 space-y-8">
+                 <div className="grid md:grid-cols-2 gap-8">
+                     {/* Cloud Limit */}
+                     <div className="space-y-3">
+                         <div className="flex justify-between items-end">
+                            <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                <Cloud size={16} /> Cloud Sync Document
+                            </h3>
+                            <span className={`text-xs font-mono font-bold ${usagePercentCloud > 90 ? 'text-red-500' : 'text-slate-500'}`}>
+                                {formatBytes(storageStats.totalSize)} / 1 MB
+                            </span>
+                         </div>
+                         <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                             <div 
+                                className={`h-2.5 rounded-full transition-all duration-500 ${usagePercentCloud > 90 ? 'bg-red-500' : usagePercentCloud > 70 ? 'bg-amber-500' : 'bg-indigo-500'}`} 
+                                style={{ width: `${usagePercentCloud}%` }}
+                             />
+                         </div>
+                         <p className="text-[10px] text-slate-400">
+                             Firebase Firestore (Free Tier) limits individual documents to 1MB. If you exceed this, sync will fail.
+                         </p>
+                     </div>
+
+                     {/* Local Storage Limit */}
+                     <div className="space-y-3">
+                         <div className="flex justify-between items-end">
+                            <h3 className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                <Database size={16} /> Browser Storage
+                            </h3>
+                            <span className={`text-xs font-mono font-bold ${usagePercentLocal > 90 ? 'text-red-500' : 'text-slate-500'}`}>
+                                {formatBytes(storageStats.totalSize)} / ~5 MB
+                            </span>
+                         </div>
+                         <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                             <div 
+                                className={`h-2.5 rounded-full transition-all duration-500 ${usagePercentLocal > 90 ? 'bg-red-500' : usagePercentLocal > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
+                                style={{ width: `${usagePercentLocal}%` }}
+                             />
+                         </div>
+                         <p className="text-[10px] text-slate-400">
+                             Browser LocalStorage typically allows 5-10MB per site.
+                         </p>
+                     </div>
+                 </div>
+
+                 {/* Breakdown */}
+                 <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex items-center justify-between text-xs text-slate-600">
+                      <div className="flex items-center gap-2"><PieChart size={14}/> <strong>Breakdown:</strong></div>
+                      <div>Tasks: <strong>{formatBytes(storageStats.tasksSize)}</strong></div>
+                      <div>Logs: <strong>{formatBytes(storageStats.logsSize)}</strong></div>
+                      <div>Observations: <strong>{formatBytes(storageStats.obsSize)}</strong> ({storageStats.imageCount} images)</div>
+                 </div>
+
+                 {/* Cleanup Tools */}
+                 <div className="border-t border-slate-100 pt-6">
+                     <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
+                        <RefreshCw size={16} className="text-slate-400" /> Resource Cleaner
+                     </h3>
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button 
+                            onClick={cleanArchivedTasks}
+                            className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-slate-200 hover:border-red-200 hover:bg-red-50 transition-all group"
+                        >
+                            <Trash2 size={20} className="text-slate-400 group-hover:text-red-500" />
+                            <div className="text-center">
+                                <span className="block text-xs font-bold text-slate-700 group-hover:text-red-700">Purge Archived Tasks</span>
+                                <span className="block text-[10px] text-slate-400">Delete permanently</span>
+                            </div>
+                        </button>
+
+                        <button 
+                             onClick={cleanOldLogs}
+                            className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-slate-200 hover:border-amber-200 hover:bg-amber-50 transition-all group"
+                        >
+                            <History size={20} className="text-slate-400 group-hover:text-amber-500" />
+                            <div className="text-center">
+                                <span className="block text-xs font-bold text-slate-700 group-hover:text-amber-700">Prune Old Logs</span>
+                                <span className="block text-[10px] text-slate-400">Older than 90 days</span>
+                            </div>
+                        </button>
+
+                        <button 
+                            onClick={cleanResolvedImages}
+                            className="flex flex-col items-center justify-center gap-2 p-4 rounded-xl border border-slate-200 hover:border-blue-200 hover:bg-blue-50 transition-all group"
+                        >
+                            <ImageMinus size={20} className="text-slate-400 group-hover:text-blue-500" />
+                            <div className="text-center">
+                                <span className="block text-xs font-bold text-slate-700 group-hover:text-blue-700">Strip Resolved Images</span>
+                                <span className="block text-[10px] text-slate-400">Keep text, remove pics</span>
+                            </div>
+                        </button>
+                     </div>
+                 </div>
+             </div>
         </section>
 
         {/* Manual Backup Section */}
