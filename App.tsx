@@ -45,7 +45,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.1.2";
+const BUILD_VERSION = "V2.1.3";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -259,7 +259,7 @@ const App: React.FC = () => {
                     <h3 className="text-red-800 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {overdueTasks.map(t => {
-                            const lastUpdate = t.updates[t.updates.length - 1];
+                            const lastUpdate = [...t.updates].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                             const pColor = appConfig.itemColors?.[t.priority] || '#64748b';
                             const sColor = appConfig.itemColors?.[t.status] || '#64748b';
                             return (
@@ -275,9 +275,12 @@ const App: React.FC = () => {
                                     </div>
                                     <h4 className="text-sm font-bold text-slate-800 line-clamp-1 group-hover:text-red-600">{t.description}</h4>
                                     {lastUpdate ? (
-                                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                        <div 
+                                          className="p-2 rounded-lg border" 
+                                          style={lastUpdate.highlightColor ? { borderLeft: `4px solid ${lastUpdate.highlightColor}`, backgroundColor: `${lastUpdate.highlightColor}05`, borderColor: `${lastUpdate.highlightColor}20` } : { backgroundColor: '#f8fafc', borderColor: '#f1f5f9' }}
+                                        >
                                             <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Latest Update</span>
-                                            <p className="text-xs text-slate-600 line-clamp-2 italic leading-relaxed">"{lastUpdate.content}"</p>
+                                            <p className="text-xs text-slate-600 line-clamp-3 italic leading-relaxed whitespace-pre-wrap">"{lastUpdate.content}"</p>
                                         </div>
                                     ) : (
                                         <div className="text-[10px] text-slate-400 italic">No updates recorded</div>
@@ -359,7 +362,37 @@ const App: React.FC = () => {
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                        <DailyJournal tasks={tasks} logs={logs} onAddLog={(l) => persistData(tasks, [...logs, { ...l, id: uuidv4() }], observations, offDays)} onUpdateTask={updateTaskFields} offDays={offDays} onToggleOffDay={(d) => persistData(tasks, logs, observations, offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d])} />
+                        <DailyJournal tasks={tasks} logs={logs} onAddLog={(l) => persistData(tasks, [...logs, { ...l, id: uuidv4() }], observations, offDays)} onUpdateTask={updateTaskFields} offDays={offDays} onToggleOffDay={(d) => persistData(tasks, logs, observations, offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d])} onEditLog={(logId, taskId, content, date) => {
+                          const originalLog = logs.find(l => l.id === logId);
+                          if (!originalLog) return;
+                          
+                          // Also update task history if it matches
+                          const updatedTasks = tasks.map(t => {
+                            if (t.id === taskId) {
+                              return {
+                                ...t,
+                                updates: t.updates.map(u => u.content === originalLog.content ? { ...u, content, timestamp: new Date(date).toISOString() } : u)
+                              };
+                            }
+                            return t;
+                          });
+                          
+                          const newLogs = logs.map(l => l.id === logId ? { ...l, taskId, content, date } : l);
+                          persistData(updatedTasks, newLogs, observations, offDays);
+                        }} onDeleteLog={(logId) => {
+                          if (!confirm('Delete this entry?')) return;
+                          const logToDelete = logs.find(l => l.id === logId);
+                          if (!logToDelete) return;
+
+                          const updatedTasks = tasks.map(t => {
+                            if (t.id === logToDelete.taskId) {
+                              return { ...t, updates: t.updates.filter(u => u.content !== logToDelete.content) };
+                            }
+                            return t;
+                          });
+
+                          persistData(updatedTasks, logs.filter(l => l.id !== logId), observations, offDays);
+                        }} />
                     </div>
                 </div>
              </div>

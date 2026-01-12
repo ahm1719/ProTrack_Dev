@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Task, DailyLog, Status } from '../types';
-import { Filter, RotateCcw, ChevronLeft, ChevronRight, Ban, Calendar as CalendarIcon, PlusCircle } from 'lucide-react';
+import { Filter, RotateCcw, ChevronLeft, ChevronRight, Ban, Calendar as CalendarIcon, PlusCircle, Edit2, Trash2, X, Check } from 'lucide-react';
 
 interface DailyJournalProps {
   tasks: Task[];
   logs: DailyLog[];
   onAddLog: (log: Omit<DailyLog, 'id'>) => void;
   onUpdateTask: (taskId: string, updates: { status?: Status; dueDate?: string }) => void;
+  onEditLog?: (logId: string, taskId: string, content: string, date: string) => void;
+  onDeleteLog?: (logId: string) => void;
   initialTaskId?: string;
   offDays?: string[];
   onToggleOffDay?: (date: string) => void;
@@ -134,11 +136,16 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps
   );
 };
 
-const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUpdateTask, offDays = [], onToggleOffDay }) => {
+const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUpdateTask, onEditLog, onDeleteLog, offDays = [], onToggleOffDay }) => {
   const [entryDate, setEntryDate] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [quickLog, setQuickLog] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
   const [viewRange, setViewRange] = useState({ start: getStartOfWeek(new Date()), end: getEndOfWeek(new Date()) });
+  
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
+  const [editLogContent, setEditLogContent] = useState('');
+  const [editLogTaskId, setEditLogTaskId] = useState('');
+  const [editLogDate, setEditLogDate] = useState('');
 
   const filteredLogs = logs.filter(l => l.date >= viewRange.start && l.date <= viewRange.end);
   const logsByDate: Record<string, DailyLog[]> = {};
@@ -155,6 +162,27 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
       setQuickLog('');
   };
 
+  const startEditLog = (log: DailyLog) => {
+    setEditingLogId(log.id);
+    setEditLogContent(log.content);
+    setEditLogTaskId(log.taskId);
+    setEditLogDate(log.date);
+  };
+
+  const cancelEditLog = () => {
+    setEditingLogId(null);
+    setEditLogContent('');
+    setEditLogTaskId('');
+    setEditLogDate('');
+  };
+
+  const saveEditLog = () => {
+    if (editingLogId && onEditLog) {
+      onEditLog(editingLogId, editLogTaskId, editLogContent, editLogDate);
+      setEditingLogId(null);
+    }
+  };
+
   return (
     <div className="space-y-6 h-full flex flex-col">
       <div className="flex flex-col gap-2">
@@ -167,10 +195,10 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
       <div className="space-y-4">
         <MiniCalendar selectedDate={entryDate} onSelectDate={setEntryDate} offDays={offDays} />
         
-        {/* Quick Log Form */}
+        {/* Today's Task Field */}
         <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 shadow-sm space-y-3">
             <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-widest flex items-center gap-2">
-                <PlusCircle size={14}/> Log Work for {entryDate}
+                <PlusCircle size={14}/> Today's Task for {entryDate}
             </h4>
             <form onSubmit={handleAddQuickLog} className="space-y-2">
                 <select 
@@ -178,22 +206,22 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
                     onChange={(e) => setSelectedTaskId(e.target.value)}
                     className="w-full text-xs p-2 border border-indigo-200 rounded-lg outline-none bg-white focus:ring-2 focus:ring-indigo-200"
                 >
-                    <option value="">Select task...</option>
+                    <option value="">Link to task...</option>
                     {tasks.filter(t => t.status !== Status.ARCHIVED).map(t => (
                         <option key={t.id} value={t.id}>{t.displayId} - {t.description.substring(0, 40)}...</option>
                     ))}
                 </select>
                 <textarea 
-                    placeholder="What did you achieve today?"
+                    placeholder="Log work or achievements..."
                     value={quickLog}
                     onChange={(e) => setQuickLog(e.target.value)}
-                    rows={2}
-                    className="w-full text-xs p-2 border border-indigo-200 rounded-lg outline-none bg-white focus:ring-2 focus:ring-indigo-200 resize-none"
+                    rows={3}
+                    className="w-full text-sm p-3 border border-indigo-200 rounded-xl outline-none bg-white focus:ring-2 focus:ring-indigo-100 resize-none transition-all"
                 />
                 <button 
                     type="submit" 
                     disabled={!quickLog.trim() || !selectedTaskId}
-                    className="w-full bg-indigo-600 text-white py-1.5 rounded-lg text-xs font-bold shadow-md shadow-indigo-100 disabled:opacity-50"
+                    className="w-full bg-indigo-600 text-white py-2 rounded-lg text-xs font-bold shadow-md shadow-indigo-100 disabled:opacity-50 hover:bg-indigo-700 transition-colors"
                 >
                     Add to Journal
                 </button>
@@ -259,12 +287,35 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
                     <div className="relative border-l-2 border-indigo-100 ml-3 space-y-4 py-1 pb-4">
                         {logsByDate[date].slice().reverse().map((log) => {
                         const task = tasks.find(t => t.id === log.taskId);
+                        const isEditing = editingLogId === log.id;
                         return (
                             <div key={log.id} className="relative pl-6 group">
                             <div className="absolute -left-[7px] top-3 w-3 h-3 rounded-full bg-white border-2 border-slate-300 group-hover:border-indigo-500 transition-colors"></div>
-                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 mb-1">{task?.displayId || 'Unknown'}</span>
-                                <p className="text-slate-700 text-xs leading-relaxed whitespace-pre-wrap">{log.content}</p>
+                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative">
+                                {isEditing ? (
+                                    <div className="space-y-2">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <select value={editLogTaskId} onChange={e => setEditLogTaskId(e.target.value)} className="text-[10px] p-1 border rounded bg-slate-50 outline-none">
+                                                {tasks.map(t => <option key={t.id} value={t.id}>{t.displayId}</option>)}
+                                            </select>
+                                            <input type="date" value={editLogDate} onChange={e => setEditLogDate(e.target.value)} className="text-[10px] p-1 border rounded bg-slate-50 outline-none" />
+                                        </div>
+                                        <textarea value={editLogContent} onChange={e => setEditLogContent(e.target.value)} rows={2} className="w-full text-xs p-2 border rounded bg-slate-50 outline-none resize-none" />
+                                        <div className="flex justify-end gap-2">
+                                            <button onClick={saveEditLog} className="p-1 bg-emerald-600 text-white rounded"><Check size={12} /></button>
+                                            <button onClick={cancelEditLog} className="p-1 bg-slate-200 text-slate-600 rounded"><X size={12} /></button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 mb-1">{task?.displayId || 'Unknown'}</span>
+                                        <p className="text-slate-700 text-xs leading-relaxed whitespace-pre-wrap">{log.content}</p>
+                                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => startEditLog(log)} className="p-1 text-slate-400 hover:text-indigo-600"><Edit2 size={12} /></button>
+                                            {onDeleteLog && <button onClick={() => onDeleteLog(log.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={12} /></button>}
+                                        </div>
+                                    </>
+                                )}
                             </div>
                             </div>
                         );
