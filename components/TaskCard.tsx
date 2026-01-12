@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Task, Status, Priority, TaskAttachment } from '../types';
-import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save, Paperclip, File, Download as DownloadIcon } from 'lucide-react';
+import { Task, Status, Priority, TaskAttachment, TaskUpdate } from '../types';
+import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save, Paperclip, File, Download as DownloadIcon, Palette } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TaskCardProps {
@@ -8,8 +8,8 @@ interface TaskCardProps {
   onUpdateStatus: (id: string, status: string) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
-  onAddUpdate: (id: string, content: string, attachments?: TaskAttachment[]) => void;
-  onEditUpdate?: (taskId: string, updateId: string, newContent: string, newTimestamp?: string) => void;
+  onAddUpdate: (id: string, content: string, attachments?: TaskAttachment[], highlightColor?: string) => void;
+  onEditUpdate?: (taskId: string, updateId: string, newContent: string, newTimestamp?: string, highlightColor?: string) => void;
   onDeleteUpdate?: (taskId: string, updateId: string) => void;
   allowDelete?: boolean;
   isReadOnly?: boolean;
@@ -20,6 +20,7 @@ interface TaskCardProps {
   availableStatuses?: string[];
   availablePriorities?: string[];
   isDailyView?: boolean;
+  itemColors?: Record<string, string>;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ 
@@ -38,11 +39,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
   autoExpand = false,
   availableStatuses = Object.values(Status),
   availablePriorities = Object.values(Priority),
-  isDailyView = false
+  isDailyView = false,
+  itemColors = {}
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [newUpdate, setNewUpdate] = useState('');
   const [pendingAttachments, setPendingAttachments] = useState<TaskAttachment[]>([]);
+  const [selectedHighlight, setSelectedHighlight] = useState<string>('');
+  
   const cardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const taskFileInputRef = useRef<HTMLInputElement>(null);
@@ -50,6 +54,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
   const [editUpdateContent, setEditUpdateContent] = useState('');
   const [editUpdateDate, setEditUpdateDate] = useState('');
+  const [editHighlight, setEditHighlight] = useState('');
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState('');
@@ -63,20 +68,28 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   }, [autoExpand]);
 
-  const getPriorityColor = (p: string) => {
-    if (p === Priority.HIGH) return 'bg-red-100 text-red-800 border-red-200';
-    if (p === Priority.MEDIUM) return 'bg-amber-100 text-amber-800 border-amber-200';
-    if (p === Priority.LOW) return 'bg-green-100 text-green-800 border-green-200';
-    return 'bg-slate-100 text-slate-800 border-slate-200';
+  const getPriorityStyle = (p: string) => {
+    const customColor = itemColors[p];
+    if (customColor) {
+      return { backgroundColor: `${customColor}20`, color: customColor, borderColor: `${customColor}40` };
+    }
+    if (p === Priority.HIGH) return { backgroundColor: '#fee2e2', color: '#991b1b', borderColor: '#fecaca' };
+    if (p === Priority.MEDIUM) return { backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fde68a' };
+    if (p === Priority.LOW) return { backgroundColor: '#dcfce7', color: '#166534', borderColor: '#bbf7d0' };
+    return { backgroundColor: '#f1f5f9', color: '#1e293b', borderColor: '#e2e8f0' };
   };
 
-  const getStatusColor = (s: string) => {
-    if (s === Status.DONE) return 'bg-emerald-500 text-white';
-    if (s === Status.IN_PROGRESS) return 'bg-blue-500 text-white';
-    if (s === Status.NOT_STARTED) return 'bg-slate-200 text-slate-600';
-    if (s === Status.WAITING) return 'bg-amber-400 text-white';
-    if (s === Status.ARCHIVED) return 'bg-slate-500 text-white';
-    return 'bg-slate-200 text-slate-600';
+  const getStatusStyle = (s: string) => {
+    const customColor = itemColors[s];
+    if (customColor) {
+      return { backgroundColor: customColor, color: '#fff' };
+    }
+    if (s === Status.DONE) return { backgroundColor: '#10b981', color: '#fff' };
+    if (s === Status.IN_PROGRESS) return { backgroundColor: '#3b82f6', color: '#fff' };
+    if (s === Status.NOT_STARTED) return { backgroundColor: '#e2e8f0', color: '#475569' };
+    if (s === Status.WAITING) return { backgroundColor: '#fbbf24', color: '#fff' };
+    if (s === Status.ARCHIVED) return { backgroundColor: '#64748b', color: '#fff' };
+    return { backgroundColor: '#e2e8f0', color: '#475569' };
   };
 
   const formatDate = (dateStr: string) => {
@@ -149,16 +162,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const handleSubmitUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     if (newUpdate.trim() || pendingAttachments.length > 0) {
-      onAddUpdate(task.id, newUpdate, pendingAttachments.length > 0 ? pendingAttachments : undefined);
+      onAddUpdate(task.id, newUpdate, pendingAttachments.length > 0 ? pendingAttachments : undefined, selectedHighlight || undefined);
       setNewUpdate('');
       setPendingAttachments([]);
+      setSelectedHighlight('');
     }
   };
 
-  const startEditingUpdate = (update: { id: string, content: string, timestamp: string }) => {
+  const startEditingUpdate = (update: TaskUpdate) => {
     if (isReadOnly) return;
     setEditingUpdateId(update.id);
     setEditUpdateContent(update.content);
+    setEditHighlight(update.highlightColor || '');
     
     const d = new Date(update.timestamp);
     const year = d.getFullYear();
@@ -171,6 +186,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     setEditingUpdateId(null);
     setEditUpdateContent('');
     setEditUpdateDate('');
+    setEditHighlight('');
   };
 
   const saveEditedUpdate = (updateId: string) => {
@@ -180,7 +196,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
          newTimestamp = new Date(`${editUpdateDate}T12:00:00`).toISOString();
       }
 
-      onEditUpdate(task.id, updateId, editUpdateContent.trim(), newTimestamp);
+      onEditUpdate(task.id, updateId, editUpdateContent.trim(), newTimestamp, editHighlight || undefined);
       setEditingUpdateId(null);
     }
   };
@@ -266,7 +282,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
              ) : (
                 <span 
                   onClick={() => handleFieldClick('priority', task.priority)}
-                  className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(task.priority)} font-medium cursor-pointer hover:brightness-95 transition-all`}
+                  style={getPriorityStyle(task.priority)}
+                  className="text-xs px-2 py-1 rounded-full border font-medium cursor-pointer hover:brightness-95 transition-all"
                 >
                   {task.priority}
                 </span>
@@ -394,14 +411,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
           </div>
 
           {!canChangeStatus ? (
-             <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${getStatusColor(task.status)}`}>
+             <span 
+              style={getStatusStyle(task.status)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-full"
+             >
                {task.status}
              </span>
           ) : (
             <select
               value={task.status}
               onChange={(e) => onUpdateStatus(task.id, e.target.value)}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-full cursor-pointer border-none outline-none ring-0 ${getStatusColor(task.status)} hover:opacity-90 transition-opacity`}
+              style={getStatusStyle(task.status)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-full cursor-pointer border-none outline-none ring-0 hover:opacity-90 transition-opacity"
             >
               {availableStatuses.map((s) => (
                 <option key={s} value={s} className="bg-white text-slate-800">
@@ -425,7 +446,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         {isExpanded && (
           <div className="px-5 pb-5 bg-slate-50">
             {!isReadOnly && (
-              <div className="pt-4 space-y-2">
+              <div className="pt-4 space-y-3">
                 <form onSubmit={handleSubmitUpdate}>
                     <div className="relative">
                     <input
@@ -433,10 +454,31 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         placeholder="Log a quick update..."
                         value={newUpdate}
                         onChange={(e) => setNewUpdate(e.target.value)}
-                        className="w-full pl-4 pr-20 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                        className="w-full pl-4 pr-24 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
                         autoFocus={autoExpand}
                     />
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                        <div className="flex gap-1">
+                          {Object.entries(itemColors).slice(0, 4).map(([name, color]) => (
+                            <button
+                              key={name}
+                              type="button"
+                              onClick={() => setSelectedHighlight(color)}
+                              className={`w-4 h-4 rounded-full border-2 transition-transform hover:scale-110 ${selectedHighlight === color ? 'border-indigo-600' : 'border-white'}`}
+                              style={{ backgroundColor: color }}
+                              title={`Highlight as ${name}`}
+                            />
+                          ))}
+                          {selectedHighlight && (
+                            <button 
+                              type="button" 
+                              onClick={() => setSelectedHighlight('')}
+                              className="text-[8px] font-bold text-slate-400 hover:text-slate-600"
+                            >
+                              CLEAR
+                            </button>
+                          )}
+                        </div>
                         <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
@@ -500,35 +542,53 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   
                   <div className="flex-grow">
                     {editingUpdateId === update.id ? (
-                      <div className="flex gap-2 items-center">
-                        <input
-                          type="text"
-                          value={editUpdateContent}
-                          onChange={(e) => setEditUpdateContent(e.target.value)}
-                          className="flex-grow p-2 text-xs border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') saveEditedUpdate(update.id);
-                            if (e.key === 'Escape') cancelEditingUpdate();
-                          }}
-                        />
-                        <button 
-                          onClick={() => saveEditedUpdate(update.id)}
-                          className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
-                        >
-                          <Save size={14} />
-                        </button>
-                        <button 
-                          onClick={cancelEditingUpdate}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded"
-                        >
-                          <X size={14} />
-                        </button>
+                      <div className="space-y-2">
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            value={editUpdateContent}
+                            onChange={(e) => setEditUpdateContent(e.target.value)}
+                            className="flex-grow p-2 text-xs border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') saveEditedUpdate(update.id);
+                              if (e.key === 'Escape') cancelEditingUpdate();
+                            }}
+                          />
+                          <button 
+                            onClick={() => saveEditedUpdate(update.id)}
+                            className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
+                          >
+                            <Save size={14} />
+                          </button>
+                          <button 
+                            onClick={cancelEditingUpdate}
+                            className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                        <div className="flex gap-1.5 items-center">
+                           <span className="text-[9px] font-bold text-slate-400 uppercase">Highlight:</span>
+                           {Object.values(itemColors).map((color, i) => (
+                              <button 
+                                key={i}
+                                type="button"
+                                onClick={() => setEditHighlight(color)}
+                                className={`w-3.5 h-3.5 rounded-full border ${editHighlight === color ? 'ring-1 ring-indigo-500' : 'border-slate-200'}`}
+                                style={{ backgroundColor: color }}
+                              />
+                           ))}
+                           <button onClick={() => setEditHighlight('')} className="text-[9px] text-slate-400 hover:underline ml-1">None</button>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <div className="relative">
-                            <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-14">
+                            <div 
+                              className={`p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-14 transition-colors`}
+                              style={update.highlightColor ? { borderLeft: `4px solid ${update.highlightColor}`, backgroundColor: `${update.highlightColor}05` } : {}}
+                            >
                             {update.content}
                             </div>
                             {!isReadOnly && (

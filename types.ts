@@ -23,13 +23,9 @@ export interface AppConfig {
   taskStatuses: string[];
   taskPriorities: string[];
   observationStatuses: string[];
-  // Labels and Colors for the groups themselves
+  // Mapping of item name (e.g. "High") to hex color
+  itemColors?: Record<string, string>;
   groupLabels?: {
-    statuses: string;
-    priorities: string;
-    observations: string;
-  };
-  groupColors?: {
     statuses: string;
     priorities: string;
     observations: string;
@@ -48,6 +44,7 @@ export interface TaskUpdate {
   timestamp: string; // ISO String
   content: string;
   attachments?: TaskAttachment[];
+  highlightColor?: string; // Color to highlight the update card
 }
 
 export interface Task {
@@ -57,8 +54,8 @@ export interface Task {
   projectId: string; // New Project ID field
   description: string;
   dueDate: string; // YYYY-MM-DD
-  status: string; // Changed from enum to string to support dynamic
-  priority: string; // Changed from enum to string to support dynamic
+  status: string; 
+  priority: string;
   updates: TaskUpdate[]; // Historical updates/comments
   createdAt: string;
   attachments?: TaskAttachment[]; // Global task attachments
@@ -75,7 +72,7 @@ export interface Observation {
   id: string;
   timestamp: string;
   content: string;
-  status: string; // Changed from enum to string
+  status: string;
   images?: string[];
 }
 

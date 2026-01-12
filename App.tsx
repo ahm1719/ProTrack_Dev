@@ -44,21 +44,26 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.0.9";
+const BUILD_VERSION = "V2.1.0";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
   taskPriorities: Object.values(Priority),
   observationStatuses: Object.values(ObservationStatus),
+  itemColors: {
+    [Priority.HIGH]: '#ef4444',
+    [Priority.MEDIUM]: '#f59e0b',
+    [Priority.LOW]: '#10b981',
+    [Status.DONE]: '#10b981',
+    [Status.IN_PROGRESS]: '#3b82f6',
+    [Status.WAITING]: '#f59e0b',
+    [Status.NOT_STARTED]: '#94a3b8',
+    [Status.ARCHIVED]: '#64748b'
+  },
   groupLabels: {
     statuses: "Task Statuses",
     priorities: "Priorities",
     observations: "Observation Groups"
-  },
-  groupColors: {
-    statuses: "#6366f1",
-    priorities: "#f59e0b",
-    observations: "#8b5cf6"
   }
 };
 
@@ -217,20 +222,20 @@ const App: React.FC = () => {
     persistData(updated, logs, observations, offDays);
   };
 
-  const addUpdateToTask = (id: string, content: string, attachments?: TaskAttachment[]) => {
+  const addUpdateToTask = (id: string, content: string, attachments?: TaskAttachment[], highlightColor?: string) => {
     const timestamp = new Date().toISOString();
     const updateId = uuidv4();
-    const updated = tasks.map(t => t.id === id ? { ...t, updates: [...t.updates, { id: updateId, timestamp, content, attachments }] } : t);
+    const updated = tasks.map(t => t.id === id ? { ...t, updates: [...t.updates, { id: updateId, timestamp, content, attachments, highlightColor }] } : t);
     const newLog: DailyLog = { id: uuidv4(), date: new Date().toLocaleDateString('en-CA'), taskId: id, content };
     persistData(updated, [...logs, newLog], observations, offDays);
   };
 
-  const handleEditUpdate = (taskId: string, updateId: string, content: string, timestamp?: string) => {
+  const handleEditUpdate = (taskId: string, updateId: string, content: string, timestamp?: string, highlightColor?: string) => {
     const newTasks = tasks.map(t => {
       if (t.id === taskId) {
         return {
           ...t,
-          updates: t.updates.map(u => u.id === updateId ? { ...u, content, timestamp: timestamp || u.timestamp } : u)
+          updates: t.updates.map(u => u.id === updateId ? { ...u, content, highlightColor, timestamp: timestamp || u.timestamp } : u)
         };
       }
       return t;
@@ -323,17 +328,21 @@ const App: React.FC = () => {
   }, [tasks, searchQuery, activeTaskTab]);
 
   const getStatusColorMini = (s: string) => {
+    const customColor = appConfig.itemColors?.[s];
+    if (customColor) {
+      return { backgroundColor: `${customColor}10`, borderColor: `${customColor}30`, color: customColor };
+    }
     switch (s) {
       case Status.DONE:
-        return 'bg-emerald-50 border-emerald-200 text-emerald-700';
+        return { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', color: '#15803d' };
       case Status.IN_PROGRESS:
-        return 'bg-blue-50 border-blue-200 text-blue-700';
+        return { backgroundColor: '#eff6ff', borderColor: '#bfdbfe', color: '#1d4ed8' };
       case Status.WAITING:
-        return 'bg-amber-50 border-amber-200 text-amber-700';
+        return { backgroundColor: '#fffbeb', borderColor: '#fde68a', color: '#b45309' };
       case Status.ARCHIVED:
-        return 'bg-slate-100 border-slate-200 text-slate-400 opacity-75';
+        return { backgroundColor: '#f8fafc', borderColor: '#e2e8f0', color: '#94a3b8' };
       default:
-        return 'bg-white border-slate-100 text-slate-600';
+        return { backgroundColor: '#ffffff', borderColor: '#f1f5f9', color: '#475569' };
     }
   };
 
@@ -389,7 +398,10 @@ const App: React.FC = () => {
                             <div className="flex items-end justify-between mt-2">
                                 <span className="text-3xl font-black text-slate-800">{s.count}</span>
                                 <div className="p-1 bg-white rounded border border-slate-100 shadow-xs">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-indigo-400" />
+                                    <div 
+                                      className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-indigo-400" 
+                                      style={{ backgroundColor: appConfig.itemColors?.[s.label] }}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -403,7 +415,7 @@ const App: React.FC = () => {
                         <AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})
                     </h3>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        {overdueTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} onDelete={deleteTask} onAddUpdate={addUpdateToTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} />)}
+                        {overdueTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} onDelete={deleteTask} onAddUpdate={addUpdateToTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} itemColors={appConfig.itemColors} />)}
                     </div>
                 </div>
              )}
@@ -431,11 +443,14 @@ const App: React.FC = () => {
                             {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
                         </div>
                         <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                            {weekTasks[d]?.length ? weekTasks[d].map(t => (
+                            {weekTasks[d]?.length ? weekTasks[d].map(t => {
+                                const style = getStatusColorMini(t.status);
+                                return (
                                 <div 
                                   key={t.id} 
                                   onClick={() => setHighlightedTaskId(t.id)} 
-                                  className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${getStatusColorMini(t.status)}`}
+                                  style={style}
+                                  className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group`}
                                 >
                                     <div className="flex justify-between items-center mb-1">
                                       <span className="font-mono font-bold">{t.displayId}</span>
@@ -444,7 +459,7 @@ const App: React.FC = () => {
                                     </div>
                                     <p className={`line-clamp-2 leading-tight ${t.status === Status.DONE ? 'line-through opacity-60' : ''}`}>{t.description}</p>
                                 </div>
-                            )) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 italic">No deadlines</div>}
+                            )}) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 italic">No deadlines</div>}
                         </div>
                     </div>
                 ))}
@@ -461,7 +476,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} isDailyView={true} />)}
+                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} isDailyView={true} itemColors={appConfig.itemColors} />)}
                         </div>
                         {filteredTasks.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-20 text-slate-300 opacity-50">
