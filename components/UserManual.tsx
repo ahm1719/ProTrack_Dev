@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, ListTodo, BookOpen, Sparkles, Download, Save, Server, Globe, Database, GitBranch, Smartphone, Wifi, AlertTriangle, CheckCircle2, XCircle, FileJson } from 'lucide-react';
+import { LayoutDashboard, ListTodo, BookOpen, Sparkles, Download, Save, Server, Globe, Database, GitBranch, Smartphone, Wifi, AlertTriangle, CheckCircle2, XCircle, FileJson, HardDrive } from 'lucide-react';
 
 const UserManual: React.FC = () => {
   return (
@@ -255,7 +255,54 @@ const UserManual: React.FC = () => {
           </div>
         </section>
 
-        {/* Section 6: System Architecture */}
+        {/* Section 6: Resource Health */}
+        <section className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm border-l-4 border-l-rose-500">
+          <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <HardDrive className="text-rose-500" />
+            Resource Health & Storage Limits
+          </h2>
+          <div className="space-y-4 text-slate-600 leading-relaxed text-sm">
+            <p>
+              To ensure fast and free cloud synchronization, ProTrack AI operates within specific data limits. 
+              The <strong>Resource Health</strong> monitor in the Settings page helps you track your usage.
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-6 mt-4">
+                <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                    <h3 className="font-bold text-slate-800 mb-3 border-b border-slate-200 pb-2">Reading the Bars</h3>
+                    <ul className="list-disc pl-5 space-y-2">
+                        <li><strong>Tasks Buffer:</strong> The storage space consumed by your task definitions, descriptions, and metadata.</li>
+                        <li><strong>Logs Buffer:</strong> The space used by your daily journal entries and text history.</li>
+                        <li><strong>Observations Buffer:</strong> The space taken by Kanban cards and—most importantly—attached images.</li>
+                    </ul>
+                </div>
+
+                <div className="bg-slate-50 p-5 rounded-xl border border-slate-200">
+                    <h3 className="font-bold text-slate-800 mb-3 border-b border-slate-200 pb-2">Status Colors</h3>
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-indigo-500 shrink-0"></div>
+                            <span><strong>Healthy (Indigo):</strong> Usage is well within limits. Sync operates normally.</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-red-500 shrink-0"></div>
+                            <span><strong>Critical (Red):</strong> Usage is over 85%. Cloud sync may fail if the limit (1MB) is reached.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="bg-rose-50 p-4 rounded-lg text-rose-800 text-xs mt-2 border border-rose-100">
+                <strong>How to free up space?</strong>
+                <ul className="list-disc pl-5 mt-1 space-y-1">
+                    <li>Use the <strong>Purge Inactive</strong> button in Settings to delete "Done" and "Archived" tasks permanently.</li>
+                    <li>Delete old images from the "Resolved" column in Observations. Images take up the most space.</li>
+                </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 7: System Architecture */}
         <section className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
           <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
             <Server className="text-indigo-600" />
