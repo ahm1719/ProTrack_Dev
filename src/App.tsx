@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
@@ -30,7 +31,8 @@ import {
   Status, 
   ObservationStatus, 
   ViewMode, 
-  FirebaseConfig 
+  FirebaseConfig,
+  TaskAttachment
 } from './types';
 
 import TaskCard from './components/TaskCard';
@@ -43,12 +45,22 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.0.6";
+const BUILD_VERSION = "V2.0.8";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
   taskPriorities: Object.values(Priority),
-  observationStatuses: Object.values(ObservationStatus)
+  observationStatuses: Object.values(ObservationStatus),
+  groupLabels: {
+    statuses: "Task Statuses",
+    priorities: "Priorities",
+    observations: "Observation Groups"
+  },
+  groupColors: {
+    statuses: "#6366f1", // indigo-500
+    priorities: "#f59e0b", // amber-500
+    observations: "#8b5cf6" // violet-500
+  }
 };
 
 const getWeekNumber = (d: Date): number => {
@@ -95,7 +107,10 @@ const App: React.FC = () => {
     const savedConfig = localStorage.getItem('protrack_firebase_config');
     const localAppConfig = localStorage.getItem('protrack_app_config');
     
-    if (localAppConfig) setAppConfig(JSON.parse(localAppConfig));
+    if (localAppConfig) {
+      const parsed = JSON.parse(localAppConfig);
+      setAppConfig({ ...DEFAULT_CONFIG, ...parsed });
+    }
 
     const localData = localStorage.getItem('protrack_data');
     if (localData) {
@@ -203,16 +218,15 @@ const App: React.FC = () => {
     persistData(updated, logs, observations, offDays);
   };
 
-  const addUpdateToTask = (id: string, content: string) => {
+  const addUpdateToTask = (id: string, content: string, attachments?: TaskAttachment[]) => {
     const timestamp = new Date().toISOString();
     const updateId = uuidv4();
-    const updated = tasks.map(t => t.id === id ? { ...t, updates: [...t.updates, { id: updateId, timestamp, content }] } : t);
+    const updated = tasks.map(t => t.id === id ? { ...t, updates: [...t.updates, { id: updateId, timestamp, content, attachments }] } : t);
     const newLog: DailyLog = { id: uuidv4(), date: new Date().toLocaleDateString('en-CA'), taskId: id, content };
     persistData(updated, [...logs, newLog], observations, offDays);
   };
 
   const handleEditUpdate = (taskId: string, updateId: string, content: string, timestamp?: string) => {
-    // 1. Update task history
     const newTasks = tasks.map(t => {
       if (t.id === taskId) {
         return {
@@ -223,12 +237,8 @@ const App: React.FC = () => {
       return t;
     });
 
-    // 2. Try to update the associated daily log if it exists (by content and taskId match)
-    // Note: This is an approximation since IDs aren't synced between the two systems perfectly.
-    // In a real DB they would share an ID.
     const newLogs = logs.map(l => {
       if (l.taskId === taskId) {
-        // Find if this log matches the original update content (crude but effective for single users)
         const originalTask = tasks.find(t => t.id === taskId);
         const originalUpdate = originalTask?.updates.find(u => u.id === updateId);
         if (l.content === originalUpdate?.content) {
@@ -394,7 +404,7 @@ const App: React.FC = () => {
                         <AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})
                     </h3>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        {overdueTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} />)}
+                        {overdueTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} onDelete={deleteTask} onAddUpdate={addUpdateToTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} />)}
                     </div>
                 </div>
              )}
@@ -452,7 +462,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} />)}
+                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} isDailyView={true} />)}
                         </div>
                         {filteredTasks.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-20 text-slate-300 opacity-50">

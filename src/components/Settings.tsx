@@ -1,7 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-/* Added AlertTriangle to imports */
-import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle } from 'lucide-react';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status } from '../types';
 import { initFirebase } from '../services/firebaseService';
 
@@ -32,10 +31,20 @@ const formatBytes = (bytes: number) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const ListEditor = ({ title, items, onUpdate, placeholder }: { title: string, items: string[], onUpdate: (items: string[]) => void, placeholder: string }) => {
+const ListEditor = ({ title, color, items, onUpdate, onRenameTitle, onUpdateColor, placeholder }: { 
+    title: string, 
+    color?: string,
+    items: string[], 
+    onUpdate: (items: string[]) => void, 
+    onRenameTitle?: (newTitle: string) => void, 
+    onUpdateColor?: (newColor: string) => void,
+    placeholder: string 
+}) => {
     const [newItem, setNewItem] = useState('');
     const [editingIdx, setEditingIdx] = useState<number | null>(null);
     const [editValue, setEditValue] = useState('');
+    const [isRenamingTitle, setIsRenamingTitle] = useState(false);
+    const [tempTitle, setTempTitle] = useState(title);
 
     const handleAdd = () => {
         if (newItem.trim() && !items.includes(newItem.trim())) {
@@ -53,9 +62,51 @@ const ListEditor = ({ title, items, onUpdate, placeholder }: { title: string, it
         setEditingIdx(null);
     };
 
+    const handleTitleSave = () => {
+        if (tempTitle.trim() && onRenameTitle) {
+            onRenameTitle(tempTitle.trim());
+        }
+        setIsRenamingTitle(false);
+    };
+
     return (
         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 h-full">
-            <h4 className="font-bold text-slate-700 text-[10px] uppercase mb-3 tracking-widest">{title}</h4>
+            <div className="mb-3 flex items-center justify-between">
+                <div className="flex-1 flex items-center gap-2">
+                    {onUpdateColor && (
+                        <div className="relative group/picker">
+                            <div 
+                                className="w-4 h-4 rounded-full border border-white shadow-sm cursor-pointer"
+                                style={{ backgroundColor: color || '#6366f1' }}
+                            />
+                            <input 
+                                type="color" 
+                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                value={color || '#6366f1'}
+                                onChange={(e) => onUpdateColor(e.target.value)}
+                            />
+                        </div>
+                    )}
+                    {isRenamingTitle ? (
+                        <input 
+                            autoFocus
+                            className="bg-white border border-indigo-300 rounded px-2 py-0.5 outline-none font-bold text-slate-700 text-[10px] uppercase tracking-widest w-full"
+                            value={tempTitle}
+                            onChange={e => setTempTitle(e.target.value)}
+                            onBlur={handleTitleSave}
+                            onKeyDown={e => e.key === 'Enter' && handleTitleSave()}
+                        />
+                    ) : (
+                        <h4 
+                            onDoubleClick={() => setIsRenamingTitle(true)}
+                            className="font-bold text-slate-700 text-[10px] uppercase tracking-widest cursor-pointer hover:text-indigo-600 flex items-center gap-2 group/title"
+                        >
+                            {title}
+                            <Edit2 size={10} className="opacity-0 group-hover/title:opacity-100" />
+                        </h4>
+                    )}
+                </div>
+            </div>
             <div className="flex flex-wrap gap-2 mb-4 min-h-[40px]">
                 {items.map((item, idx) => (
                     <div key={idx} className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 shadow-sm group">
@@ -115,13 +166,10 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [configJson, setConfigJson] = useState('');
-  const [reportInstruction, setReportInstruction] = useState('');
 
   useEffect(() => {
     const savedKey = localStorage.getItem('protrack_gemini_key');
     if (savedKey) setGeminiKey(savedKey);
-    const savedInstruction = localStorage.getItem('protrack_report_instruction');
-    if (savedInstruction) setReportInstruction(savedInstruction);
     const savedConfig = localStorage.getItem('protrack_firebase_config');
     if (savedConfig) setConfigJson(JSON.stringify(JSON.parse(savedConfig), null, 2));
   }, []);
@@ -155,13 +203,37 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
               <List className="text-indigo-600" />
               <div>
                   <h2 className="text-lg font-bold text-slate-800">Classifications & Lists</h2>
-                  <p className="text-xs text-slate-500">Double-click an item to rename it.</p>
+                  <p className="text-xs text-slate-500">Double-click headers to rename. Use the color dot to customize themes.</p>
               </div>
           </div>
           <div className="p-6 grid md:grid-cols-3 gap-6">
-              <ListEditor title="Task Statuses" items={appConfig.taskStatuses} onUpdate={items => onUpdateConfig({...appConfig, taskStatuses: items})} placeholder="Add status..." />
-              <ListEditor title="Priorities" items={appConfig.taskPriorities} onUpdate={items => onUpdateConfig({...appConfig, taskPriorities: items})} placeholder="Add priority..." />
-              <ListEditor title="Observation Groups" items={appConfig.observationStatuses} onUpdate={items => onUpdateConfig({...appConfig, observationStatuses: items})} placeholder="Add group..." />
+              <ListEditor 
+                title={appConfig.groupLabels?.statuses || "Task Statuses"} 
+                color={appConfig.groupColors?.statuses}
+                items={appConfig.taskStatuses} 
+                onUpdate={items => onUpdateConfig({...appConfig, taskStatuses: items})} 
+                onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, statuses: newTitle }})}
+                onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, statuses: newColor }})}
+                placeholder="Add status..." 
+              />
+              <ListEditor 
+                title={appConfig.groupLabels?.priorities || "Priorities"} 
+                color={appConfig.groupColors?.priorities}
+                items={appConfig.taskPriorities} 
+                onUpdate={items => onUpdateConfig({...appConfig, taskPriorities: items})} 
+                onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, priorities: newTitle }})}
+                onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, priorities: newColor }})}
+                placeholder="Add priority..." 
+              />
+              <ListEditor 
+                title={appConfig.groupLabels?.observations || "Observation Groups"} 
+                color={appConfig.groupColors?.observations}
+                items={appConfig.observationStatuses} 
+                onUpdate={items => onUpdateConfig({...appConfig, observationStatuses: items})} 
+                onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, observations: newTitle }})}
+                onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, observations: newColor }})}
+                placeholder="Add group..." 
+              />
           </div>
       </section>
 
