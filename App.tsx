@@ -47,7 +47,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.3.2 (TIMELINE LINK)";
+const BUILD_VERSION = "V2.3.3 (OVERDUE FIX)";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -262,7 +262,31 @@ const App: React.FC = () => {
   
   const showObsMetrics = newObsCount > 0 || wipObsCount > 0 || resolvedObsCount > 0;
 
-  const handleSelectTask = (id: string) => { setHighlightedTaskId(id); setView(ViewMode.TASKS); };
+  const handleSelectTask = (id: string) => { 
+      const task = tasks.find(t => t.id === id);
+      if (task) {
+          const isDone = task.status === Status.DONE || task.status === Status.ARCHIVED;
+          if (isDone) {
+              setActiveTaskTab('completed');
+          } else {
+              // Calculate end of week to determine if future
+              const today = new Date();
+              const dayOfWeek = today.getDay();
+              const distanceToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+              const endOfWeek = new Date(today);
+              endOfWeek.setDate(today.getDate() + distanceToSunday);
+              const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
+              
+              if (task.dueDate && task.dueDate > endOfWeekStr) {
+                  setActiveTaskTab('future');
+              } else {
+                  setActiveTaskTab('current');
+              }
+          }
+      }
+      setHighlightedTaskId(id); 
+      setView(ViewMode.TASKS); 
+  };
 
   const getPriorityCardColor = (priority: string) => {
     const color = appConfig.itemColors?.[priority] || '#cbd5e1';
@@ -275,34 +299,8 @@ const App: React.FC = () => {
   const handleLogClick = (log: DailyLog) => {
     const task = tasks.find(t => t.id === log.taskId);
     if (!task) return;
-
-    // Determine which tab the task is currently in
-    const isDone = task.status === Status.DONE || task.status === Status.ARCHIVED;
-    let targetTab: 'current' | 'future' | 'completed' = 'current';
-
-    if (isDone) {
-       targetTab = 'completed';
-    } else {
-       const today = new Date();
-       const dayOfWeek = today.getDay();
-       const distanceToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-       const endOfWeek = new Date(today);
-       endOfWeek.setDate(today.getDate() + distanceToSunday);
-       const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
-       
-       if (task.dueDate && task.dueDate > endOfWeekStr) {
-          targetTab = 'future';
-       } else {
-          targetTab = 'current';
-       }
-    }
-
-    setActiveTaskTab(targetTab);
-    setHighlightedTaskId(task.id);
+    handleSelectTask(task.id);
     setHighlightedUpdateMatch(log.content);
-    
-    // Ensure we are in Tasks View
-    setView(ViewMode.TASKS);
   };
 
   const renderContent = () => {
@@ -475,6 +473,41 @@ const App: React.FC = () => {
                 <button onClick={() => setShowNewTaskModal(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold"><Plus size={20} /> New Task</button>
              </div>
 
+             {overdueTasks.length > 0 && (
+                <div className="shrink-0 space-y-3">
+                    <h3 className="text-red-700 font-bold flex items-center gap-2 text-xs uppercase tracking-wider pl-1">
+                        <AlertTriangle size={16} /> Action Required: {overdueTasks.length} Overdue
+                    </h3>
+                    <div className="flex gap-4 overflow-x-auto pb-2 snap-x custom-scrollbar">
+                        {overdueTasks.map(t => {
+                            const pColor = appConfig.itemColors?.[t.priority] || '#64748b';
+                            // No status color needed for card text, but nice for badges
+                            return (
+                                <div 
+                                    key={t.id} 
+                                    onClick={() => handleSelectTask(t.id)} 
+                                    className="min-w-[280px] w-[280px] snap-start bg-white border border-red-200 rounded-xl p-3 flex flex-col gap-2 cursor-pointer hover:border-red-400 hover:shadow-md transition-all group"
+                                >
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-mono text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">{t.displayId}</span>
+                                            <div className="h-3 w-px bg-slate-200"></div>
+                                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded" style={{ backgroundColor: `${pColor}10`, color: pColor, border: `1px solid ${pColor}30` }}>{t.priority}</span>
+                                        </div>
+                                        <ArrowRight size={14} className="text-slate-300 group-hover:text-red-500 transition-colors" />
+                                    </div>
+                                    <h4 className="text-xs font-bold text-slate-800 line-clamp-1 group-hover:text-red-600">{t.description}</h4>
+                                    <div className="mt-auto pt-2 border-t border-slate-50 flex justify-between items-center">
+                                        <span className="text-[10px] font-bold text-red-400 flex items-center gap-1"><Clock size={10} /> Due: {t.dueDate}</span>
+                                        <span className="text-[9px] font-medium text-slate-400 underline group-hover:text-indigo-600">Open</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+             )}
+
              <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-56">
                 {weekDays.map(d => (
                     <div key={d} className={`min-w-[280px] w-[280px] p-4 rounded-2xl border flex flex-col transition-all snap-start ${d === todayStr ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100 shadow-md scale-105 z-10' : 'bg-white border-slate-200 shadow-sm'}`}>
@@ -488,7 +521,7 @@ const App: React.FC = () => {
                                 return (
                                     <div 
                                       key={t.id} 
-                                      onClick={() => setHighlightedTaskId(t.id)} 
+                                      onClick={() => handleSelectTask(t.id)} 
                                       style={priorityStyle}
                                       className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${t.status === Status.DONE ? 'bg-emerald-50 opacity-60' : ''}`}
                                     >
