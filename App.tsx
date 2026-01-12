@@ -47,7 +47,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.3.4 (BACKUP FIX)";
+const BUILD_VERSION = "V2.3.4 (LATEST BASELINE)";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -76,6 +76,11 @@ const DEFAULT_CONFIG: AppConfig = {
     statuses: "Task Statuses",
     priorities: "Priorities",
     observations: "Observation Groups"
+  },
+  groupColors: {
+    statuses: "#6366f1",
+    priorities: "#f59e0b",
+    observations: "#8b5cf6"
   }
 };
 

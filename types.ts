@@ -38,6 +38,12 @@ export interface AppConfig {
     priorities: string;
     observations: string;
   };
+  // Added groupColors to fix the type error in App.tsx
+  groupColors?: {
+    statuses: string;
+    priorities: string;
+    observations: string;
+  };
 }
 
 export interface TaskAttachment {
