@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
@@ -45,7 +44,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.0.8";
+const BUILD_VERSION = "V2.0.9";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -57,9 +56,9 @@ const DEFAULT_CONFIG: AppConfig = {
     observations: "Observation Groups"
   },
   groupColors: {
-    statuses: "#6366f1", // indigo-500
-    priorities: "#f59e0b", // amber-500
-    observations: "#8b5cf6" // violet-500
+    statuses: "#6366f1",
+    priorities: "#f59e0b",
+    observations: "#8b5cf6"
   }
 };
 

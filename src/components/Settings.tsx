@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status } from '../types';
