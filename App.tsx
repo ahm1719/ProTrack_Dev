@@ -45,7 +45,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.1.6 (BASELINE)";
+const BUILD_VERSION = "V2.1.7 (FIXED)";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -218,8 +218,7 @@ const App: React.FC = () => {
     const q = searchQuery.toLowerCase();
     const base = tasks.filter(t => 
       t.description.toLowerCase().includes(q) || 
-      t.displayId.toLowerCase().includes(q) ||
-      t.updates.some(u => u.content.toLowerCase().includes(q))
+      t.displayId.toLowerCase().includes(q)
     );
     if (activeTaskTab === 'current') return base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
     return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
@@ -230,8 +229,8 @@ const App: React.FC = () => {
   const getPriorityCardColor = (priority: string) => {
     const color = appConfig.itemColors?.[priority] || '#cbd5e1';
     return {
-      backgroundColor: `${color}10`, // 10% opacity
-      borderColor: `${color}40`,     // 40% opacity
+      backgroundColor: `${color}10`, 
+      borderColor: `${color}40`,     
     };
   };
 
@@ -272,7 +271,6 @@ const App: React.FC = () => {
                     <h3 className="text-red-800 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {overdueTasks.map(t => {
-                            const lastUpdate = [...t.updates].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                             const pColor = appConfig.itemColors?.[t.priority] || '#64748b';
                             const sColor = appConfig.itemColors?.[t.status] || '#64748b';
                             return (
@@ -287,17 +285,6 @@ const App: React.FC = () => {
                                         <ArrowRight size={16} className="text-slate-300 group-hover:text-red-500 transition-colors" />
                                     </div>
                                     <h4 className="text-sm font-bold text-slate-800 line-clamp-1 group-hover:text-red-600">{t.description}</h4>
-                                    {lastUpdate ? (
-                                        <div 
-                                          className="p-2 rounded-lg border" 
-                                          style={lastUpdate.highlightColor ? { borderLeft: `4px solid ${lastUpdate.highlightColor}`, backgroundColor: `${lastUpdate.highlightColor}05`, borderColor: `${lastUpdate.highlightColor}20` } : { backgroundColor: '#f8fafc', borderColor: '#f1f5f9' }}
-                                        >
-                                            <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Latest Update</span>
-                                            <p className="text-xs text-slate-600 line-clamp-3 italic leading-relaxed whitespace-pre-wrap">"{lastUpdate.content}"</p>
-                                        </div>
-                                    ) : (
-                                        <div className="text-[10px] text-slate-400 italic">No updates recorded</div>
-                                    )}
                                     <div className="mt-auto pt-2 border-t border-slate-50 flex justify-between items-center">
                                         <span className="text-[10px] font-bold text-red-400 flex items-center gap-1"><Clock size={10} /> DDL: {t.dueDate}</span>
                                         <span className="text-[10px] font-medium text-slate-400 underline group-hover:text-indigo-600">Open in board</span>
@@ -318,23 +305,6 @@ const App: React.FC = () => {
                 <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Daily Tasks</h1>
                 <button onClick={() => setShowNewTaskModal(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold"><Plus size={20} /> New Task</button>
              </div>
-
-             {overdueTasks.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 animate-fade-in shrink-0">
-                    <h3 className="text-red-800 font-bold mb-3 flex items-center gap-2 text-xs uppercase tracking-widest"><AlertTriangle size={16} /> Attention: Late Items ({overdueTasks.length})</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                        {overdueTasks.map(t => (
-                            <div key={t.id} onClick={() => handleSelectTask(t.id)} className={`p-3 rounded-xl bg-white border border-red-100 shadow-sm cursor-pointer hover:ring-2 hover:ring-red-400 transition-all ${highlightedTaskId === t.id ? 'ring-2 ring-red-500' : ''}`}>
-                                <div className="flex justify-between items-start mb-1">
-                                    <span className="font-mono text-[10px] font-black text-red-600">{t.displayId}</span>
-                                    <span className="text-[9px] font-bold text-slate-400">{t.dueDate}</span>
-                                </div>
-                                <p className="text-xs text-slate-600 line-clamp-1 font-medium">{t.description}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-             )}
 
              <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-56">
                 {weekDays.map(d => (
@@ -380,40 +350,32 @@ const App: React.FC = () => {
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onUpdateTask={updateTaskFields} isDailyView={true} itemColors={appConfig.itemColors} updateHighlightOptions={appConfig.updateHighlightOptions} />)}
+                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} isDailyView={true} itemColors={appConfig.itemColors} />)}
                         </div>
                     </div>
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                        <DailyJournal tasks={tasks} logs={logs} onAddLog={(l) => {
-                          const logId = uuidv4();
-                          const timestamp = new Date(l.date).toISOString();
-                          const updatedTasks = tasks.map(t => t.id === l.taskId ? { ...t, updates: [...t.updates, { id: uuidv4(), timestamp, content: l.content }] } : t);
-                          persistData(updatedTasks, [...logs, { ...l, id: logId }], observations, offDays);
-                        }} onUpdateTask={updateTaskFields} offDays={offDays} onToggleOffDay={(d) => persistData(tasks, logs, observations, offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d])} onEditLog={(logId, taskId, content, date) => {
-                          const originalLog = logs.find(l => l.id === logId);
-                          if (!originalLog) return;
-                          const updatedTasks = tasks.map(t => {
-                            if (t.id === originalLog.taskId) {
-                              return { ...t, updates: t.updates.map(u => u.content === originalLog.content ? { ...u, content, timestamp: new Date(date).toISOString() } : u) };
-                            }
-                            return t;
-                          });
-                          const newLogs = logs.map(l => l.id === logId ? { ...l, taskId, content, date } : l);
-                          persistData(updatedTasks, newLogs, observations, offDays);
-                        }} onDeleteLog={(logId) => {
-                          if (!confirm('Delete this entry?')) return;
-                          const logToDelete = logs.find(l => l.id === logId);
-                          if (!logToDelete) return;
-                          const updatedTasks = tasks.map(t => {
-                            if (t.id === logToDelete.taskId) {
-                              return { ...t, updates: t.updates.filter(u => u.content !== logToDelete.content) };
-                            }
-                            return t;
-                          });
-                          persistData(updatedTasks, logs.filter(l => l.id !== logId), observations, offDays);
-                        }} searchQuery={searchQuery} />
+                        <DailyJournal 
+                            tasks={tasks} 
+                            logs={logs} 
+                            onAddLog={(l) => {
+                                persistData(tasks, [...logs, { ...l, id: uuidv4() }], observations, offDays);
+                            }} 
+                            onUpdateTask={updateTaskFields} 
+                            offDays={offDays} 
+                            onToggleOffDay={(d) => persistData(tasks, logs, observations, offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d])} 
+                            onEditLog={(logId: string, taskId: string, content: string, date: string) => {
+                                const newLogs = logs.map(l => l.id === logId ? { ...l, taskId, content, date } : l);
+                                persistData(tasks, newLogs, observations, offDays);
+                            }} 
+                            onDeleteLog={(logId: string) => {
+                                if (confirm('Delete this entry?')) {
+                                    persistData(tasks, logs.filter(l => l.id !== logId), observations, offDays);
+                                }
+                            }}
+                            searchQuery={searchQuery}
+                        />
                     </div>
                 </div>
              </div>
@@ -455,7 +417,7 @@ const App: React.FC = () => {
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <div className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
-           <div className="relative max-w-md w-full"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Search tasks, updates, projects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-lg text-sm outline-none" /></div>
+           <div className="relative max-w-md w-full"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Search tasks..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-lg text-sm outline-none" /></div>
            <div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isSyncEnabled ? 'Cloud Synced' : 'Local Only'}</span></div>
         </div>
         <div className="flex-1 overflow-auto p-6 bg-slate-50 custom-scrollbar">{renderContent()}</div>
