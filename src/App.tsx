@@ -42,7 +42,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V1.7";
+const BUILD_VERSION = "V1.8 (Active)";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -69,7 +69,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
-  const [activeTab, setActiveTab] = useState<'current' | 'completed'>('current');
+  const [activeTaskTab, setActiveTaskTab] = useState<'current' | 'completed'>('current');
   
   const [currentTime, setCurrentTime] = useState(new Date());
   const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
@@ -206,9 +206,9 @@ const App: React.FC = () => {
   const filteredTasks = useMemo(() => {
     const q = searchQuery.toLowerCase();
     const base = tasks.filter(t => t.description.toLowerCase().includes(q) || t.displayId.toLowerCase().includes(q));
-    if (activeTab === 'current') return base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
+    if (activeTaskTab === 'current') return base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
     return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
-  }, [tasks, searchQuery, activeTab]);
+  }, [tasks, searchQuery, activeTaskTab]);
 
   const renderContent = () => {
     switch (view) {
@@ -320,10 +320,10 @@ const App: React.FC = () => {
                 <div className="xl:col-span-2 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200 overflow-hidden">
                     <div className="bg-white p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex bg-slate-100 p-1 rounded-xl">
-                            <button onClick={() => setActiveTab('current')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'current' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Active Tasks</button>
-                            <button onClick={() => setActiveTab('completed')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'completed' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Archive & Done</button>
+                            <button onClick={() => setActiveTaskTab('current')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTaskTab === 'current' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Active Tasks</button>
+                            <button onClick={() => setActiveTaskTab('completed')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTaskTab === 'completed' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Archive & Done</button>
                         </div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">{filteredTasks.length} {activeTab} ITEMS</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">{filteredTasks.length} {activeTaskTab} ITEMS</span>
                     </div>
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
