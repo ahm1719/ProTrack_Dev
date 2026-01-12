@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Task, Status, Priority, TaskAttachment, TaskUpdate, HighlightOption } from '../types';
-import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save, Paperclip, File, Download as DownloadIcon, Palette, MessageCircle } from 'lucide-react';
+import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save, Paperclip, File, Download as DownloadIcon, Palette, MessageCircle } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TaskCardProps {
@@ -194,7 +194,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
         {/* Latest Update View (Always Visible) */}
         {latestUpdate && (
-          <div className="mt-3 p-3 bg-indigo-50/40 rounded-xl border border-indigo-100/50">
+          <div 
+            className="mt-3 p-3 rounded-xl border" 
+            style={latestUpdate.highlightColor ? { borderLeft: `4px solid ${latestUpdate.highlightColor}`, backgroundColor: `${latestUpdate.highlightColor}05`, borderColor: `${latestUpdate.highlightColor}15` } : { backgroundColor: '#f5f7ff', borderColor: '#eef2ff' }}
+          >
             <div className="flex items-center gap-2 mb-1.5">
               <MessageCircle size={12} className="text-indigo-500" />
               <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Latest Progress</span>
