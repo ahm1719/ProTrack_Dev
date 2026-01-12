@@ -254,7 +254,8 @@ const App: React.FC = () => {
 
   const newObsCount = useMemo(() => observations.filter(o => o.status === ObservationStatus.NEW).length, [observations]);
   const wipObsCount = useMemo(() => observations.filter(o => o.status === ObservationStatus.REVIEWING).length, [observations]);
-  const showObsMetrics = newObsCount > 0 || wipObsCount > 0;
+  const resolvedObsCount = useMemo(() => observations.filter(o => o.status === ObservationStatus.RESOLVED).length, [observations]);
+  const showObsMetrics = newObsCount > 0 || wipObsCount > 0 || resolvedObsCount > 0;
 
   const handleSelectTask = (id: string) => { setHighlightedTaskId(id); setView(ViewMode.TASKS); };
 
@@ -274,7 +275,7 @@ const App: React.FC = () => {
              <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div className="flex flex-col gap-3">
                    {showObsMetrics && (
-                     <div className="flex items-center gap-3 animate-fade-in">
+                     <div className="flex items-center gap-3 animate-fade-in flex-wrap">
                         {newObsCount > 0 && (
                           <div className="bg-rose-500/20 backdrop-blur-md border border-rose-400/30 px-3 py-1 rounded-lg flex items-center gap-2 shadow-sm transition-all hover:bg-rose-500/30 cursor-default" title={`${newObsCount} New Observations`}>
                               <div className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
@@ -287,6 +288,13 @@ const App: React.FC = () => {
                               <div className="w-2 h-2 rounded-full bg-amber-400" />
                               <span className="text-[10px] font-bold text-amber-50 uppercase tracking-widest">WIP</span>
                               <span className="bg-white text-amber-600 text-[10px] font-black px-1.5 py-0.5 rounded-md shadow-sm">{wipObsCount}</span>
+                          </div>
+                        )}
+                        {resolvedObsCount > 0 && (
+                          <div className="bg-emerald-500/20 backdrop-blur-md border border-emerald-400/30 px-3 py-1 rounded-lg flex items-center gap-2 shadow-sm transition-all hover:bg-emerald-500/30 cursor-default" title={`${resolvedObsCount} Resolved Observations`}>
+                              <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                              <span className="text-[10px] font-bold text-emerald-50 uppercase tracking-widest">Resolved</span>
+                              <span className="bg-white text-emerald-600 text-[10px] font-black px-1.5 py-0.5 rounded-md shadow-sm">{resolvedObsCount}</span>
                           </div>
                         )}
                      </div>
