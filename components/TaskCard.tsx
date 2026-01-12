@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Task, Status, Priority, TaskAttachment, TaskUpdate, HighlightOption } from '../types';
-import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save, Paperclip, File, Download as DownloadIcon, Palette } from 'lucide-react';
+import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save, Paperclip, File, Download as DownloadIcon, Palette, MessageCircle } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TaskCardProps {
@@ -70,6 +70,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   }, [autoExpand]);
 
+  const latestUpdate = task.updates.length > 0 
+    ? [...task.updates].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
+    : null;
+
   const getPriorityStyle = (p: string) => {
     const customColor = itemColors[p];
     if (customColor) return { backgroundColor: `${customColor}20`, color: customColor, borderColor: `${customColor}40` };
@@ -128,11 +132,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const removeTaskAttachment = (id: string) => { if (onUpdateTask && task.attachments) onUpdateTask(task.id, { attachments: task.attachments.filter(a => a.id !== id) }); };
-  const removePendingAttachment = (id: string) => setPendingAttachments(prev => prev.filter(a => a.id !== id));
   const downloadAttachment = (att: TaskAttachment) => { const link = document.createElement('a'); link.href = att.data; link.download = att.name; link.click(); };
 
   const isCompleted = task.status === Status.DONE || task.status === Status.ARCHIVED;
-  const canChangeStatus = allowStatusChange ?? !isReadOnly;
 
   const handleSubmitUpdate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,6 +192,20 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
         {editingField === 'description' ? <textarea autoFocus className="w-full text-lg font-medium text-slate-800 bg-white border border-indigo-300 rounded p-2 outline-none resize-none" rows={3} value={tempValue} onChange={(e) => setTempValue(e.target.value)} onBlur={handleFieldSave} /> : <h3 onClick={() => handleFieldClick('description', task.description)} className={`text-lg font-semibold text-slate-800 mb-2 leading-tight whitespace-pre-wrap cursor-pointer hover:text-indigo-700 transition-colors rounded p-0.5 -m-0.5 ${isCompleted ? 'line-through text-slate-500' : ''}`}>{task.description}</h3>}
 
+        {/* Latest Update View (Always Visible) */}
+        {latestUpdate && (
+          <div className="mt-3 p-3 bg-indigo-50/40 rounded-xl border border-indigo-100/50">
+            <div className="flex items-center gap-2 mb-1.5">
+              <MessageCircle size={12} className="text-indigo-500" />
+              <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Latest Progress</span>
+              <span className="text-[10px] text-slate-400 ml-auto">{formatDate(latestUpdate.timestamp)}</span>
+            </div>
+            <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed whitespace-pre-wrap">
+              {latestUpdate.content}
+            </p>
+          </div>
+        )}
+
         {task.attachments && task.attachments.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-2">
                 {task.attachments.map(att => (
@@ -221,18 +237,26 @@ const TaskCard: React.FC<TaskCardProps> = ({
             {!isReadOnly && (
               <div className="pt-4 space-y-3">
                 <form onSubmit={handleSubmitUpdate}>
-                    <div className="relative">
-                    <input type="text" placeholder="Log a quick update..." value={newUpdate} onChange={(e) => setNewUpdate(e.target.value)} className="w-full pl-4 pr-32 py-2 text-sm border border-slate-300 rounded-lg outline-none bg-white text-slate-900" />
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                        <div className="flex gap-1 overflow-visible">
-                          {updateHighlightOptions.map((opt) => (
-                            <button key={opt.id} type="button" onClick={() => setSelectedHighlight(opt.color)} className={`w-3.5 h-3.5 rounded-full border-2 transition-transform hover:scale-125 ${selectedHighlight === opt.color ? 'border-indigo-600' : 'border-white'}`} style={{ backgroundColor: opt.color }} title={opt.label} />
-                          ))}
+                    <div className="relative flex flex-col gap-2">
+                        <textarea 
+                            placeholder="Log a multi-line update..." 
+                            value={newUpdate} 
+                            onChange={(e) => setNewUpdate(e.target.value)} 
+                            className="w-full p-3 text-sm border border-slate-300 rounded-xl outline-none bg-white text-slate-900 focus:ring-2 focus:ring-indigo-100 min-h-[80px] resize-none transition-all"
+                        />
+                        <div className="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-200">
+                            <div className="flex gap-1.5 items-center">
+                              {updateHighlightOptions.map((opt) => (
+                                <button key={opt.id} type="button" onClick={() => setSelectedHighlight(opt.color)} className={`w-4 h-4 rounded-full border-2 transition-all hover:scale-110 ${selectedHighlight === opt.color ? 'border-indigo-600 scale-125' : 'border-white'}`} style={{ backgroundColor: opt.color }} title={opt.label} />
+                              ))}
+                              <div className="w-px h-4 bg-slate-200 mx-1" />
+                              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"><Paperclip size={18} /></button>
+                            </div>
+                            <button type="submit" disabled={!newUpdate.trim() && pendingAttachments.length === 0} className="flex items-center gap-2 px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 disabled:opacity-30 disabled:hover:bg-indigo-600 shadow-sm shadow-indigo-100 transition-all">
+                                <CheckCircle2 size={16} /> Save Update
+                            </button>
                         </div>
-                        <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1 text-slate-400 hover:text-indigo-600"><Paperclip size={18} /></button>
-                        <button type="submit" disabled={!newUpdate.trim() && pendingAttachments.length === 0} className="p-1 text-indigo-600 disabled:text-slate-300 hover:text-indigo-800"><CheckCircle2 size={18} /></button>
-                    </div>
-                    <input type="file" ref={fileInputRef} className="hidden" multiple onChange={(e) => handleFileChange(e, false)} />
+                        <input type="file" ref={fileInputRef} className="hidden" multiple onChange={(e) => handleFileChange(e, false)} />
                     </div>
                 </form>
               </div>
