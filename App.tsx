@@ -190,39 +190,18 @@ const App: React.FC = () => {
     const timestamp = new Date().toISOString();
     const updateId = uuidv4();
     const updated = tasks.map(t => t.id === id ? { ...t, updates: [...t.updates, { id: updateId, timestamp, content, attachments, highlightColor }] } : t);
-    // When adding update in TaskCard, also create a Daily Log
     const newLog: DailyLog = { id: uuidv4(), date: new Date().toLocaleDateString('en-CA'), taskId: id, content };
     persistData(updated, [...logs, newLog], observations, offDays);
   };
 
   const handleEditUpdate = (taskId: string, updateId: string, content: string, timestamp?: string, highlightColor?: string) => {
-    const originalTask = tasks.find(t => t.id === taskId);
-    const originalUpdate = originalTask?.updates.find(u => u.id === updateId);
-    
     const newTasks = tasks.map(t => t.id === taskId ? { ...t, updates: t.updates.map(u => u.id === updateId ? { ...u, content, highlightColor, timestamp: timestamp || u.timestamp } : u) } : t);
-    
-    // Reverse sync: Update daily logs that matched the original content and taskId
-    const newLogs = logs.map(l => {
-        if (l.taskId === taskId && l.content === originalUpdate?.content) {
-            return { ...l, content, date: timestamp ? timestamp.split('T')[0] : l.date };
-        }
-        return l;
-    });
-    
-    persistData(newTasks, newLogs, observations, offDays);
+    persistData(newTasks, logs, observations, offDays);
   };
 
   const handleDeleteUpdate = (taskId: string, updateId: string) => {
     if (!confirm('Delete this history record?')) return;
-    const originalTask = tasks.find(t => t.id === taskId);
-    const originalUpdate = originalTask?.updates.find(u => u.id === updateId);
-
-    const newTasks = tasks.map(t => t.id === taskId ? { ...t, updates: t.updates.filter(u => u.id !== updateId) } : t);
-    
-    // Reverse sync: Remove daily log associated with this update content
-    const newLogs = logs.filter(l => !(l.taskId === taskId && l.content === originalUpdate?.content));
-    
-    persistData(newTasks, newLogs, observations, offDays);
+    persistData(tasks.map(t => t.id === taskId ? { ...t, updates: t.updates.filter(u => u.id !== updateId) } : t), logs, observations, offDays);
   };
 
   const deleteTask = (id: string) => { if (confirm('Delete task?')) persistData(tasks.filter(t => t.id !== id), logs, observations, offDays); };
@@ -234,14 +213,9 @@ const App: React.FC = () => {
   const overdueTasks = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate && t.dueDate < todayStr), [tasks, todayStr]);
   const weekDays = useMemo(() => { const days = []; for (let i = 0; i < 7; i++) { const d = new Date(); d.setDate(d.getDate() + i); days.push(d.toLocaleDateString('en-CA')); } return days; }, []);
   const weekTasks = useMemo(() => { const map: Record<string, Task[]> = {}; weekDays.forEach(d => { map[d] = tasks.filter(t => t.dueDate === d); }); return map; }, [tasks, weekDays]);
-  
   const filteredTasks = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    const base = tasks.filter(t => 
-        t.description.toLowerCase().includes(q) || 
-        t.displayId.toLowerCase().includes(q) ||
-        t.updates.some(u => u.content.toLowerCase().includes(q)) // Search inside task updates
-    );
+    const base = tasks.filter(t => t.description.toLowerCase().includes(q) || t.displayId.toLowerCase().includes(q));
     if (activeTaskTab === 'current') return base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
     return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
   }, [tasks, searchQuery, activeTaskTab]);
@@ -349,19 +323,12 @@ const App: React.FC = () => {
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                        <DailyJournal tasks={tasks} logs={logs} onAddLog={(l) => {
-                          const logId = uuidv4();
-                          const timestamp = new Date(l.date).toISOString();
-                          // Forward sync: if log added in journal, also add it as an update to the task
-                          const updatedTasks = tasks.map(t => t.id === l.taskId ? { ...t, updates: [...t.updates, { id: uuidv4(), timestamp, content: l.content }] } : t);
-                          persistData(updatedTasks, [...logs, { ...l, id: logId }], observations, offDays);
-                        }} onUpdateTask={updateTaskFields} offDays={offDays} onToggleOffDay={(d) => persistData(tasks, logs, observations, offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d])} onEditLog={(logId, taskId, content, date) => {
+                        <DailyJournal tasks={tasks} logs={logs} onAddLog={(l) => persistData(tasks, [...logs, { ...l, id: uuidv4() }], observations, offDays)} onUpdateTask={updateTaskFields} offDays={offDays} onToggleOffDay={(d) => persistData(tasks, logs, observations, offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d])} onEditLog={(logId, taskId, content, date) => {
                           const originalLog = logs.find(l => l.id === logId);
                           if (!originalLog) return;
                           
-                          // Also update task history if it matches original content
                           const updatedTasks = tasks.map(t => {
-                            if (t.id === originalLog.taskId) {
+                            if (t.id === taskId) {
                               return {
                                 ...t,
                                 updates: t.updates.map(u => u.content === originalLog.content ? { ...u, content, timestamp: new Date(date).toISOString() } : u)
@@ -377,7 +344,6 @@ const App: React.FC = () => {
                           const logToDelete = logs.find(l => l.id === logId);
                           if (!logToDelete) return;
 
-                          // Remove update from task history too
                           const updatedTasks = tasks.map(t => {
                             if (t.id === logToDelete.taskId) {
                               return { ...t, updates: t.updates.filter(u => u.content !== logToDelete.content) };
@@ -386,7 +352,7 @@ const App: React.FC = () => {
                           });
 
                           persistData(updatedTasks, logs.filter(l => l.id !== logId), observations, offDays);
-                        }} searchQuery={searchQuery} />
+                        }} />
                     </div>
                 </div>
              </div>
@@ -428,7 +394,7 @@ const App: React.FC = () => {
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <div className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
-           <div className="relative max-w-md w-full"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Search tasks, updates, projects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-lg text-sm outline-none" /></div>
+           <div className="relative max-w-md w-full"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Search tasks, logs, projects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-lg text-sm outline-none" /></div>
            <div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isSyncEnabled ? 'Cloud Synced' : 'Local Only'}</span></div>
         </div>
         <div className="flex-1 overflow-auto p-6 bg-slate-50 custom-scrollbar">{renderContent()}</div>

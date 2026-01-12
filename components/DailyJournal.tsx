@@ -12,7 +12,6 @@ interface DailyJournalProps {
   initialTaskId?: string;
   offDays?: string[];
   onToggleOffDay?: (date: string) => void;
-  searchQuery?: string;
 }
 
 const getStartOfWeek = (date: Date) => {
@@ -137,7 +136,7 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps
   );
 };
 
-const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUpdateTask, onEditLog, onDeleteLog, offDays = [], onToggleOffDay, searchQuery = '' }) => {
+const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUpdateTask, onEditLog, onDeleteLog, offDays = [], onToggleOffDay }) => {
   const [entryDate, setEntryDate] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [quickLog, setQuickLog] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
@@ -148,13 +147,7 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
   const [editLogTaskId, setEditLogTaskId] = useState('');
   const [editLogDate, setEditLogDate] = useState('');
 
-  const q = searchQuery.toLowerCase();
-  const filteredLogs = logs.filter(l => {
-    const matchesDate = l.date >= viewRange.start && l.date <= viewRange.end;
-    const matchesSearch = q === '' || l.content.toLowerCase().includes(q);
-    return matchesDate && matchesSearch;
-  });
-
+  const filteredLogs = logs.filter(l => l.date >= viewRange.start && l.date <= viewRange.end);
   const logsByDate: Record<string, DailyLog[]> = {};
   filteredLogs.forEach(log => {
     if (!logsByDate[log.date]) logsByDate[log.date] = [];
@@ -258,7 +251,7 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 bg-white p-3 rounded-lg border border-slate-200 shadow-sm mt-4">
+      <div className="flex flex-col gap-2 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
         <div className="flex items-center justify-between">
            <div className="flex items-center gap-2 text-slate-600">
              <Filter size={16} />
@@ -278,7 +271,7 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
       <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-[400px]">
         {sortedDates.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-center p-4 mt-2">
-            <p className="text-slate-400 text-sm">{searchQuery ? 'No matching logs found.' : 'No logs in range.'}</p>
+            <p className="text-slate-400 text-sm">No logs in range.</p>
           </div>
         ) : (
           <div className="space-y-6 pt-2">
