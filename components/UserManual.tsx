@@ -213,6 +213,20 @@ const UserManual: React.FC = () => {
                             <p className="text-xs text-slate-500">Kanban cards and their embedded images/screenshots.</p>
                         </div>
                     </li>
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800">App Settings & Customization:</strong>
+                            <p className="text-xs text-slate-500">Custom Status/Priority lists, custom colors, and Tags.</p>
+                        </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800">Calendar Preferences:</strong>
+                            <p className="text-xs text-slate-500">Days marked as "Off Days" in the calendar.</p>
+                        </div>
+                    </li>
                 </ul>
             </div>
 
@@ -224,22 +238,8 @@ const UserManual: React.FC = () => {
                     <li className="flex items-start gap-3">
                         <div className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 shrink-0" />
                         <div>
-                            <strong className="text-slate-800">App Settings:</strong>
-                            <p className="text-xs text-slate-500">Custom colors, custom Status/Priority lists, and Tag configurations are stored separately.</p>
-                        </div>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 shrink-0" />
-                        <div>
                             <strong className="text-slate-800">API Keys:</strong>
                             <p className="text-xs text-slate-500">Your Google Gemini and Firebase keys are excluded for security reasons.</p>
-                        </div>
-                    </li>
-                    <li className="flex items-start gap-3">
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 shrink-0" />
-                        <div>
-                            <strong className="text-slate-800">Calendar Preferences:</strong>
-                            <p className="text-xs text-slate-500">Days marked as "Off Days" (red/crossed out in calendar) are not currently included in the export file.</p>
                         </div>
                     </li>
                 </ul>

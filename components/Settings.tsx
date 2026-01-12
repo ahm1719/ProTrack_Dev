@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, Upload } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, HighlightOption } from '../types';
@@ -9,7 +8,8 @@ interface SettingsProps {
   tasks: Task[];
   logs: DailyLog[];
   observations: Observation[];
-  onImportData: (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[] }) => void;
+  offDays: string[];
+  onImportData: (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[]; offDays: string[] }) => void;
   onSyncConfigUpdate: (config: FirebaseConfig | null) => void;
   isSyncEnabled: boolean;
   appConfig: AppConfig;
@@ -278,7 +278,7 @@ const ResourceBar = ({ label, current, limit }: { label: string, current: number
     );
 };
 
-const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig, onPurgeData }) => {
+const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, offDays, onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig, onPurgeData }) => {
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [configJson, setConfigJson] = useState('');
@@ -328,8 +328,27 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
                 return;
             }
 
-            if (confirm(`Restore Backup Found:\n- ${parsed.tasks.length} Tasks\n- ${parsed.logs.length} Logs\n- ${parsed.observations.length} Observations\n\nWARNING: This will replace your current local data. Proceed?`)) {
-                onImportData(parsed);
+            const newOffDays = Array.isArray(parsed.offDays) ? parsed.offDays : [];
+            const newConfig = parsed.appConfig;
+
+            let message = `Restore Backup Found:\n- ${parsed.tasks.length} Tasks\n- ${parsed.logs.length} Logs\n- ${parsed.observations.length} Observations`;
+            if (newOffDays.length > 0) message += `\n- ${newOffDays.length} Calendar Off Days`;
+            if (newConfig) message += `\n- Custom App Settings`;
+            
+            message += `\n\nWARNING: This will replace your current local data. Proceed?`;
+
+            if (confirm(message)) {
+                onImportData({
+                    tasks: parsed.tasks,
+                    logs: parsed.logs,
+                    observations: parsed.observations,
+                    offDays: newOffDays
+                });
+                
+                if (newConfig) {
+                    onUpdateConfig(newConfig);
+                }
+                
                 alert("System restored successfully.");
             }
         } catch (error) {
@@ -467,7 +486,7 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
       </section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button onClick={() => { const data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ tasks, logs, observations }, null, 2)); const link = document.createElement('a'); link.setAttribute("href", data); link.setAttribute("download", `protrack_backup_${new Date().toISOString().split('T')[0]}.json`); link.click(); }} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
+          <button onClick={() => { const data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ tasks, logs, observations, offDays, appConfig }, null, 2)); const link = document.createElement('a'); link.setAttribute("href", data); link.setAttribute("download", `protrack_backup_${new Date().toISOString().split('T')[0]}.json`); link.click(); }} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
               <Download className="text-indigo-400 group-hover:text-white" />
               <span className="text-sm font-bold uppercase tracking-widest">Download Full System Backup (JSON)</span>
           </button>

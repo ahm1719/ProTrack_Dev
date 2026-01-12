@@ -47,7 +47,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.3.3 (OVERDUE FIX)";
+const BUILD_VERSION = "V2.3.4 (BACKUP FIX)";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -269,7 +269,6 @@ const App: React.FC = () => {
           if (isDone) {
               setActiveTaskTab('completed');
           } else {
-              // Calculate end of week to determine if future
               const today = new Date();
               const dayOfWeek = today.getDay();
               const distanceToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
@@ -607,7 +606,7 @@ const App: React.FC = () => {
       case ViewMode.OBSERVATIONS:
         return <ObservationsLog observations={observations} onAddObservation={o => persistData(tasks, logs, [...observations, o], offDays)} onEditObservation={o => persistData(tasks, logs, observations.map(x => x.id === o.id ? o : x), offDays)} onDeleteObservation={id => persistData(tasks, logs, observations.filter(x => x.id !== id), offDays)} columns={appConfig.observationStatuses} itemColors={appConfig.itemColors} />;
       case ViewMode.SETTINGS:
-        return <Settings tasks={tasks} logs={logs} observations={observations} onImportData={(d) => persistData(d.tasks, d.logs, d.observations, offDays)} onSyncConfigUpdate={c => setIsSyncEnabled(!!c)} isSyncEnabled={isSyncEnabled} appConfig={appConfig} onUpdateConfig={handleUpdateAppConfig} onPurgeData={(newTasks, newLogs) => persistData(newTasks, newLogs, observations, offDays)} />;
+        return <Settings tasks={tasks} logs={logs} observations={observations} offDays={offDays} onImportData={(d) => persistData(d.tasks, d.logs, d.observations, d.offDays || [])} onSyncConfigUpdate={c => setIsSyncEnabled(!!c)} isSyncEnabled={isSyncEnabled} appConfig={appConfig} onUpdateConfig={handleUpdateAppConfig} onPurgeData={(newTasks, newLogs) => persistData(newTasks, newLogs, observations, offDays)} />;
       case ViewMode.HELP:
         return <UserManual />;
       default:
