@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
@@ -19,7 +18,6 @@ import {
   Layers,
   Calendar,
   Briefcase,
-  /* Fix: Added missing ArrowRight import */
   ArrowRight
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -47,7 +45,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.1.1";
+const BUILD_VERSION = "V2.1.2";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -63,6 +61,12 @@ const DEFAULT_CONFIG: AppConfig = {
     [Status.NOT_STARTED]: '#94a3b8',
     [Status.ARCHIVED]: '#64748b'
   },
+  updateHighlightOptions: [
+    { id: '1', color: '#ef4444', label: 'Critical' },
+    { id: '2', color: '#f59e0b', label: 'Warning' },
+    { id: '3', color: '#3b82f6', label: 'Info' },
+    { id: '4', color: '#10b981', label: 'Success' }
+  ],
   groupLabels: {
     statuses: "Task Statuses",
     priorities: "Priorities",
@@ -253,19 +257,38 @@ const App: React.FC = () => {
              {overdueTasks.length > 0 && (
                 <div className="bg-red-50 border border-red-100 rounded-2xl p-6">
                     <h3 className="text-red-800 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})</h3>
-                    <div className="space-y-2">
-                        {overdueTasks.map(t => (
-                            <div key={t.id} onClick={() => handleSelectTask(t.id)} className="bg-white border border-red-200 rounded-lg p-3 flex justify-between items-center cursor-pointer hover:border-red-400 transition-colors shadow-sm group">
-                                <div className="flex items-center gap-3">
-                                    <span className="font-mono text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded">{t.displayId}</span>
-                                    <span className="text-sm font-semibold text-slate-700 truncate max-w-md">{t.description}</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {overdueTasks.map(t => {
+                            const lastUpdate = t.updates[t.updates.length - 1];
+                            const pColor = appConfig.itemColors?.[t.priority] || '#64748b';
+                            const sColor = appConfig.itemColors?.[t.status] || '#64748b';
+                            return (
+                                <div key={t.id} onClick={() => handleSelectTask(t.id)} className="bg-white border border-red-200 rounded-xl p-4 flex flex-col gap-3 cursor-pointer hover:border-red-400 transition-all shadow-sm group">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-mono text-xs font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">{t.displayId}</span>
+                                            <div className="h-4 w-px bg-slate-200"></div>
+                                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded" style={{ backgroundColor: `${pColor}10`, color: pColor, border: `1px solid ${pColor}30` }}>{t.priority}</span>
+                                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded text-white" style={{ backgroundColor: sColor }}>{t.status}</span>
+                                        </div>
+                                        <ArrowRight size={16} className="text-slate-300 group-hover:text-red-500 transition-colors" />
+                                    </div>
+                                    <h4 className="text-sm font-bold text-slate-800 line-clamp-1 group-hover:text-red-600">{t.description}</h4>
+                                    {lastUpdate ? (
+                                        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                            <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Latest Update</span>
+                                            <p className="text-xs text-slate-600 line-clamp-2 italic leading-relaxed">"{lastUpdate.content}"</p>
+                                        </div>
+                                    ) : (
+                                        <div className="text-[10px] text-slate-400 italic">No updates recorded</div>
+                                    )}
+                                    <div className="mt-auto pt-2 border-t border-slate-50 flex justify-between items-center">
+                                        <span className="text-[10px] font-bold text-red-400 flex items-center gap-1"><Clock size={10} /> DDL: {t.dueDate}</span>
+                                        <span className="text-[10px] font-medium text-slate-400 underline group-hover:text-indigo-600">Open in board</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Due: {t.dueDate}</span>
-                                    <ArrowRight size={14} className="text-slate-300 group-hover:text-red-500 transition-colors" />
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
              )}
@@ -330,7 +353,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} isDailyView={true} itemColors={appConfig.itemColors} />)}
+                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} isDailyView={true} itemColors={appConfig.itemColors} updateHighlightOptions={appConfig.updateHighlightOptions} />)}
                         </div>
                     </div>
                 </div>

@@ -19,12 +19,20 @@ export enum ObservationStatus {
   ARCHIVED = 'Archived'
 }
 
+export interface HighlightOption {
+  id: string;
+  color: string;
+  label: string;
+}
+
 export interface AppConfig {
   taskStatuses: string[];
   taskPriorities: string[];
   observationStatuses: string[];
   // Mapping of item name (e.g. "High") to hex color
   itemColors?: Record<string, string>;
+  // User defined highlight colors for updates
+  updateHighlightOptions?: HighlightOption[];
   groupLabels?: {
     statuses: string;
     priorities: string;

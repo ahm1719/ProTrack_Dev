@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Task, Status, Priority, TaskAttachment, TaskUpdate } from '../types';
+import { Task, Status, Priority, TaskAttachment, TaskUpdate, HighlightOption } from '../types';
 import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save, Paperclip, File, Download as DownloadIcon, Palette } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -21,6 +21,7 @@ interface TaskCardProps {
   availablePriorities?: string[];
   isDailyView?: boolean;
   itemColors?: Record<string, string>;
+  updateHighlightOptions?: HighlightOption[];
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ 
@@ -40,7 +41,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
   availableStatuses = Object.values(Status),
   availablePriorities = Object.values(Priority),
   isDailyView = false,
-  itemColors = {}
+  itemColors = {},
+  updateHighlightOptions = []
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [newUpdate, setNewUpdate] = useState('');
@@ -220,11 +222,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
               <div className="pt-4 space-y-3">
                 <form onSubmit={handleSubmitUpdate}>
                     <div className="relative">
-                    <input type="text" placeholder="Log a quick update..." value={newUpdate} onChange={(e) => setNewUpdate(e.target.value)} className="w-full pl-4 pr-24 py-2 text-sm border border-slate-300 rounded-lg outline-none bg-white text-slate-900" />
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                        <div className="flex gap-1">
-                          {Object.entries(itemColors).slice(0, 4).map(([name, color]) => (
-                            <button key={name} type="button" onClick={() => setSelectedHighlight(color)} className={`w-3.5 h-3.5 rounded-full border-2 ${selectedHighlight === color ? 'border-indigo-600' : 'border-white'}`} style={{ backgroundColor: color }} title={`Highlight as ${name}`} />
+                    <input type="text" placeholder="Log a quick update..." value={newUpdate} onChange={(e) => setNewUpdate(e.target.value)} className="w-full pl-4 pr-32 py-2 text-sm border border-slate-300 rounded-lg outline-none bg-white text-slate-900" />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                        <div className="flex gap-1 overflow-visible">
+                          {updateHighlightOptions.map((opt) => (
+                            <button key={opt.id} type="button" onClick={() => setSelectedHighlight(opt.color)} className={`w-3.5 h-3.5 rounded-full border-2 transition-transform hover:scale-125 ${selectedHighlight === opt.color ? 'border-indigo-600' : 'border-white'}`} style={{ backgroundColor: opt.color }} title={opt.label} />
                           ))}
                         </div>
                         <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1 text-slate-400 hover:text-indigo-600"><Paperclip size={18} /></button>
@@ -247,13 +249,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
                       <div className="space-y-2">
                         <textarea autoFocus rows={3} value={editUpdateContent} onChange={(e) => setEditUpdateContent(e.target.value)} className="w-full p-2 text-xs border border-indigo-300 rounded-lg outline-none bg-white resize-none" />
                         <div className="flex justify-between items-center">
-                           <div className="flex gap-1.5">{Object.values(itemColors).map((color, i) => <button key={i} type="button" onClick={() => setEditHighlight(color)} className={`w-3.5 h-3.5 rounded-full border ${editHighlight === color ? 'ring-1 ring-indigo-500' : 'border-slate-200'}`} style={{ backgroundColor: color }} />)}<button onClick={() => setEditHighlight('')} className="text-[9px] text-slate-400 hover:underline">None</button></div>
+                           <div className="flex gap-1.5">{updateHighlightOptions.map((opt) => <button key={opt.id} type="button" onClick={() => setEditHighlight(opt.color)} className={`w-3.5 h-3.5 rounded-full border ${editHighlight === opt.color ? 'ring-1 ring-indigo-500' : 'border-slate-200'}`} style={{ backgroundColor: opt.color }} title={opt.label} />)}<button onClick={() => setEditHighlight('')} className="text-[9px] text-slate-400 hover:underline">None</button></div>
                            <div className="flex gap-2"><button onClick={() => saveEditedUpdate(update.id)} className="p-1.5 bg-emerald-600 text-white rounded"><Save size={12} /></button><button onClick={cancelEditingUpdate} className="p-1.5 bg-slate-200 text-slate-600 rounded"><X size={12} /></button></div>
                         </div>
                       </div>
                     ) : (
                       <div className="relative">
-                        <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-14" style={update.highlightColor ? { borderLeft: `4px solid ${update.highlightColor}`, backgroundColor: `${update.highlightColor}05` } : {}}>
+                        <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-14 whitespace-pre-wrap leading-relaxed" style={update.highlightColor ? { borderLeft: `4px solid ${update.highlightColor}`, backgroundColor: `${update.highlightColor}05` } : {}}>
                           {update.content}
                         </div>
                         {!isReadOnly && (

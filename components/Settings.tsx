@@ -1,7 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette } from 'lucide-react';
-import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status } from '../types';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, Check } from 'lucide-react';
+import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, HighlightOption } from '../types';
 import { initFirebase } from '../services/firebaseService';
+import { v4 as uuidv4 } from 'uuid';
 
 interface SettingsProps {
   tasks: Task[];
@@ -58,7 +59,6 @@ const ListEditor = ({ title, items, itemColors = {}, onUpdate, onRenameTitle, on
             const newItems = [...items];
             newItems[idx] = editValue.trim();
             onUpdate(newItems);
-            // Migrate color if exists
             if (itemColors[oldItem]) {
               onUpdateItemColor(editValue.trim(), itemColors[oldItem]);
             }
@@ -112,7 +112,6 @@ const ListEditor = ({ title, items, itemColors = {}, onUpdate, onRenameTitle, on
                               onChange={(e) => onUpdateItemColor(item, e.target.value)}
                            />
                         </div>
-
                         {editingIdx === idx ? (
                             <input 
                                 autoFocus
@@ -139,6 +138,122 @@ const ListEditor = ({ title, items, itemColors = {}, onUpdate, onRenameTitle, on
             </div>
         </div>
     );
+};
+
+const HighlightManager = ({ options = [], onUpdate }: { options: HighlightOption[], onUpdate: (options: HighlightOption[]) => void }) => {
+  const [newLabel, setNewLabel] = useState('');
+  const [newColor, setNewColor] = useState('#6366f1');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+
+  const handleAdd = () => {
+    if (newLabel.trim()) {
+      onUpdate([...options, { id: uuidv4(), color: newColor, label: newLabel.trim() }]);
+      setNewLabel('');
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    onUpdate(options.filter(o => o.id !== id));
+  };
+
+  const handleEditSave = (id: string) => {
+    onUpdate(options.map(o => o.id === id ? { ...o, label: editLabel } : o));
+    setEditingId(null);
+  };
+
+  const handleColorChange = (id: string, color: string) => {
+    onUpdate(options.map(o => o.id === id ? { ...o, color } : o));
+  };
+
+  return (
+    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+      <h4 className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+        <Palette size={16} className="text-indigo-600" />
+        Update Highlights & Tags
+      </h4>
+      <p className="text-xs text-slate-500 mb-4 italic">Configure color codes and tags available when adding task updates.</p>
+      
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        {options.map(option => (
+          <div key={option.id} className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm group">
+            <div className="relative w-8 h-8 rounded-lg border border-slate-100 overflow-hidden shrink-0 shadow-inner">
+               <div className="absolute inset-0" style={{ backgroundColor: option.color }} />
+               <input 
+                  type="color" 
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
+                  value={option.color}
+                  onChange={(e) => handleColorChange(option.id, e.target.value)}
+               />
+            </div>
+            
+            <div className="flex-1 min-w-0">
+              {editingId === option.id ? (
+                <div className="flex gap-1">
+                  <input 
+                    autoFocus
+                    className="flex-1 text-xs font-bold border-b border-indigo-500 outline-none"
+                    value={editLabel}
+                    onChange={e => setEditLabel(e.target.value)}
+                    onBlur={() => handleEditSave(option.id)}
+                    onKeyDown={e => e.key === 'Enter' && handleEditSave(option.id)}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col">
+                  <span 
+                    onDoubleClick={() => { setEditingId(option.id); setEditLabel(option.label); }}
+                    className="text-xs font-bold text-slate-800 truncate cursor-pointer hover:text-indigo-600"
+                  >
+                    {option.label}
+                  </span>
+                  <span className="text-[9px] text-slate-400 font-mono uppercase">{option.color}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <button 
+                onClick={() => { setEditingId(option.id); setEditLabel(option.label); }}
+                className="p-1.5 text-slate-400 hover:text-indigo-600"
+              >
+                <Edit2 size={12} />
+              </button>
+              <button 
+                onClick={() => handleDelete(option.id)}
+                className="p-1.5 text-slate-400 hover:text-red-600"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-3 items-center bg-indigo-50/50 p-3 rounded-xl border border-dashed border-indigo-200">
+        <input 
+          type="color" 
+          value={newColor}
+          onChange={e => setNewColor(e.target.value)}
+          className="w-10 h-10 p-0 border-none bg-transparent cursor-pointer rounded-lg shrink-0"
+        />
+        <input 
+          type="text" 
+          placeholder="New tag label (e.g. Blocker)..." 
+          value={newLabel}
+          onChange={e => setNewLabel(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          className="flex-1 text-xs px-4 py-2.5 rounded-lg border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-100 bg-white"
+        />
+        <button 
+          onClick={handleAdd}
+          className="bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-bold text-xs hover:bg-indigo-700 shadow-md shadow-indigo-100 flex items-center gap-2"
+        >
+          <Plus size={14} /> Add
+        </button>
+      </div>
+    </div>
+  );
 };
 
 const ResourceBar = ({ label, current, limit }: { label: string, current: number, limit: number }) => {
@@ -211,33 +326,40 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
                   <p className="text-xs text-slate-500">Double-click headers to rename. Use the color dot to assign specific colors to items (e.g. High = Red).</p>
               </div>
           </div>
-          <div className="p-6 grid md:grid-cols-3 gap-6">
-              <ListEditor 
-                title={appConfig.groupLabels?.statuses || "Task Statuses"} 
-                items={appConfig.taskStatuses} 
-                itemColors={appConfig.itemColors}
-                onUpdate={items => onUpdateConfig({...appConfig, taskStatuses: items})} 
-                onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, statuses: newTitle }})}
-                onUpdateItemColor={handleUpdateItemColor}
-                placeholder="Add status..." 
-              />
-              <ListEditor 
-                title={appConfig.groupLabels?.priorities || "Priorities"} 
-                items={appConfig.taskPriorities} 
-                itemColors={appConfig.itemColors}
-                onUpdate={items => onUpdateConfig({...appConfig, taskPriorities: items})} 
-                onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, priorities: newTitle }})}
-                onUpdateItemColor={handleUpdateItemColor}
-                placeholder="Add priority..." 
-              />
-              <ListEditor 
-                title={appConfig.groupLabels?.observations || "Observation Groups"} 
-                items={appConfig.observationStatuses} 
-                itemColors={appConfig.itemColors}
-                onUpdate={items => onUpdateConfig({...appConfig, observationStatuses: items})} 
-                onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, observations: newTitle }})}
-                onUpdateItemColor={handleUpdateItemColor}
-                placeholder="Add group..." 
+          <div className="p-6 space-y-8">
+              <div className="grid md:grid-cols-3 gap-6">
+                  <ListEditor 
+                    title={appConfig.groupLabels?.statuses || "Task Statuses"} 
+                    items={appConfig.taskStatuses} 
+                    itemColors={appConfig.itemColors}
+                    onUpdate={items => onUpdateConfig({...appConfig, taskStatuses: items})} 
+                    onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, statuses: newTitle }})}
+                    onUpdateItemColor={handleUpdateItemColor}
+                    placeholder="Add status..." 
+                  />
+                  <ListEditor 
+                    title={appConfig.groupLabels?.priorities || "Priorities"} 
+                    items={appConfig.taskPriorities} 
+                    itemColors={appConfig.itemColors}
+                    onUpdate={items => onUpdateConfig({...appConfig, taskPriorities: items})} 
+                    onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, priorities: newTitle }})}
+                    onUpdateItemColor={handleUpdateItemColor}
+                    placeholder="Add priority..." 
+                  />
+                  <ListEditor 
+                    title={appConfig.groupLabels?.observations || "Observation Groups"} 
+                    items={appConfig.observationStatuses} 
+                    itemColors={appConfig.itemColors}
+                    onUpdate={items => onUpdateConfig({...appConfig, observationStatuses: items})} 
+                    onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, observations: newTitle }})}
+                    onUpdateItemColor={handleUpdateItemColor}
+                    placeholder="Add group..." 
+                  />
+              </div>
+
+              <HighlightManager 
+                options={appConfig.updateHighlightOptions} 
+                onUpdate={newOptions => onUpdateConfig({ ...appConfig, updateHighlightOptions: newOptions })} 
               />
           </div>
       </section>
