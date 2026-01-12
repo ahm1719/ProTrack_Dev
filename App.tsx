@@ -270,7 +270,7 @@ const App: React.FC = () => {
              <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
                    <h1 className="text-3xl font-bold flex items-baseline gap-2">
-                      {currentTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                       <span className="text-indigo-200 font-mono text-lg">CW {getWeekNumber(currentTime)}</span>
                    </h1>
                    <p className="text-indigo-100 opacity-80 text-sm">{currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</p>
