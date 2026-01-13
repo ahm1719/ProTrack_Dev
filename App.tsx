@@ -47,7 +47,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.3.4 (LATEST BASELINE)";
+const BUILD_VERSION = "V2.3.5 (FIXED)";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -130,7 +130,15 @@ const App: React.FC = () => {
     const savedConfig = localStorage.getItem('protrack_firebase_config');
     const localAppConfig = localStorage.getItem('protrack_app_config');
     
-    if (localAppConfig) setAppConfig({ ...DEFAULT_CONFIG, ...JSON.parse(localAppConfig) });
+    if (localAppConfig) {
+        try {
+            const parsed = JSON.parse(localAppConfig);
+            // Merge with default to ensure new fields like itemColors exist
+            setAppConfig({ ...DEFAULT_CONFIG, ...parsed });
+        } catch(e) {
+            setAppConfig(DEFAULT_CONFIG);
+        }
+    }
     const localData = localStorage.getItem('protrack_data');
     if (localData) {
       const parsed = JSON.parse(localData);
@@ -574,6 +582,7 @@ const App: React.FC = () => {
                                     onUpdateTask={updateTaskFields} 
                                     isDailyView={true} 
                                     itemColors={appConfig.itemColors} 
+                                    updateHighlightOptions={appConfig.updateHighlightOptions}
                                 />
                             ))}
                         </div>
