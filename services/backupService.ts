@@ -1,9 +1,12 @@
 import { AppConfig, DailyLog, Observation, Task } from "../types";
 
-// Type definitions for File System Access API (often not included in standard TS lib yet)
+// Type definitions for File System Access API
 interface FileSystemHandle {
   kind: 'file' | 'directory';
   name: string;
+  isSameEntry(other: FileSystemHandle): Promise<boolean>;
+  queryPermission(descriptor?: any): Promise<PermissionState>;
+  requestPermission(descriptor?: any): Promise<PermissionState>;
 }
 
 interface FileSystemDirectoryHandle extends FileSystemHandle {
@@ -25,6 +28,71 @@ declare global {
   }
 }
 
+// --- IndexedDB Helper for Persisting Handles ---
+const DB_NAME = 'ProTrack_DB';
+const STORE_NAME = 'handles';
+
+const initDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = (event: any) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    request.onsuccess = (event: any) => resolve(event.target.result);
+    request.onerror = (event: any) => reject(event.target.error);
+  });
+};
+
+export const storeDirectoryHandle = async (handle: FileSystemDirectoryHandle) => {
+  try {
+    const db = await initDB();
+    return new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.put(handle, 'backup_dir');
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (e) {
+    console.error("Failed to store handle in DB", e);
+  }
+};
+
+export const getStoredDirectoryHandle = async (): Promise<FileSystemDirectoryHandle | null> => {
+  try {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.get('backup_dir');
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch (e) {
+    console.error("Failed to retrieve handle from DB", e);
+    return null;
+  }
+};
+
+export const verifyPermission = async (handle: FileSystemDirectoryHandle, readWrite = true): Promise<boolean> => {
+  const options = readWrite ? { mode: 'readwrite' } : {};
+  // Check if permission was already granted
+  if ((await handle.queryPermission(options)) === 'granted') {
+    return true;
+  }
+  // Request permission. If the user grants permission, return true.
+  if ((await handle.requestPermission(options)) === 'granted') {
+    return true;
+  }
+  // The user didn't grant permission, so return false.
+  return false;
+};
+
+// --- Main Service Functions ---
+
 export const selectBackupFolder = async (): Promise<FileSystemDirectoryHandle | null> => {
   if (!('showDirectoryPicker' in window)) {
     alert("Your browser does not support the File System Access API (Chrome, Edge, or Opera required).");
@@ -33,6 +101,8 @@ export const selectBackupFolder = async (): Promise<FileSystemDirectoryHandle | 
 
   try {
     const handle = await window.showDirectoryPicker();
+    // Persist the handle immediately upon selection
+    await storeDirectoryHandle(handle);
     return handle;
   } catch (error: any) {
     if (error.name !== 'AbortError') {
@@ -48,6 +118,13 @@ export const performBackup = async (
   data: { tasks: Task[], logs: DailyLog[], observations: Observation[], offDays: string[], appConfig: AppConfig }
 ): Promise<boolean> => {
   try {
+    // Check permission state (without prompting)
+    const permission = await dirHandle.queryPermission({ mode: 'readwrite' });
+    if (permission !== 'granted') {
+        console.warn("Backup skipped: Permission not granted. User intervention required.");
+        return false;
+    }
+
     // Generate filename with timestamp: ProTrack_Backup_2023-10-27_14-30.json
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];

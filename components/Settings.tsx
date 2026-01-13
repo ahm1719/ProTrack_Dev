@@ -455,7 +455,7 @@ const Settings: React.FC<SettingsProps> = ({
                   </div>
               </div>
               <div className="text-[10px] text-slate-400 bg-amber-50/50 p-3 rounded-lg border border-amber-50/50">
-                  <p><strong>Note on Browser Security:</strong> Due to security rules, you must re-select the folder if you fully close the browser tab. While the tab remains open, backups will occur automatically in the background.</p>
+                  <p><strong>Status:</strong> The selected folder is saved in your browser database. If you reload the page and see a red "Resume Backup" button in the top header, click it to re-confirm permission for the session.</p>
               </div>
           </div>
       </section>

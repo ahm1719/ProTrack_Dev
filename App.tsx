@@ -21,7 +21,8 @@ import {
   ArrowRight,
   Activity,
   PieChart,
-  HardDrive
+  HardDrive,
+  RefreshCw
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -47,9 +48,9 @@ import UserManual from './components/UserManual';
 
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
-import { selectBackupFolder, performBackup } from './services/backupService';
+import { selectBackupFolder, performBackup, getStoredDirectoryHandle, verifyPermission } from './services/backupService';
 
-const BUILD_VERSION = "V2.4.0 (AUTO-BACKUP)";
+const BUILD_VERSION = "V2.4.1 (PERSISTENT-BACKUP)";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -120,6 +121,7 @@ const App: React.FC = () => {
 
   // Backup State
   const [backupDirHandle, setBackupDirHandle] = useState<any | null>(null);
+  const [backupPermissionGranted, setBackupPermissionGranted] = useState(false);
   const [lastBackupTime, setLastBackupTime] = useState<Date | null>(null);
 
   const [newTaskForm, setNewTaskForm] = useState({
@@ -160,6 +162,19 @@ const App: React.FC = () => {
         if (initFirebase(config)) setIsSyncEnabled(true);
       } catch (e) { console.error("Firebase init failed", e); }
     }
+
+    // Try to load persisted backup handle
+    const loadBackupHandle = async () => {
+        const handle = await getStoredDirectoryHandle();
+        if (handle) {
+            setBackupDirHandle(handle);
+            // Check initial permission status (do not prompt yet)
+            const status = await handle.queryPermission({ mode: 'readwrite' });
+            setBackupPermissionGranted(status === 'granted');
+        }
+    };
+    loadBackupHandle();
+
     return () => clearInterval(timer);
   }, []);
 
@@ -176,15 +191,22 @@ const App: React.FC = () => {
     }
   }, [isSyncEnabled]);
 
-  // Backup Logic
+  // Backup Logic Loop
   useEffect(() => {
     if (!backupDirHandle || !appConfig.backupIntervalMinutes || appConfig.backupIntervalMinutes <= 0) return;
 
     const intervalId = setInterval(async () => {
+      // We rely on 'performBackup' internal check. If it fails, it returns false.
+      // Note: We cannot prompt for permission inside setInterval.
       const success = await performBackup(backupDirHandle, { tasks, logs, observations, offDays, appConfig });
       if (success) {
         setLastBackupTime(new Date());
+        setBackupPermissionGranted(true);
         console.log("Auto-backup successful");
+      } else {
+        // If it failed, it might be due to permission lost
+        const status = await backupDirHandle.queryPermission({ mode: 'readwrite' });
+        setBackupPermissionGranted(status === 'granted');
       }
     }, appConfig.backupIntervalMinutes * 60 * 1000);
 
@@ -204,9 +226,23 @@ const App: React.FC = () => {
     const handle = await selectBackupFolder();
     if (handle) {
       setBackupDirHandle(handle);
+      setBackupPermissionGranted(true);
       setAppConfig(prev => ({ ...prev, lastBackupPathName: handle.name }));
-      alert(`Backup folder set to: ${handle.name}\n\nNote: If you reload the page, you will need to re-select the folder due to browser security.`);
+      alert(`Backup folder fixed to: ${handle.name}`);
     }
+  };
+
+  // Helper to re-grant permission if lost on reload
+  const handleResumeBackup = async () => {
+      if (backupDirHandle) {
+          const granted = await verifyPermission(backupDirHandle, true);
+          setBackupPermissionGranted(granted);
+          if (granted) {
+              // Immediately run a backup to confirm
+              const success = await performBackup(backupDirHandle, { tasks, logs, observations, offDays, appConfig });
+              if (success) setLastBackupTime(new Date());
+          }
+      }
   };
 
   const suggestNextId = (projectId: string) => {
@@ -703,10 +739,23 @@ const App: React.FC = () => {
            <div className="relative max-w-md w-full"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Search tasks..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-lg text-sm outline-none" /></div>
            <div className="flex items-center gap-2">
               {backupDirHandle && (
-                <div className="hidden md:flex items-center gap-2 mr-2 bg-amber-50 px-2 py-1 rounded border border-amber-100" title={`Auto-Backup Active (${appConfig.backupIntervalMinutes}m)`}>
-                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
-                    <HardDrive size={12} className="text-amber-600"/>
-                    <span className="text-[9px] font-bold text-amber-700 uppercase tracking-widest">Backup Active</span>
+                <div className="hidden md:flex items-center gap-2 mr-2">
+                    {backupPermissionGranted ? (
+                        <div className="bg-amber-50 px-2 py-1 rounded border border-amber-100 flex items-center gap-2" title={`Auto-Backup Active (${appConfig.backupIntervalMinutes}m)`}>
+                            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
+                            <HardDrive size={12} className="text-amber-600"/>
+                            <span className="text-[9px] font-bold text-amber-700 uppercase tracking-widest">Backup Active</span>
+                        </div>
+                    ) : (
+                        <button 
+                            onClick={handleResumeBackup}
+                            className="bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1 rounded flex items-center gap-2 transition-colors animate-pulse" 
+                            title="Permission needed to resume backup"
+                        >
+                            <RefreshCw size={12} className="text-red-600"/>
+                            <span className="text-[9px] font-bold text-red-700 uppercase tracking-widest">Resume Backup</span>
+                        </button>
+                    )}
                 </div>
               )}
               <div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isSyncEnabled ? 'Cloud Synced' : 'Local Only'}</span></div>
