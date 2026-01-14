@@ -45,8 +45,8 @@ import { subscribeToData, saveDataToCloud, initFirebase } from './services/fireb
 import { generateWeeklySummary } from './services/geminiService';
 
 // Define Build Numbers separately
-const VISUAL_BUILD = "UI: V2.4.1";
-const LOGIC_BUILD = "Logic: V2.4.0";
+const VISUAL_BUILD = "UI: V2.4.2";
+const LOGIC_BUILD = "Logic: V2.4.1";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -475,21 +475,43 @@ const App: React.FC = () => {
                             {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
                         </div>
                         <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                            {weekTasks[d]?.length ? weekTasks[d].map(t => (
+                            {weekTasks[d]?.length ? weekTasks[d].map(t => {
+                                const latestUpdate = t.updates.length > 0 
+                                    ? [...t.updates].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0] 
+                                    : null;
+                                const highlightColor = latestUpdate?.highlightColor;
+                                
+                                const customStyle = highlightColor 
+                                    ? { borderLeftColor: highlightColor, borderLeftWidth: '4px', backgroundColor: `${highlightColor}10` }
+                                    : getCustomStyle(t.status);
+
+                                return (
                                 <div 
                                   key={t.id} 
                                   onClick={() => setHighlightedTaskId(t.id)} 
-                                  style={getCustomStyle(t.status)}
-                                  className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${getStatusColorMini(t.status)}`}
+                                  style={customStyle}
+                                  className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${highlightColor ? 'border-slate-200 text-slate-700' : getStatusColorMini(t.status)}`}
                                 >
                                     <div className="flex justify-between items-center mb-1">
                                       <span className="font-mono font-bold">{t.displayId}</span>
                                       {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600" />}
                                       {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600" />}
                                     </div>
-                                    <p className={`line-clamp-2 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.description}</p>
+                                    <p className={`line-clamp-2 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>
+                                        {latestUpdate ? (
+                                            <span className="font-medium">{latestUpdate.content}</span>
+                                        ) : (
+                                            t.description
+                                        )}
+                                    </p>
+                                    {latestUpdate && (
+                                        <div className="mt-1.5 flex items-center gap-1 opacity-50">
+                                            <Clock size={10} />
+                                            <span className="text-[9px]">{new Date(latestUpdate.timestamp).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}</span>
+                                        </div>
+                                    )}
                                 </div>
-                            )) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 italic">No deadlines</div>}
+                            )}) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 italic">No deadlines</div>}
                         </div>
                     </div>
                 ))}
