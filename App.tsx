@@ -46,7 +46,7 @@ import { generateWeeklySummary } from './services/geminiService';
 
 // Define Build Numbers separately
 const VISUAL_BUILD = "UI: V2.4.0";
-const LOGIC_BUILD = "Logic: V2.3.9";
+const LOGIC_BUILD = "Logic: V2.4.0";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),

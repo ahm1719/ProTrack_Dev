@@ -222,8 +222,17 @@ const Settings: React.FC<SettingsProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    const dateStr = new Date().toISOString().split('T')[0];
-    link.download = `ProTrack_Backup_${dateStr}.json`;
+    
+    // Generate precise timestamp: YYYYMMDD_HHMM
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hour = String(now.getHours()).padStart(2, '0');
+    const minute = String(now.getMinutes()).padStart(2, '0');
+    
+    link.download = `ProTrack_Backup_${year}${month}${day}_${hour}${minute}.json`;
+    
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -351,7 +360,7 @@ const Settings: React.FC<SettingsProps> = ({
       <div className="grid grid-cols-2 gap-4">
           <button onClick={handleDownloadBackup} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
               <Download className="text-indigo-400 group-hover:text-white" />
-              <span className="text-sm font-bold uppercase tracking-widest">Backup Data (JSON)</span>
+              <span className="text-sm font-bold uppercase tracking-widest">Download Full System Backup (JSON)</span>
           </button>
           
           <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
