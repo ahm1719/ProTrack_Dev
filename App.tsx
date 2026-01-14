@@ -48,7 +48,7 @@ import { generateWeeklySummary } from './services/geminiService';
 import { getStoredDirectoryHandle, performBackup, selectBackupFolder } from './services/backupService';
 
 // Define Build Numbers separately
-const VISUAL_BUILD = "UI: V2.4.4";
+const VISUAL_BUILD = "UI: V2.5.0";
 const LOGIC_BUILD = "Logic: V2.5.1";
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -495,6 +495,8 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
+    const totalTasks = tasks.length;
+
     switch (view) {
       case ViewMode.DASHBOARD:
         return (
@@ -529,28 +531,92 @@ const App: React.FC = () => {
              </div>
 
              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                    <Layers size={14} /> Weekly Status Distribution
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                    <div className="bg-indigo-600 p-4 rounded-xl flex flex-col justify-between shadow-md shadow-indigo-100">
-                        <span className="text-[10px] font-bold text-indigo-100 uppercase tracking-wider">Active Backlog</span>
-                        <div className="flex items-end justify-between mt-2">
-                            <span className="text-3xl font-black text-white">{weeklyFocusCount}</span>
-                            <Target size={20} className="text-indigo-300" />
+                <div className="flex items-center justify-between mb-6">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <Layers size={14} /> Weekly Status Distribution
+                    </p>
+                    <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-full border border-slate-200">
+                        {totalTasks} Total Tasks
+                    </span>
+                </div>
+
+                {/* Global Distribution Bar */}
+                <div className="flex h-2 w-full rounded-full overflow-hidden mb-8 bg-slate-50 border border-slate-100">
+                    {statusSummary.map((s) => {
+                        if (s.count === 0) return null;
+                        const width = (s.count / totalTasks) * 100;
+                        const defaultColor = s.label === Status.DONE ? '#10b981' : 
+                                           s.label === Status.IN_PROGRESS ? '#3b82f6' : 
+                                           s.label === Status.WAITING ? '#f59e0b' : '#94a3b8';
+                        const color = appConfig.itemColors?.[s.label] || defaultColor;
+                        
+                        return (
+                            <div 
+                                key={s.label} 
+                                style={{ width: `${width}%`, backgroundColor: color }} 
+                                className="h-full transition-all duration-500 hover:opacity-80"
+                                title={`${s.label}: ${s.count} (${Math.round(width)}%)`}
+                            />
+                        );
+                    })}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                    {/* Active Backlog - Hero Card */}
+                    <div className="col-span-2 sm:col-span-1 lg:col-span-2 bg-gradient-to-br from-slate-800 to-slate-900 p-5 rounded-2xl flex flex-col justify-between shadow-lg text-white relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 duration-500">
+                            <Target size={100} />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></div>
+                              <span className="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">Focus</span>
+                            </div>
+                            <h3 className="text-lg font-bold opacity-90 tracking-tight">Active Backlog</h3>
+                        </div>
+                        <div className="mt-4 relative z-10">
+                            <span className="text-5xl font-black tracking-tighter text-white">{weeklyFocusCount}</span>
+                            <p className="text-[11px] text-slate-400 font-medium mt-1">Pending items in queue</p>
                         </div>
                     </div>
-                    {statusSummary.map(s => (
-                        <div key={s.label} className="bg-slate-50 border border-slate-100 p-4 rounded-xl flex flex-col justify-between hover:bg-white hover:border-indigo-100 transition-all group">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-indigo-500 truncate" style={{ color: appConfig.itemColors?.[s.label] }}>{s.label}</span>
-                            <div className="flex items-end justify-between mt-2">
-                                <span className="text-3xl font-black text-slate-800">{s.count}</span>
-                                <div className="p-1 bg-white rounded border border-slate-100 shadow-xs">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-indigo-400" style={{ backgroundColor: appConfig.itemColors?.[s.label] }} />
+
+                    {/* Status Cards */}
+                    {statusSummary.map(s => {
+                        const percentage = totalTasks > 0 ? Math.round((s.count / totalTasks) * 100) : 0;
+                        const defaultColor = s.label === Status.DONE ? '#10b981' : 
+                                           s.label === Status.IN_PROGRESS ? '#3b82f6' : 
+                                           s.label === Status.WAITING ? '#f59e0b' : '#94a3b8';
+                        const color = appConfig.itemColors?.[s.label] || defaultColor;
+
+                        return (
+                            <div key={s.label} className="bg-white border border-slate-100 p-4 rounded-xl flex flex-col justify-between hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group relative overflow-hidden">
+                                <div className="absolute left-0 top-0 bottom-0 w-1 transition-colors" style={{ backgroundColor: color }} />
+                                
+                                <div className="pl-2">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate block" title={s.label}>
+                                        {s.label}
+                                    </span>
+                                    <div className="flex items-baseline gap-1 mt-2">
+                                        <span className="text-3xl font-black text-slate-700 group-hover:text-slate-900 transition-colors">
+                                            {s.count}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <div className="mt-4 pl-2">
+                                    <div className="flex justify-between items-end mb-1">
+                                      <span className="text-[9px] font-mono text-slate-400">{percentage}%</span>
+                                    </div>
+                                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                        <div 
+                                            className="h-full rounded-full transition-all duration-1000 ease-out"
+                                            style={{ width: `${percentage}%`, backgroundColor: color }} 
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
              </div>
 
