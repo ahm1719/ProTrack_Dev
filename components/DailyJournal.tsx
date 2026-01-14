@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Task, DailyLog, Status } from '../types';
-import { Filter, RotateCcw, ChevronLeft, ChevronRight, Ban, Calendar as CalendarIcon, PlusCircle } from 'lucide-react';
+import { Filter, RotateCcw, ChevronLeft, ChevronRight, Ban, Calendar as CalendarIcon, PlusCircle, Edit2, Trash2, X, Save } from 'lucide-react';
 
 interface DailyJournalProps {
   tasks: Task[];
@@ -11,6 +11,8 @@ interface DailyJournalProps {
   offDays?: string[];
   onToggleOffDay?: (date: string) => void;
   searchQuery?: string;
+  onEditLog: (logId: string, taskId: string, content: string, date: string) => void;
+  onDeleteLog: (logId: string) => void;
 }
 
 const getStartOfWeek = (date: Date) => {
@@ -135,7 +137,7 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps
   );
 };
 
-const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUpdateTask, offDays = [], onToggleOffDay, searchQuery = '' }) => {
+const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUpdateTask, offDays = [], onToggleOffDay, searchQuery = '', onEditLog, onDeleteLog }) => {
   const [entryDate, setEntryDate] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [logContent, setLogContent] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
@@ -143,6 +145,10 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
     start: getStartOfWeek(new Date()),
     end: getEndOfWeek(new Date())
   });
+
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [editTaskId, setEditTaskId] = useState('');
 
   const handleAddEntry = (e: React.FormEvent) => {
     e.preventDefault();
@@ -154,6 +160,13 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
     });
     setLogContent('');
     setSelectedTaskId('');
+  };
+
+  const handleSaveEdit = () => {
+    if (editingLogId) {
+        onEditLog(editingLogId, editTaskId, editContent, entryDate); // Keep original date or current entryDate? using view date context for simplicity in this view
+        setEditingLogId(null);
+    }
   };
 
   const q = searchQuery.toLowerCase();
@@ -234,14 +247,46 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
                     </h3>
                     <div className="relative border-l-2 border-indigo-100 ml-3 space-y-4 py-1 pb-4">
                         {logsByDate[date].slice().reverse().map((log) => {
-                        const task = tasks.find(t => t.id === log.taskId);
+                        const isEditing = editingLogId === log.id;
+                        const task = tasks.find(t => t.id === (isEditing ? editTaskId : log.taskId));
                         return (
                             <div key={log.id} className="relative pl-6 group">
                             <div className="absolute -left-[7px] top-3 w-3 h-3 rounded-full bg-white border-2 border-slate-300 group-hover:border-indigo-500 transition-colors"></div>
-                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all relative">
-                                {task && <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 mb-1">{task.displayId}</span>}
-                                <p className="text-slate-700 text-xs leading-relaxed whitespace-pre-wrap">{log.content}</p>
-                            </div>
+                            
+                            {isEditing ? (
+                                <div className="bg-white p-3 rounded-lg border-2 border-indigo-400 shadow-md space-y-2">
+                                    <select 
+                                        value={editTaskId} 
+                                        onChange={(e) => setEditTaskId(e.target.value)}
+                                        className="w-full text-xs p-2 border border-slate-200 rounded outline-none"
+                                    >
+                                        <option value="">(No Task Linked)</option>
+                                        {tasks.filter(t => t.status !== Status.ARCHIVED).map(t => (
+                                            <option key={t.id} value={t.id}>{t.displayId} - {t.description.substring(0, 30)}...</option>
+                                        ))}
+                                    </select>
+                                    <textarea 
+                                        value={editContent}
+                                        onChange={(e) => setEditContent(e.target.value)}
+                                        className="w-full text-xs p-2 border border-slate-200 rounded outline-none resize-none h-20"
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                        <button onClick={() => setEditingLogId(null)} className="p-1 text-slate-400 hover:bg-slate-100 rounded"><X size={14}/></button>
+                                        <button onClick={handleSaveEdit} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"><Save size={14}/></button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all relative">
+                                    <div className="flex justify-between items-start">
+                                        {task && <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 mb-1">{task.displayId}</span>}
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => { setEditingLogId(log.id); setEditContent(log.content); setEditTaskId(log.taskId); }} className="p-1 text-slate-400 hover:text-indigo-600 rounded"><Edit2 size={12}/></button>
+                                            <button onClick={() => onDeleteLog(log.id)} className="p-1 text-slate-400 hover:text-red-600 rounded"><Trash2 size={12}/></button>
+                                        </div>
+                                    </div>
+                                    <p className="text-slate-700 text-xs leading-relaxed whitespace-pre-wrap">{log.content}</p>
+                                </div>
+                            )}
                             </div>
                         );
                         })}

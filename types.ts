@@ -29,23 +29,19 @@ export interface AppConfig {
   taskStatuses: string[];
   taskPriorities: string[];
   observationStatuses: string[];
-  // Mapping of item name (e.g. "High") to hex color
-  itemColors?: Record<string, string>;
-  // User defined highlight colors for updates
+  groupLabels: {
+    statuses: string;
+    priorities: string;
+    observations: string;
+  };
+  groupColors: {
+    statuses: string;
+    priorities: string;
+    observations: string;
+  };
   updateHighlightOptions?: HighlightOption[];
-  groupLabels?: {
-    statuses: string;
-    priorities: string;
-    observations: string;
-  };
-  groupColors?: {
-    statuses: string;
-    priorities: string;
-    observations: string;
-  };
-  // Backup Configuration
-  backupIntervalMinutes?: number; // 0 = disabled
-  lastBackupPathName?: string; // Just for display purposes
+  itemColors?: Record<string, string>; // { "Status Name": "#hexcode" }
+  backupIntervalMinutes?: number;
 }
 
 export interface TaskAttachment {
@@ -60,7 +56,7 @@ export interface TaskUpdate {
   timestamp: string; // ISO String
   content: string;
   attachments?: TaskAttachment[];
-  highlightColor?: string; // Color to highlight the update card
+  highlightColor?: string; // For visual tagging of updates (e.g., Blockers)
 }
 
 export interface Task {
@@ -71,7 +67,7 @@ export interface Task {
   description: string;
   dueDate: string; // YYYY-MM-DD
   status: string; 
-  priority: string;
+  priority: string; 
   updates: TaskUpdate[]; // Historical updates/comments
   createdAt: string;
   attachments?: TaskAttachment[]; // Global task attachments

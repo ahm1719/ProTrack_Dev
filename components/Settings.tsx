@@ -1,26 +1,18 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, Upload, FolderOpen, Clock, CheckCircle2 } from 'lucide-react';
-import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, HighlightOption } from '../types';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette } from 'lucide-react';
+import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status } from '../types';
 import { initFirebase } from '../services/firebaseService';
-import { saveManualBackup } from '../services/backupService';
-import { v4 as uuidv4 } from 'uuid';
 
 interface SettingsProps {
   tasks: Task[];
   logs: DailyLog[];
   observations: Observation[];
-  offDays: string[];
-  onImportData: (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[]; offDays: string[] }) => void;
+  onImportData: (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[] }) => void;
   onSyncConfigUpdate: (config: FirebaseConfig | null) => void;
   isSyncEnabled: boolean;
   appConfig: AppConfig;
   onUpdateConfig: (config: AppConfig) => void;
   onPurgeData: (tasks: Task[], logs: DailyLog[]) => void;
-  
-  // Backup Props
-  onSelectBackupFolder: () => void;
-  backupDirectoryName: string | null;
-  lastBackupTime: Date | null;
 }
 
 const RESOURCE_LIMIT_BYTES = 1048576; // 1MB limit
@@ -38,15 +30,13 @@ const formatBytes = (bytes: number) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const ListEditor = ({ title, color, items, itemColors = {}, onUpdate, onRenameTitle, onUpdateColor, onUpdateItemColor, placeholder }: { 
+const ListEditor = ({ title, color, items, onUpdate, onRenameTitle, onUpdateColor, placeholder }: { 
     title: string, 
     color?: string,
     items: string[], 
-    itemColors?: Record<string, string>,
     onUpdate: (items: string[]) => void, 
     onRenameTitle?: (newTitle: string) => void, 
     onUpdateColor?: (newColor: string) => void,
-    onUpdateItemColor?: (item: string, color: string) => void,
     placeholder: string 
 }) => {
     const [newItem, setNewItem] = useState('');
@@ -64,14 +54,9 @@ const ListEditor = ({ title, color, items, itemColors = {}, onUpdate, onRenameTi
 
     const handleEditSave = (idx: number) => {
         if (editValue.trim()) {
-            const oldItem = items[idx];
             const newItems = [...items];
             newItems[idx] = editValue.trim();
             onUpdate(newItems);
-            // Preserve/Move color if renaming
-            if (itemColors[oldItem] && onUpdateItemColor) {
-               onUpdateItemColor(editValue.trim(), itemColors[oldItem]);
-            }
         }
         setEditingIdx(null);
     };
@@ -84,11 +69,11 @@ const ListEditor = ({ title, color, items, itemColors = {}, onUpdate, onRenameTi
     };
 
     return (
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 h-full flex flex-col">
+        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 h-full">
             <div className="mb-3 flex items-center justify-between">
                 <div className="flex-1 flex items-center gap-2">
                     {onUpdateColor && (
-                        <div className="relative group/picker shrink-0">
+                        <div className="relative group/picker">
                             <div 
                                 className="w-4 h-4 rounded-full border border-white shadow-sm cursor-pointer"
                                 style={{ backgroundColor: color || '#6366f1' }}
@@ -98,7 +83,6 @@ const ListEditor = ({ title, color, items, itemColors = {}, onUpdate, onRenameTi
                                 className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                 value={color || '#6366f1'}
                                 onChange={(e) => onUpdateColor(e.target.value)}
-                                title="Change Group Color"
                             />
                         </div>
                     )}
@@ -122,25 +106,13 @@ const ListEditor = ({ title, color, items, itemColors = {}, onUpdate, onRenameTi
                     )}
                 </div>
             </div>
-            <div className="flex flex-wrap gap-2 mb-4 min-h-[40px] content-start">
+            <div className="flex flex-wrap gap-2 mb-4 min-h-[40px]">
                 {items.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2 bg-white pl-1.5 pr-2 py-1 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 shadow-sm group">
-                        {onUpdateItemColor && (
-                            <div className="relative w-3 h-3 rounded-full border border-slate-100 overflow-hidden shrink-0 shadow-inner">
-                               <div className="absolute inset-0" style={{ backgroundColor: itemColors[item] || '#cbd5e1' }} />
-                               <input 
-                                  type="color" 
-                                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
-                                  value={itemColors[item] || '#cbd5e1'}
-                                  onChange={(e) => onUpdateItemColor(item, e.target.value)}
-                                  title={`Change color for ${item}`}
-                               />
-                            </div>
-                        )}
+                    <div key={idx} className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 shadow-sm group">
                         {editingIdx === idx ? (
                             <input 
                                 autoFocus
-                                className="bg-transparent border-none outline-none w-20 text-indigo-600 border-b border-indigo-300"
+                                className="bg-transparent border-none outline-none w-20 text-indigo-600"
                                 value={editValue}
                                 onChange={e => setEditValue(e.target.value)}
                                 onBlur={() => handleEditSave(idx)}
@@ -148,8 +120,11 @@ const ListEditor = ({ title, color, items, itemColors = {}, onUpdate, onRenameTi
                             />
                         ) : (
                             <>
-                                <span className="cursor-pointer" onDoubleClick={() => { setEditingIdx(idx); setEditValue(item); }}>{item}</span>
-                                <button onClick={() => onUpdate(items.filter((_, i) => i !== idx))} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-1">
+                                <span onDoubleClick={() => { setEditingIdx(idx); setEditValue(item); }}>{item}</span>
+                                <button onClick={() => { setEditingIdx(idx); setEditValue(item); }} className="text-slate-300 hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Edit2 size={10} />
+                                </button>
+                                <button onClick={() => onUpdate(items.filter((_, i) => i !== idx))} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <X size={10} />
                                 </button>
                             </>
@@ -157,128 +132,12 @@ const ListEditor = ({ title, color, items, itemColors = {}, onUpdate, onRenameTi
                     </div>
                 ))}
             </div>
-            <div className="flex gap-2 mt-auto pt-2">
+            <div className="flex gap-2">
                 <input type="text" value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAdd()} placeholder={placeholder} className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-indigo-500 bg-white" />
-                <button onClick={handleAdd} className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-700 shadow-sm"><Plus size={14} /></button>
+                <button onClick={handleAdd} className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-700"><Plus size={14} /></button>
             </div>
         </div>
     );
-};
-
-const HighlightManager = ({ options = [], onUpdate }: { options: HighlightOption[], onUpdate: (options: HighlightOption[]) => void }) => {
-  const [newLabel, setNewLabel] = useState('');
-  const [newColor, setNewColor] = useState('#6366f1');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editLabel, setEditLabel] = useState('');
-
-  const handleAdd = () => {
-    if (newLabel.trim()) {
-      onUpdate([...options, { id: uuidv4(), color: newColor, label: newLabel.trim() }]);
-      setNewLabel('');
-    }
-  };
-
-  const handleDelete = (id: string) => {
-    onUpdate(options.filter(o => o.id !== id));
-  };
-
-  const handleEditSave = (id: string) => {
-    onUpdate(options.map(o => o.id === id ? { ...o, label: editLabel } : o));
-    setEditingId(null);
-  };
-
-  const handleColorChange = (id: string, color: string) => {
-    onUpdate(options.map(o => o.id === id ? { ...o, color } : o));
-  };
-
-  return (
-    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-      <h4 className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-4 flex items-center gap-2">
-        <Palette size={16} className="text-indigo-600" />
-        Update Highlights & Tags
-      </h4>
-      <p className="text-xs text-slate-500 mb-4 italic">Configure color codes and tags available when adding task updates.</p>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        {options.map(option => (
-          <div key={option.id} className="flex items-center gap-3 bg-white p-2 rounded-xl border border-slate-200 shadow-sm group">
-            <div className="relative w-8 h-8 rounded-lg border border-slate-100 overflow-hidden shrink-0 shadow-inner">
-               <div className="absolute inset-0" style={{ backgroundColor: option.color }} />
-               <input 
-                  type="color" 
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full scale-150"
-                  value={option.color}
-                  onChange={(e) => handleColorChange(option.id, e.target.value)}
-               />
-            </div>
-            
-            <div className="flex-1 min-w-0">
-              {editingId === option.id ? (
-                <div className="flex gap-1">
-                  <input 
-                    autoFocus
-                    className="flex-1 text-xs font-bold border-b border-indigo-500 outline-none"
-                    value={editLabel}
-                    onChange={e => setEditLabel(e.target.value)}
-                    onBlur={() => handleEditSave(option.id)}
-                    onKeyDown={e => e.key === 'Enter' && handleEditSave(option.id)}
-                  />
-                </div>
-              ) : (
-                <div className="flex flex-col">
-                  <span 
-                    onDoubleClick={() => { setEditingId(option.id); setEditLabel(option.label); }}
-                    className="text-xs font-bold text-slate-800 truncate cursor-pointer hover:text-indigo-600"
-                  >
-                    {option.label}
-                  </span>
-                  <span className="text-[9px] text-slate-400 font-mono uppercase">{option.color}</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <button 
-                onClick={() => { setEditingId(option.id); setEditLabel(option.label); }}
-                className="p-1.5 text-slate-400 hover:text-indigo-600"
-              >
-                <Edit2 size={12} />
-              </button>
-              <button 
-                onClick={() => handleDelete(option.id)}
-                className="p-1.5 text-slate-400 hover:text-red-600"
-              >
-                <Trash2 size={12} />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex gap-3 items-center bg-indigo-50/50 p-3 rounded-xl border border-dashed border-indigo-200">
-        <input 
-          type="color" 
-          value={newColor}
-          onChange={e => setNewColor(e.target.value)}
-          className="w-10 h-10 p-0 border-none bg-transparent cursor-pointer rounded-lg shrink-0"
-        />
-        <input 
-          type="text" 
-          placeholder="New tag label (e.g. Blocker)..." 
-          value={newLabel}
-          onChange={e => setNewLabel(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleAdd()}
-          className="flex-1 text-xs px-4 py-2.5 rounded-lg border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-100 bg-white"
-        />
-        <button 
-          onClick={handleAdd}
-          className="bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-bold text-xs hover:bg-indigo-700 shadow-md shadow-indigo-100 flex items-center gap-2"
-        >
-          <Plus size={14} /> Add
-        </button>
-      </div>
-    </div>
-  );
 };
 
 const ResourceBar = ({ label, current, limit }: { label: string, current: number, limit: number }) => {
@@ -302,15 +161,10 @@ const ResourceBar = ({ label, current, limit }: { label: string, current: number
     );
 };
 
-const Settings: React.FC<SettingsProps> = ({ 
-    tasks, logs, observations, offDays, 
-    onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig, onPurgeData,
-    onSelectBackupFolder, backupDirectoryName, lastBackupTime
-}) => {
+const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig, onPurgeData }) => {
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [configJson, setConfigJson] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const savedKey = localStorage.getItem('protrack_gemini_key');
@@ -336,130 +190,12 @@ const Settings: React.FC<SettingsProps> = ({
     }
   };
 
-  const handleUpdateItemColor = (item: string, color: string) => {
-    const newColors = { ...(appConfig.itemColors || {}), [item]: color };
-    onUpdateConfig({ ...appConfig, itemColors: newColors });
-  };
-
-  const handleFileRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        try {
-            const content = event.target?.result as string;
-            const parsed = JSON.parse(content);
-            
-            if (!Array.isArray(parsed.tasks) || !Array.isArray(parsed.logs) || !Array.isArray(parsed.observations)) {
-                alert("Invalid backup file format. Missing core data arrays.");
-                return;
-            }
-
-            const newOffDays = Array.isArray(parsed.offDays) ? parsed.offDays : [];
-            const newConfig = parsed.appConfig;
-
-            let message = `Restore Backup Found:\n- ${parsed.tasks.length} Tasks\n- ${parsed.logs.length} Logs\n- ${parsed.observations.length} Observations`;
-            
-            if (newOffDays.length > 0) message += `\n- ${newOffDays.length} Calendar Off Days`;
-            if (newConfig) message += `\n- Custom App Settings`;
-            
-            message += `\n\nWARNING: This will replace your current local data. Proceed?`;
-
-            if (confirm(message)) {
-                onImportData({
-                    tasks: parsed.tasks,
-                    logs: parsed.logs,
-                    observations: parsed.observations,
-                    offDays: newOffDays
-                });
-                
-                if (newConfig) {
-                    onUpdateConfig(newConfig);
-                }
-                
-                alert("System restored successfully.");
-            }
-        } catch (error) {
-            console.error("Restore failed", error);
-            alert("Failed to parse backup file.");
-        }
-    };
-    reader.readAsText(file);
-    if (e.target) e.target.value = '';
-  };
-
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">System Settings</h1>
         <p className="text-slate-500 text-sm">Manage classifications, AI keys, and cloud synchronization.</p>
       </div>
-
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b bg-amber-50 flex items-center gap-3">
-              <FolderOpen size={24} className="text-amber-600" />
-              <div>
-                  <h2 className="text-lg font-bold text-slate-800">Local Backup Automation</h2>
-                  <p className="text-xs text-slate-500">Automatically save JSON backups to a specific folder on your computer.</p>
-              </div>
-          </div>
-          <div className="p-6 space-y-6">
-              <div className="flex flex-col md:flex-row gap-6 items-start">
-                  <div className="flex-1 space-y-4">
-                      <div className="flex items-center gap-3">
-                          <button 
-                            onClick={onSelectBackupFolder}
-                            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-amber-100 flex items-center gap-2 transition-all"
-                          >
-                              <FolderOpen size={16} />
-                              {backupDirectoryName ? 'Change Folder' : 'Select Backup Folder'}
-                          </button>
-                          {backupDirectoryName && (
-                              <div className="flex items-center gap-2 bg-amber-50 px-3 py-2 rounded-lg border border-amber-100 text-amber-800 text-xs font-bold">
-                                  <CheckCircle2 size={14} />
-                                  Active: {backupDirectoryName}
-                              </div>
-                          )}
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                          <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Frequency:</label>
-                          <select 
-                            value={appConfig.backupIntervalMinutes || 0}
-                            onChange={(e) => onUpdateConfig({...appConfig, backupIntervalMinutes: parseInt(e.target.value)})}
-                            className="bg-slate-50 border border-slate-200 rounded-lg text-sm px-3 py-1.5 outline-none focus:ring-2 focus:ring-amber-200"
-                          >
-                              <option value={0}>Disabled</option>
-                              <option value={15}>Every 15 Minutes</option>
-                              <option value={30}>Every 30 Minutes</option>
-                              <option value={60}>Every Hour</option>
-                          </select>
-                      </div>
-                  </div>
-
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 w-full md:w-64">
-                      <div className="flex items-center gap-2 text-slate-400 mb-2">
-                          <Clock size={16} />
-                          <span className="text-xs font-bold uppercase">Last Backup</span>
-                      </div>
-                      {lastBackupTime ? (
-                          <div className="text-slate-800 font-mono font-bold text-lg">
-                              {lastBackupTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              <span className="text-xs text-slate-400 block font-sans font-normal">
-                                  {lastBackupTime.toLocaleDateString()}
-                              </span>
-                          </div>
-                      ) : (
-                          <span className="text-slate-300 text-sm italic">Never ran this session</span>
-                      )}
-                  </div>
-              </div>
-              <div className="text-[10px] text-slate-400 bg-amber-50/50 p-3 rounded-lg border border-amber-50/50">
-                  <p><strong>Status:</strong> The selected folder is saved in your browser database. If you reload the page and see a red "Resume Backup" button in the top header, click it to re-confirm permission for the session.</p>
-              </div>
-          </div>
-      </section>
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b bg-indigo-50 flex items-center gap-3">
@@ -469,46 +205,33 @@ const Settings: React.FC<SettingsProps> = ({
                   <p className="text-xs text-slate-500">Double-click headers to rename. Use the color dot to customize themes.</p>
               </div>
           </div>
-          <div className="p-6 space-y-8">
-              <div className="grid md:grid-cols-3 gap-6">
-                  <ListEditor 
-                    title={appConfig.groupLabels?.statuses || "Task Statuses"} 
-                    color={appConfig.groupColors?.statuses}
-                    items={appConfig.taskStatuses} 
-                    itemColors={appConfig.itemColors}
-                    onUpdate={items => onUpdateConfig({...appConfig, taskStatuses: items})} 
-                    onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, statuses: newTitle }})}
-                    onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, statuses: newColor }})}
-                    onUpdateItemColor={handleUpdateItemColor}
-                    placeholder="Add status..." 
-                  />
-                  <ListEditor 
-                    title={appConfig.groupLabels?.priorities || "Priorities"} 
-                    color={appConfig.groupColors?.priorities}
-                    items={appConfig.taskPriorities} 
-                    itemColors={appConfig.itemColors}
-                    onUpdate={items => onUpdateConfig({...appConfig, taskPriorities: items})} 
-                    onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, priorities: newTitle }})}
-                    onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, priorities: newColor }})}
-                    onUpdateItemColor={handleUpdateItemColor}
-                    placeholder="Add priority..." 
-                  />
-                  <ListEditor 
-                    title={appConfig.groupLabels?.observations || "Observation Groups"} 
-                    color={appConfig.groupColors?.observations}
-                    items={appConfig.observationStatuses} 
-                    itemColors={appConfig.itemColors}
-                    onUpdate={items => onUpdateConfig({...appConfig, observationStatuses: items})} 
-                    onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, observations: newTitle }})}
-                    onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, observations: newColor }})}
-                    onUpdateItemColor={handleUpdateItemColor}
-                    placeholder="Add group..." 
-                  />
-              </div>
-
-              <HighlightManager 
-                options={appConfig.updateHighlightOptions || []} 
-                onUpdate={newOptions => onUpdateConfig({ ...appConfig, updateHighlightOptions: newOptions })} 
+          <div className="p-6 grid md:grid-cols-3 gap-6">
+              <ListEditor 
+                title={appConfig.groupLabels?.statuses || "Task Statuses"} 
+                color={appConfig.groupColors?.statuses}
+                items={appConfig.taskStatuses} 
+                onUpdate={items => onUpdateConfig({...appConfig, taskStatuses: items})} 
+                onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, statuses: newTitle }})}
+                onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, statuses: newColor }})}
+                placeholder="Add status..." 
+              />
+              <ListEditor 
+                title={appConfig.groupLabels?.priorities || "Priorities"} 
+                color={appConfig.groupColors?.priorities}
+                items={appConfig.taskPriorities} 
+                onUpdate={items => onUpdateConfig({...appConfig, taskPriorities: items})} 
+                onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, priorities: newTitle }})}
+                onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, priorities: newColor }})}
+                placeholder="Add priority..." 
+              />
+              <ListEditor 
+                title={appConfig.groupLabels?.observations || "Observation Groups"} 
+                color={appConfig.groupColors?.observations}
+                items={appConfig.observationStatuses} 
+                onUpdate={items => onUpdateConfig({...appConfig, observationStatuses: items})} 
+                onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, observations: newTitle }})}
+                onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, observations: newColor }})}
+                placeholder="Add group..." 
               />
           </div>
       </section>
@@ -585,26 +308,11 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
       </section>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button 
-            onClick={() => saveManualBackup({ tasks, logs, observations, offDays, appConfig })} 
-            className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl"
-          >
+      <div className="grid grid-cols-1 gap-4">
+          <button onClick={() => { const data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ tasks, logs, observations }, null, 2)); const link = document.createElement('a'); link.setAttribute("href", data); link.setAttribute("download", `protrack_backup_${new Date().toISOString().split('T')[0]}.json`); link.click(); }} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
               <Download className="text-indigo-400 group-hover:text-white" />
               <span className="text-sm font-bold uppercase tracking-widest">Download Full System Backup (JSON)</span>
           </button>
-          
-          <button onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-3 p-6 bg-white text-slate-700 rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:text-indigo-600 transition-all group shadow-sm hover:bg-indigo-50">
-              <Upload className="text-slate-400 group-hover:text-indigo-500" />
-              <span className="text-sm font-bold uppercase tracking-widest">Restore from Backup</span>
-          </button>
-          <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept=".json" 
-              onChange={handleFileRestore} 
-          />
       </div>
     </div>
   );
