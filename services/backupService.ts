@@ -25,6 +25,7 @@ interface FileSystemWritableFileStream extends WritableStream {
 declare global {
   interface Window {
     showDirectoryPicker(): Promise<FileSystemDirectoryHandle>;
+    showSaveFilePicker(options?: any): Promise<FileSystemFileHandle>;
   }
 }
 
@@ -149,4 +150,43 @@ export const performBackup = async (
     console.error("Backup failed:", error);
     return false;
   }
+};
+
+export const saveManualBackup = async (data: any) => {
+  const now = new Date();
+  const dateStr = now.toISOString().split('T')[0];
+  const timeStr = `${now.getHours().toString().padStart(2, '0')}-${now.getMinutes().toString().padStart(2, '0')}`;
+  const filename = `ProTrack_Backup_${dateStr}_${timeStr}.json`;
+
+  // 1. Try modern File System Access API (Save As Dialog)
+  if ('showSaveFilePicker' in window) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{
+          description: 'JSON Backup',
+          accept: { 'application/json': ['.json'] },
+        }],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(JSON.stringify(data, null, 2));
+      await writable.close();
+      return;
+    } catch (err: any) {
+      if (err.name !== 'AbortError') console.error('Backup skipped', err);
+      // If abort, just return, don't fallback to legacy download as user cancelled intention.
+      return;
+    }
+  } 
+
+  // 2. Fallback for browsers without File System API
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 };

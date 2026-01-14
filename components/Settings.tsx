@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, Upload, FolderOpen, Clock, CheckCircle2 } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, HighlightOption } from '../types';
 import { initFirebase } from '../services/firebaseService';
+import { saveManualBackup } from '../services/backupService';
 import { v4 as uuidv4 } from 'uuid';
 
 interface SettingsProps {
@@ -585,7 +586,10 @@ const Settings: React.FC<SettingsProps> = ({
       </section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button onClick={() => { const data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ tasks, logs, observations, offDays, appConfig }, null, 2)); const link = document.createElement('a'); link.setAttribute("href", data); link.setAttribute("download", `protrack_backup_${new Date().toISOString().split('T')[0]}.json`); link.click(); }} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
+          <button 
+            onClick={() => saveManualBackup({ tasks, logs, observations, offDays, appConfig })} 
+            className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl"
+          >
               <Download className="text-indigo-400 group-hover:text-white" />
               <span className="text-sm font-bold uppercase tracking-widest">Download Full System Backup (JSON)</span>
           </button>
