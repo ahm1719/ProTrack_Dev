@@ -38,14 +38,26 @@ const formatBytes = (bytes: number) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const ListEditor = ({ title, color, items, onUpdate, onRenameTitle, onUpdateColor, placeholder }: { 
+const ListEditor = ({ 
+    title, 
+    color, 
+    items, 
+    onUpdate, 
+    onRenameTitle, 
+    onUpdateColor, 
+    placeholder,
+    itemColors,
+    onItemColorChange 
+}: { 
     title: string, 
     color?: string,
     items: string[], 
     onUpdate: (items: string[]) => void, 
     onRenameTitle?: (newTitle: string) => void, 
     onUpdateColor?: (newColor: string) => void,
-    placeholder: string 
+    placeholder: string,
+    itemColors?: Record<string, string>,
+    onItemColorChange?: (item: string, color: string) => void
 }) => {
     const [newItem, setNewItem] = useState('');
     const [editingIdx, setEditingIdx] = useState<number | null>(null);
@@ -117,6 +129,23 @@ const ListEditor = ({ title, color, items, onUpdate, onRenameTitle, onUpdateColo
             <div className="flex flex-wrap gap-2 mb-4 min-h-[40px]">
                 {items.map((item, idx) => (
                     <div key={idx} className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 shadow-sm group">
+                        {/* Item Color Picker */}
+                        {onItemColorChange && (
+                            <div className="relative w-3 h-3 shrink-0 rounded-full border border-slate-200 overflow-hidden cursor-pointer hover:scale-110 transition-transform mr-1">
+                                <input 
+                                    type="color" 
+                                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] p-0 border-0 opacity-0 cursor-pointer"
+                                    value={itemColors?.[item] || '#cbd5e1'}
+                                    onChange={(e) => onItemColorChange(item, e.target.value)}
+                                    title="Assign color"
+                                />
+                                <div 
+                                    className="w-full h-full pointer-events-none"
+                                    style={{ backgroundColor: itemColors?.[item] || '#cbd5e1' }}
+                                />
+                            </div>
+                        )}
+
                         {editingIdx === idx ? (
                             <input 
                                 autoFocus
@@ -264,7 +293,9 @@ const Settings: React.FC<SettingsProps> = ({
                 onUpdate={items => onUpdateConfig({...appConfig, taskStatuses: items})} 
                 onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, statuses: newTitle }})}
                 onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, statuses: newColor }})}
-                placeholder="Add status..." 
+                placeholder="Add status..."
+                itemColors={appConfig.itemColors}
+                onItemColorChange={(item, color) => onUpdateConfig({...appConfig, itemColors: { ...(appConfig.itemColors || {}), [item]: color }})}
               />
               <ListEditor 
                 title={appConfig.groupLabels?.priorities || "Priorities"} 
@@ -273,7 +304,9 @@ const Settings: React.FC<SettingsProps> = ({
                 onUpdate={items => onUpdateConfig({...appConfig, taskPriorities: items})} 
                 onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, priorities: newTitle }})}
                 onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, priorities: newColor }})}
-                placeholder="Add priority..." 
+                placeholder="Add priority..."
+                itemColors={appConfig.itemColors}
+                onItemColorChange={(item, color) => onUpdateConfig({...appConfig, itemColors: { ...(appConfig.itemColors || {}), [item]: color }})}
               />
               <ListEditor 
                 title={appConfig.groupLabels?.observations || "Observation Groups"} 
@@ -282,7 +315,9 @@ const Settings: React.FC<SettingsProps> = ({
                 onUpdate={items => onUpdateConfig({...appConfig, observationStatuses: items})} 
                 onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, observations: newTitle }})}
                 onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, observations: newColor }})}
-                placeholder="Add group..." 
+                placeholder="Add group..."
+                itemColors={appConfig.itemColors}
+                onItemColorChange={(item, color) => onUpdateConfig({...appConfig, itemColors: { ...(appConfig.itemColors || {}), [item]: color }})}
               />
           </div>
       </section>
