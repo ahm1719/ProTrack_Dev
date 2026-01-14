@@ -1,3 +1,4 @@
+
 export enum Priority {
   HIGH = 'High',
   MEDIUM = 'Medium',
@@ -41,6 +42,13 @@ export interface AppConfig {
   };
   updateHighlightOptions?: HighlightOption[];
   itemColors?: Record<string, string>; // { "Status Name": "#hexcode" }
+}
+
+export interface BackupSettings {
+  enabled: boolean;
+  intervalMinutes: number;
+  lastBackup: string | null; // ISO String
+  folderName: string | null;
 }
 
 export interface TaskAttachment {
