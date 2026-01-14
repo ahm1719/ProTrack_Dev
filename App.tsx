@@ -45,7 +45,7 @@ import { subscribeToData, saveDataToCloud, initFirebase } from './services/fireb
 import { generateWeeklySummary } from './services/geminiService';
 
 // Define Build Numbers separately
-const VISUAL_BUILD = "UI: V2.4.0";
+const VISUAL_BUILD = "UI: V2.4.1";
 const LOGIC_BUILD = "Logic: V2.4.0";
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -487,7 +487,7 @@ const App: React.FC = () => {
                                       {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600" />}
                                       {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600" />}
                                     </div>
-                                    <p className={`line-clamp-2 leading-tight ${t.status === Status.DONE ? 'line-through opacity-60' : ''}`}>{t.description}</p>
+                                    <p className={`line-clamp-2 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.description}</p>
                                 </div>
                             )) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 italic">No deadlines</div>}
                         </div>
