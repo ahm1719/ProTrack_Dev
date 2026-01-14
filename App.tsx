@@ -45,7 +45,7 @@ import { subscribeToData, saveDataToCloud, initFirebase } from './services/fireb
 import { generateWeeklySummary } from './services/geminiService';
 import { selectBackupFolder, performBackup, getStoredDirectoryHandle } from './services/backupService';
 
-const BUILD_VERSION = "V2.3.5 (Build Fix)";
+const BUILD_VERSION = "V2.3.4";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -281,8 +281,6 @@ const App: React.FC = () => {
 
     const newLogs = logs.map(l => {
       if (l.taskId === taskId) {
-        // Optimistic update of log if content matched previously. 
-        // Note: Realistically logs are separate entities, but we try to keep them in sync if they were created simultaneously.
         const originalTask = tasks.find(t => t.id === taskId);
         const originalUpdate = originalTask?.updates.find(u => u.id === updateId);
         if (l.content === originalUpdate?.content) {
@@ -312,7 +310,6 @@ const App: React.FC = () => {
       return t;
     });
 
-    // Also remove from logs if it exists there
     const newLogs = logs.filter(l => !(l.taskId === taskId && l.content === update?.content));
     persistData(newTasks, newLogs, observations, offDays);
   };
@@ -320,19 +317,6 @@ const App: React.FC = () => {
   const deleteTask = (id: string) => {
     if (confirm('Delete task?')) {
       persistData(tasks.filter(t => t.id !== id), logs, observations, offDays);
-    }
-  };
-
-  // --- Handlers for DailyJournal editing ---
-  const handleEditLog = (logId: string, taskId: string, content: string, date: string) => {
-    const newLogs = logs.map(l => l.id === logId ? { ...l, taskId, content, date } : l);
-    persistData(tasks, newLogs, observations, offDays);
-  };
-
-  const handleDeleteLog = (logId: string) => {
-    if (confirm('Delete this journal entry?')) {
-      const newLogs = logs.filter(l => l.id !== logId);
-      persistData(tasks, newLogs, observations, offDays);
     }
   };
 
@@ -382,9 +366,8 @@ const App: React.FC = () => {
   }, [tasks, searchQuery, activeTaskTab]);
 
   const getStatusColorMini = (s: string) => {
-      // Use config colors if available
       const customColor = appConfig.itemColors?.[s];
-      if (customColor) return `border-l-4`; // We will apply style inline
+      if (customColor) return `border-l-4`; 
       
       switch (s) {
         case Status.DONE: return 'bg-emerald-50 border-emerald-200 text-emerald-700';
@@ -576,8 +559,6 @@ const App: React.FC = () => {
                             onUpdateTask={updateTaskFields} 
                             offDays={offDays} 
                             onToggleOffDay={(d) => persistData(tasks, logs, observations, offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d])}
-                            onEditLog={handleEditLog}
-                            onDeleteLog={handleDeleteLog}
                         />
                     </div>
                 </div>
