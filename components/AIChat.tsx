@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, MessageSquare, X, Sparkles, AlertCircle, Bot, User, Plus, Trash2, Edit3 } from 'lucide-react';
-import { Task, DailyLog, ChatMessage } from '../types';
+import { Task, DailyLog, ChatMessage, Observation, AppConfig } from '../types';
 import { chatWithAI } from '../services/geminiService';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -13,10 +13,12 @@ interface ChatTab {
 interface AIChatProps {
   tasks: Task[];
   logs: DailyLog[];
+  observations: Observation[];
+  appConfig: AppConfig;
   onOpenSettings: () => void;
 }
 
-const AIChat: React.FC<AIChatProps> = ({ tasks, logs, onOpenSettings }) => {
+const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, onOpenSettings }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [tabs, setTabs] = useState<ChatTab[]>(() => {
     const saved = localStorage.getItem('protrack_chat_tabs');
@@ -27,7 +29,7 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, onOpenSettings }) => {
       messages: [{
         id: 'welcome',
         role: 'model',
-        text: 'Hello! I am your Project AI. I have access to your tasks and logs. Ask me anything!',
+        text: 'Hello! I am your Project AI. I have access to your tasks, logs, and observations. Ask me anything!',
         timestamp: Date.now()
       }]
     }];
@@ -86,7 +88,7 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, onOpenSettings }) => {
 
     try {
       const apiHistory = activeTab.messages.filter(m => m.id !== 'welcome');
-      const responseText = await chatWithAI(apiHistory, userMsg.text, tasks, logs);
+      const responseText = await chatWithAI(apiHistory, userMsg.text, tasks, logs, observations, appConfig);
 
       const botMsg: ChatMessage = {
         id: uuidv4(),

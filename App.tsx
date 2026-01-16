@@ -1181,7 +1181,7 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
-      <AIChat tasks={tasks} logs={logs} onOpenSettings={() => setView(ViewMode.SETTINGS)} />
+      <AIChat tasks={tasks} logs={logs} observations={observations} appConfig={appConfig} onOpenSettings={() => setView(ViewMode.SETTINGS)} />
     </div>
   );
 };

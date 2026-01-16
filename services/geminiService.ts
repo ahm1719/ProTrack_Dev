@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { Task, DailyLog, ChatMessage } from "../types";
+import { Task, DailyLog, ChatMessage, Observation, AppConfig } from "../types";
 
 const getStartOfWeek = (date: Date) => {
   const d = new Date(date);
@@ -117,7 +117,9 @@ export const chatWithAI = async (
   history: ChatMessage[], 
   newMessage: string, 
   tasks: Task[], 
-  logs: DailyLog[]
+  logs: DailyLog[],
+  observations: Observation[],
+  appConfig: AppConfig
 ): Promise<string> => {
   try {
     const apiKey = getApiKey();
@@ -128,7 +130,6 @@ export const chatWithAI = async (
     const ai = new GoogleGenAI({ apiKey });
 
     // Build a comprehensive context of the current state
-    // We send this as the "System Instruction" so the model knows the current world state.
     const taskContext = tasks.map(t => 
       `[${t.displayId}] ${t.description} (Status: ${t.status}, Due: ${t.dueDate}, Priority: ${t.priority}, Updates: ${t.updates.length})`
     ).join('\n');
@@ -138,24 +139,49 @@ export const chatWithAI = async (
        return `[${l.date}] on ${t?.displayId || 'Unknown'}: ${l.content}`;
     }).join('\n');
 
+    const observationContext = observations.map(o => 
+       `[Observation] ${o.content} (Status: ${o.status}, Date: ${new Date(o.timestamp).toLocaleDateString()})`
+    ).join('\n');
+
+    const settingsContext = `
+      Task Statuses: ${appConfig.taskStatuses.join(', ')}
+      Task Priorities: ${appConfig.taskPriorities.join(', ')}
+      Observation Groups: ${appConfig.observationStatuses.join(', ')}
+    `;
+
     const systemInstruction = `
       You are ProTrack AI, a helpful and intelligent project management assistant.
-      You have access to the user's live task board and journal logs.
+      You have a holistic view of the entire system, including Tasks, Journal Logs, Observations (Feedback/Notes), and Settings.
       
       CURRENT DATE: ${new Date().toLocaleDateString()}
       
-      ALL TASKS (Active & Completed):
+      === SYSTEM SETTINGS ===
+      ${settingsContext}
+
+      === ALL TASKS ===
       ${taskContext}
 
-      RECENT JOURNAL LOGS:
+      === RECENT LOGS ===
       ${logContext}
+
+      === OBSERVATIONS (Kanban) ===
+      ${observationContext}
+
+      === SYSTEM KNOWLEDGE (User Guide) ===
+      - This tool replaces Excel for weekly task tracking.
+      - Core Workflow: Define Tasks -> Log Daily -> Track Status -> Generate AI Report.
+      - Observations are for ad-hoc notes, feedback, or visual issues.
+      - Data is stored locally (Offline-first) with optional Cloud Sync.
+      - You can provide summaries or answer questions about any of the data above.
 
       RULES:
       1. Answer questions based specifically on the data provided above.
       2. If asked about deadlines, check the 'Due' field.
       3. If asked about progress, check the 'Updates' count and Status.
-      4. Be concise and professional.
-      5. If you don't know something, say you don't see it in the records.
+      4. If asked about Observations, notes, or feedback, check the Observations section.
+      5. If asked about configuration, check System Settings.
+      6. Be concise and professional.
+      7. If you don't know something, say you don't see it in the records.
     `;
 
     // Convert internal message format to Gemini API format
