@@ -1,18 +1,26 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen } from 'lucide-react';
-import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status } from '../types';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen, Save, RefreshCw, Folder } from 'lucide-react';
+import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, BackupSettings } from '../types';
 import { initFirebase } from '../services/firebaseService';
 
 interface SettingsProps {
   tasks: Task[];
   logs: DailyLog[];
   observations: Observation[];
-  onImportData: (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[] }) => void;
+  offDays?: string[];
+  onImportData: (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[]; offDays?: string[] }) => void;
   onSyncConfigUpdate: (config: FirebaseConfig | null) => void;
   isSyncEnabled: boolean;
   appConfig: AppConfig;
   onUpdateConfig: (config: AppConfig) => void;
   onPurgeData: (tasks: Task[], logs: DailyLog[]) => void;
+  
+  // Backup Props
+  backupSettings?: BackupSettings;
+  setBackupSettings?: React.Dispatch<React.SetStateAction<BackupSettings>>;
+  onSetupBackupFolder?: () => void;
+  backupStatus?: 'idle' | 'running' | 'error' | 'permission_needed';
+  onVerifyBackupPermission?: () => void;
 }
 
 const RESOURCE_LIMIT_BYTES = 1048576; // 1MB limit
@@ -30,14 +38,26 @@ const formatBytes = (bytes: number) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const ListEditor = ({ title, color, items, onUpdate, onRenameTitle, onUpdateColor, placeholder }: { 
+const ListEditor = ({ 
+    title, 
+    color, 
+    items, 
+    onUpdate, 
+    onRenameTitle, 
+    onUpdateColor, 
+    placeholder,
+    itemColors,
+    onItemColorChange 
+}: { 
     title: string, 
     color?: string,
     items: string[], 
     onUpdate: (items: string[]) => void, 
     onRenameTitle?: (newTitle: string) => void, 
     onUpdateColor?: (newColor: string) => void,
-    placeholder: string 
+    placeholder: string,
+    itemColors?: Record<string, string>,
+    onItemColorChange?: (item: string, color: string) => void
 }) => {
     const [newItem, setNewItem] = useState('');
     const [editingIdx, setEditingIdx] = useState<number | null>(null);
@@ -109,6 +129,23 @@ const ListEditor = ({ title, color, items, onUpdate, onRenameTitle, onUpdateColo
             <div className="flex flex-wrap gap-2 mb-4 min-h-[40px]">
                 {items.map((item, idx) => (
                     <div key={idx} className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 shadow-sm group">
+                        {/* Item Color Picker */}
+                        {onItemColorChange && (
+                            <div className="relative w-3 h-3 shrink-0 rounded-full border border-slate-200 overflow-hidden cursor-pointer hover:scale-110 transition-transform mr-1">
+                                <input 
+                                    type="color" 
+                                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] p-0 border-0 opacity-0 cursor-pointer"
+                                    value={itemColors?.[item] || '#cbd5e1'}
+                                    onChange={(e) => onItemColorChange(item, e.target.value)}
+                                    title="Assign color"
+                                />
+                                <div 
+                                    className="w-full h-full pointer-events-none"
+                                    style={{ backgroundColor: itemColors?.[item] || '#cbd5e1' }}
+                                />
+                            </div>
+                        )}
+
                         {editingIdx === idx ? (
                             <input 
                                 autoFocus
@@ -161,7 +198,11 @@ const ResourceBar = ({ label, current, limit }: { label: string, current: number
     );
 };
 
-const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig, onPurgeData }) => {
+const Settings: React.FC<SettingsProps> = ({ 
+    tasks, logs, observations, offDays = [], 
+    onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig, onPurgeData,
+    backupSettings, setBackupSettings, onSetupBackupFolder, backupStatus, onVerifyBackupPermission
+}) => {
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [configJson, setConfigJson] = useState('');
@@ -175,7 +216,7 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
   }, []);
 
   const storageStats = { 
-    total: getSizeInBytes({ tasks, logs, observations }),
+    total: getSizeInBytes({ tasks, logs, observations, offDays }),
     tasks: getSizeInBytes(tasks),
     logs: getSizeInBytes(logs),
     obs: getSizeInBytes(observations)
@@ -198,13 +239,8 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
     reader.onload = (event) => {
         try {
             const data = JSON.parse(event.target?.result as string);
-            if (data.tasks || data.logs) {
-                // Support both legacy format (tasks, logs) and full backup (tasks, logs, observations)
-                onImportData({
-                    tasks: data.tasks || [],
-                    logs: data.logs || [],
-                    observations: data.observations || []
-                });
+            if (data.tasks && data.logs) {
+                onImportData(data);
                 alert('Data imported successfully!');
             } else {
                 alert('Invalid backup file format.');
@@ -218,7 +254,7 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
   };
 
   const handleDownloadBackup = () => {
-    const data = { tasks, logs, observations, appConfig };
+    const data = { tasks, logs, observations, offDays, appConfig };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -257,7 +293,9 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
                 onUpdate={items => onUpdateConfig({...appConfig, taskStatuses: items})} 
                 onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, statuses: newTitle }})}
                 onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, statuses: newColor }})}
-                placeholder="Add status..." 
+                placeholder="Add status..."
+                itemColors={appConfig.itemColors}
+                onItemColorChange={(item, color) => onUpdateConfig({...appConfig, itemColors: { ...(appConfig.itemColors || {}), [item]: color }})}
               />
               <ListEditor 
                 title={appConfig.groupLabels?.priorities || "Priorities"} 
@@ -266,7 +304,9 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
                 onUpdate={items => onUpdateConfig({...appConfig, taskPriorities: items})} 
                 onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, priorities: newTitle }})}
                 onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, priorities: newColor }})}
-                placeholder="Add priority..." 
+                placeholder="Add priority..."
+                itemColors={appConfig.itemColors}
+                onItemColorChange={(item, color) => onUpdateConfig({...appConfig, itemColors: { ...(appConfig.itemColors || {}), [item]: color }})}
               />
               <ListEditor 
                 title={appConfig.groupLabels?.observations || "Observation Groups"} 
@@ -275,10 +315,108 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
                 onUpdate={items => onUpdateConfig({...appConfig, observationStatuses: items})} 
                 onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, observations: newTitle }})}
                 onUpdateColor={newColor => onUpdateConfig({...appConfig, groupColors: { ...appConfig.groupColors!, observations: newColor }})}
-                placeholder="Add group..." 
+                placeholder="Add group..."
+                itemColors={appConfig.itemColors}
+                onItemColorChange={(item, color) => onUpdateConfig({...appConfig, itemColors: { ...(appConfig.itemColors || {}), [item]: color }})}
               />
           </div>
       </section>
+
+      {backupSettings && setBackupSettings && (
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-6 border-b bg-blue-50 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <Folder className="text-blue-600" />
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-800">Automatic Local Backups</h2>
+                        <p className="text-xs text-slate-500">Save detailed JSON backups to a local folder automatically.</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    {backupStatus === 'running' && (
+                        <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"/>
+                            ACTIVE
+                        </span>
+                    )}
+                    {backupStatus === 'permission_needed' && (
+                        <button 
+                            onClick={onVerifyBackupPermission}
+                            className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 transition-colors animate-pulse"
+                        >
+                            <AlertTriangle size={10} />
+                            PERMISSION REQUIRED
+                        </button>
+                    )}
+                    {backupStatus === 'error' && (
+                        <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border bg-red-50 text-red-700 border-red-200">
+                            ERROR
+                        </span>
+                    )}
+                    {(backupStatus === 'idle' && !backupSettings.enabled) && (
+                        <span className="px-3 py-1 rounded-full text-[10px] font-bold border bg-slate-100 text-slate-400 border-slate-200">
+                            INACTIVE
+                        </span>
+                    )}
+                </div>
+            </div>
+            <div className="p-6 flex flex-col gap-6">
+                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <div className="flex-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Backup Destination</span>
+                        {backupSettings.folderName ? (
+                            <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                <FolderOpen size={16} className="text-blue-500"/>
+                                {backupSettings.folderName}
+                            </div>
+                        ) : (
+                            <span className="text-sm text-slate-400 italic">No folder selected</span>
+                        )}
+                    </div>
+                    <button 
+                        onClick={onSetupBackupFolder}
+                        className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:border-blue-400 hover:text-blue-600 transition-all shadow-sm whitespace-nowrap"
+                    >
+                        {backupSettings.folderName ? 'Change Folder' : 'Select Backup Folder'}
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-4 border-t border-slate-100 pt-4">
+                    <div className="flex-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Frequency</label>
+                        <select 
+                            value={backupSettings.intervalMinutes}
+                            onChange={(e) => setBackupSettings && setBackupSettings(prev => ({ ...prev, intervalMinutes: parseInt(e.target.value) }))}
+                            className="w-full md:w-48 p-2 text-sm bg-white border border-slate-300 rounded-lg outline-none focus:border-blue-500"
+                        >
+                            <option value={5}>Every 5 minutes</option>
+                            <option value={10}>Every 10 minutes (Recommended)</option>
+                            <option value={30}>Every 30 minutes</option>
+                            <option value={60}>Every hour</option>
+                        </select>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <div className="text-right mr-4 hidden md:block">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Last Backup</span>
+                            <span className="text-xs font-mono text-slate-600">
+                                {backupSettings.lastBackup ? new Date(backupSettings.lastBackup).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : 'Never'}
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-slate-600">Enable Auto-Backup</span>
+                            <button 
+                                onClick={() => setBackupSettings && setBackupSettings(prev => ({ ...prev, enabled: !prev.enabled }))}
+                                disabled={!backupSettings.folderName}
+                                className={`w-12 h-6 rounded-full transition-all relative ${backupSettings.enabled ? 'bg-blue-600' : 'bg-slate-300'} ${!backupSettings.folderName ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            >
+                                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow-sm ${backupSettings.enabled ? 'left-7' : 'left-1'}`} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+      )}
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b bg-rose-50 flex justify-between items-center">
