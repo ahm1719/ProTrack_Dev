@@ -119,7 +119,8 @@ export const chatWithAI = async (
   tasks: Task[], 
   logs: DailyLog[],
   observations: Observation[],
-  appConfig: AppConfig
+  appConfig: AppConfig,
+  image?: string // Base64 data URL of the image
 ): Promise<string> => {
   try {
     const apiKey = getApiKey();
@@ -180,20 +181,51 @@ export const chatWithAI = async (
       3. If asked about progress, check the 'Updates' count and Status.
       4. If asked about Observations, notes, or feedback, check the Observations section.
       5. If asked about configuration, check System Settings.
-      6. Be concise and professional.
-      7. If you don't know something, say you don't see it in the records.
+      6. If an image is provided, analyze it in the context of the project.
+      7. Be concise and professional.
+      8. If you don't know something, say you don't see it in the records.
     `;
 
-    // Convert internal message format to Gemini API format
-    const contents = history.map(msg => ({
-      role: msg.role,
-      parts: [{ text: msg.text }]
-    }));
+    // Convert internal message format to Gemini API format, handling potential images in history
+    const contents = history.map(msg => {
+      const parts: any[] = [{ text: msg.text }];
+      
+      if (msg.image) {
+        const match = msg.image.match(/^data:(.+);base64,(.+)$/);
+        if (match) {
+           parts.push({
+             inlineData: {
+               mimeType: match[1],
+               data: match[2]
+             }
+           });
+        }
+      }
+      
+      return {
+        role: msg.role,
+        parts: parts
+      };
+    });
 
-    // Add the new user message
+    // Add the new user message with potential image
+    const currentParts: any[] = [{ text: newMessage }];
+    
+    if (image) {
+      const match = image.match(/^data:(.+);base64,(.+)$/);
+      if (match) {
+         currentParts.push({
+           inlineData: {
+             mimeType: match[1],
+             data: match[2]
+           }
+         });
+      }
+    }
+
     contents.push({
       role: 'user',
-      parts: [{ text: newMessage }]
+      parts: currentParts
     });
 
     const response = await ai.models.generateContent({

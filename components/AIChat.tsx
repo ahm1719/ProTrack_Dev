@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, X, Sparkles, AlertCircle, Bot, User, Plus, Trash2, Edit3 } from 'lucide-react';
+import { Send, MessageSquare, X, Sparkles, AlertCircle, Bot, User, Plus, Trash2, Edit3, Image as ImageIcon } from 'lucide-react';
 import { Task, DailyLog, ChatMessage, Observation, AppConfig } from '../types';
 import { chatWithAI } from '../services/geminiService';
 import { v4 as uuidv4 } from 'uuid';
@@ -36,12 +36,14 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, o
   });
   const [activeTabId, setActiveTabId] = useState<string>(tabs[0].id);
   const [input, setInput] = useState('');
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatWindowRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
 
   useEffect(() => {
@@ -68,27 +70,63 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, o
 
   useEffect(() => {
     if (isOpen) scrollToBottom();
-  }, [activeTab.messages, isOpen]);
+  }, [activeTab.messages, isOpen, attachedImage]); // Added attachedImage to ensure scroll when preview appears
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      setAttachedImage(result);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ''; // Reset input
+  };
+
+  // Allow pasting images directly into the chat
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        e.preventDefault();
+        const file = items[i].getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            setAttachedImage(event.target?.result as string);
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    }
+  };
 
   const handleSend = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && !attachedImage) || isLoading) return;
 
     const userMsg: ChatMessage = {
       id: uuidv4(),
       role: 'user',
       text: input.trim(),
+      image: attachedImage || undefined,
       timestamp: Date.now()
     };
 
     const updatedTabs = tabs.map(t => t.id === activeTabId ? { ...t, messages: [...t.messages, userMsg] } : t);
     setTabs(updatedTabs);
+    
+    // Clear inputs immediately
+    const currentImage = attachedImage; // Capture for API call
     setInput('');
+    setAttachedImage(null);
     setIsLoading(true);
 
     try {
       const apiHistory = activeTab.messages.filter(m => m.id !== 'welcome');
-      const responseText = await chatWithAI(apiHistory, userMsg.text, tasks, logs, observations, appConfig);
+      const responseText = await chatWithAI(apiHistory, userMsg.text, tasks, logs, observations, appConfig, currentImage || undefined);
 
       const botMsg: ChatMessage = {
         id: uuidv4(),
@@ -212,14 +250,21 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, o
               <div className={`w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${msg.role === 'user' ? 'bg-indigo-100 text-indigo-600' : 'bg-purple-100 text-purple-600'}`}>
                 {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
               </div>
-              <div className={`max-w-[85%] p-4 rounded-3xl text-xs leading-relaxed whitespace-pre-wrap shadow-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none'}`}>
-                 {msg.text.includes('API Key is missing') ? (
-                    <div className="space-y-3">
-                        <span className="text-red-500 font-bold flex items-center gap-1 uppercase tracking-tighter"><AlertCircle size={14} /> Configuration Error</span>
-                        <p className="opacity-70">I need an API key to work correctly. Please set it up in the system configuration.</p>
-                        <button onClick={onOpenSettings} className="bg-red-50 hover:bg-red-100 text-red-600 w-full py-2 rounded-xl text-[10px] font-bold transition-colors">Go to Settings →</button>
-                    </div>
-                 ) : msg.text}
+              <div className={`max-w-[85%] p-4 rounded-3xl text-xs leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none'}`}>
+                 {msg.image && (
+                   <div className="mb-2 rounded-xl overflow-hidden bg-black/10">
+                     <img src={msg.image} alt="User upload" className="max-w-full max-h-48 object-cover" />
+                   </div>
+                 )}
+                 <div className="whitespace-pre-wrap">
+                   {msg.text.includes('API Key is missing') ? (
+                      <div className="space-y-3">
+                          <span className="text-red-500 font-bold flex items-center gap-1 uppercase tracking-tighter"><AlertCircle size={14} /> Configuration Error</span>
+                          <p className="opacity-70">I need an API key to work correctly. Please set it up in the system configuration.</p>
+                          <button onClick={onOpenSettings} className="bg-red-50 hover:bg-red-100 text-red-600 w-full py-2 rounded-xl text-[10px] font-bold transition-colors">Go to Settings →</button>
+                      </div>
+                   ) : msg.text}
+                 </div>
               </div>
             </div>
           ))}
@@ -236,17 +281,53 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, o
           <div ref={messagesEndRef} />
         </div>
 
-        <form onSubmit={handleSend} className="p-4 bg-white border-t border-slate-100">
+        <form onSubmit={handleSend} className="p-4 bg-white border-t border-slate-100 relative">
+          {attachedImage && (
+            <div className="absolute bottom-full left-0 mb-0 ml-4 p-2 bg-white rounded-t-xl border border-b-0 border-slate-200 shadow-sm flex items-center gap-2 z-10">
+              <div className="relative group">
+                <img src={attachedImage} alt="Preview" className="h-10 w-10 object-cover rounded-lg border border-slate-200" />
+                <button 
+                  type="button" 
+                  onClick={() => setAttachedImage(null)}
+                  className="absolute -top-1.5 -right-1.5 bg-white text-red-500 rounded-full shadow-md hover:scale-110 transition-transform p-0.5"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Image Attached</span>
+            </div>
+          )}
           <div className="relative flex items-center gap-2">
+            <button 
+              type="button" 
+              onClick={() => fileInputRef.current?.click()}
+              className={`p-2.5 rounded-xl transition-all ${attachedImage ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-indigo-500'}`}
+              title="Attach Image"
+            >
+              <ImageIcon size={20} />
+            </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept="image/*" 
+              onChange={handleImageSelect}
+            />
+            
             <input
               ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={`Send a message to ${activeTab.title}...`}
+              onPaste={handlePaste}
+              placeholder={`Message ${activeTab.title}...`}
               className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-5 pr-14 py-3.5 text-xs focus:ring-4 focus:ring-indigo-50 border-transparent focus:border-indigo-200 outline-none transition-all"
             />
-            <button type="submit" disabled={!input.trim() || isLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-30 transition-all shadow-lg shadow-indigo-100">
+            <button 
+              type="submit" 
+              disabled={(!input.trim() && !attachedImage) || isLoading} 
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-30 transition-all shadow-lg shadow-indigo-100"
+            >
               <Send size={18} />
             </button>
           </div>
