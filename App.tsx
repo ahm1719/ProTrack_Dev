@@ -49,8 +49,8 @@ import { generateWeeklySummary } from './services/geminiService';
 import { getStoredDirectoryHandle, performBackup, selectBackupFolder } from './services/backupService';
 
 // Define Build Numbers separately
-const VISUAL_BUILD = "UI: V2.8.0";
-const LOGIC_BUILD = "Logic: V2.8.0";
+const VISUAL_BUILD = "UI: V2.9.0";
+const LOGIC_BUILD = "Logic: V2.9.0";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -732,58 +732,70 @@ const App: React.FC = () => {
              </div>
 
              <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-56">
-                {weekDays.map(d => (
-                    <div key={d} className={`min-w-[280px] w-[280px] p-4 rounded-2xl border flex flex-col transition-all ${d === todayStr ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100 shadow-md scale-105 z-10' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <div className="flex justify-between items-start mb-3 border-b pb-2 border-slate-100">
-                            <div>
-                                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
-                                <span className="text-lg font-bold text-slate-800">{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                            </div>
-                            {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
-                        </div>
-                        <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                            {weekTasks[d]?.length ? weekTasks[d].map(t => {
-                                const latestUpdate = t.updates.length > 0 
-                                    ? [...t.updates].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0] 
-                                    : null;
-                                const highlightColor = latestUpdate?.highlightColor;
-                                
-                                const customStyle = highlightColor 
-                                    ? { borderLeftColor: highlightColor, borderLeftWidth: '4px', backgroundColor: `${highlightColor}10` }
-                                    : getCustomStyle(t.status);
-                                
-                                const isDoneOrArchived = t.status === Status.DONE || t.status === Status.ARCHIVED;
+                {weekDays.map(d => {
+                    const dailyTasks = weekTasks[d] || [];
+                    // Sort tasks: Priority (High to Low) -> Display ID
+                    const sortedDailyTasks = [...dailyTasks].sort((a, b) => {
+                        const pA = appConfig.taskPriorities.indexOf(a.priority);
+                        const pB = appConfig.taskPriorities.indexOf(b.priority);
+                        // Assumption: Priority list is typically [High, Medium, Low], so lower index = higher priority
+                        if (pA !== pB) return pA - pB;
+                        return a.displayId.localeCompare(b.displayId, undefined, { numeric: true, sensitivity: 'base' });
+                    });
 
-                                return (
-                                <div 
-                                  key={t.id} 
-                                  onClick={() => setHighlightedTaskId(t.id)} 
-                                  style={customStyle}
-                                  className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${highlightColor ? 'border-slate-200 text-slate-700' : getStatusColorMini(t.status)}`}
-                                >
-                                    <div className="flex justify-between items-center mb-1">
-                                      <div className="flex items-center gap-1.5">
-                                        <Circle size={8} className={`fill-current ${getPriorityColorDot(t.priority)}`} />
-                                        <span className={`font-mono font-bold ${isDoneOrArchived ? 'line-through opacity-50' : ''}`}>{t.displayId}</span>
-                                      </div>
-                                      {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600" />}
-                                      {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600" />}
-                                    </div>
-                                    <p className={`line-clamp-2 leading-tight ${isDoneOrArchived ? 'line-through opacity-60' : ''}`}>
-                                        {/* Display Description instead of Latest Update content */}
-                                        {t.description}
-                                    </p>
-                                    {latestUpdate && (
-                                        <div className="mt-1.5 flex items-center gap-1 opacity-50">
-                                            <Clock size={10} />
-                                            <span className="text-[9px]">{new Date(latestUpdate.timestamp).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}</span>
-                                        </div>
-                                    )}
+                    return (
+                        <div key={d} className={`min-w-[280px] w-[280px] p-4 rounded-2xl border flex flex-col transition-all ${d === todayStr ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100 shadow-md scale-105 z-10' : 'bg-white border-slate-200 shadow-sm'}`}>
+                            <div className="flex justify-between items-start mb-3 border-b pb-2 border-slate-100">
+                                <div>
+                                    <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
+                                    <span className="text-lg font-bold text-slate-800">{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                                 </div>
-                            )}) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 italic">No deadlines</div>}
+                                {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
+                            </div>
+                            <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                                {sortedDailyTasks.length ? sortedDailyTasks.map(t => {
+                                    const latestUpdate = t.updates.length > 0 
+                                        ? [...t.updates].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0] 
+                                        : null;
+                                    const highlightColor = latestUpdate?.highlightColor;
+                                    
+                                    const customStyle = highlightColor 
+                                        ? { borderLeftColor: highlightColor, borderLeftWidth: '4px', backgroundColor: `${highlightColor}10` }
+                                        : getCustomStyle(t.status);
+                                    
+                                    const isDoneOrArchived = t.status === Status.DONE || t.status === Status.ARCHIVED;
+
+                                    return (
+                                    <div 
+                                    key={t.id} 
+                                    onClick={() => setHighlightedTaskId(t.id)} 
+                                    style={customStyle}
+                                    className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${highlightColor ? 'border-slate-200 text-slate-700' : getStatusColorMini(t.status)}`}
+                                    >
+                                        <div className="flex justify-between items-center mb-1">
+                                        <div className="flex items-center gap-1.5">
+                                            <Circle size={8} className={`fill-current ${getPriorityColorDot(t.priority)}`} />
+                                            <span className={`font-mono font-bold ${isDoneOrArchived ? 'line-through opacity-50' : ''}`}>{t.displayId}</span>
+                                        </div>
+                                        {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600" />}
+                                        {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600" />}
+                                        </div>
+                                        <p className={`line-clamp-2 leading-tight ${isDoneOrArchived ? 'line-through opacity-60' : ''}`}>
+                                            {/* Display Description instead of Latest Update content */}
+                                            {t.description}
+                                        </p>
+                                        {latestUpdate && (
+                                            <div className="mt-1.5 flex items-center gap-1 opacity-50">
+                                                <Clock size={10} />
+                                                <span className="text-[9px]">{new Date(latestUpdate.timestamp).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 italic">No deadlines</div>}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
              </div>
 
              <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -921,13 +933,54 @@ const App: React.FC = () => {
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <div className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
-           <div className="relative max-w-md w-full">
+           <div className="relative max-w-md w-full group">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" placeholder="Search tasks, logs, projects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-lg text-sm outline-none" />
+              <input 
+                type="text" 
+                placeholder="Search tasks, logs, projects..." 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                className="w-full pl-10 pr-8 py-2 bg-slate-50 border-none rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-100 transition-all" 
+              />
+              {searchQuery && (
+                <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 transition-colors"
+                >
+                    <X size={14} />
+                </button>
+              )}
            </div>
-           <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isSyncEnabled ? 'Cloud Synced' : 'Local Only'}</span>
+           
+           <div className="flex items-center gap-6">
+              {/* Auto Backup Indicator */}
+              <div className="flex flex-col items-end">
+                  <div className="flex items-center gap-1.5">
+                     <div className={`w-2 h-2 rounded-full ${backupStatus === 'running' ? 'bg-emerald-500 animate-pulse' : backupStatus === 'error' || backupStatus === 'permission_needed' ? 'bg-red-500' : 'bg-slate-300'}`}></div>
+                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                        {backupStatus === 'running' ? 'Auto-Backup' : 'Local Backup'}
+                     </span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[9px] text-slate-400 font-mono">
+                     {backupSettings.lastBackup ? (
+                         <span>Last: {new Date(backupSettings.lastBackup).toLocaleTimeString([], { hour: '2-digit', minute:'2-digit' })}</span>
+                     ) : <span>No backup yet</span>}
+                     {backupSettings.folderName && (
+                         <>
+                            <span className="text-slate-300">•</span>
+                            <span className="text-indigo-400 font-bold max-w-[80px] truncate" title={backupSettings.folderName}>{backupSettings.folderName}</span>
+                         </>
+                     )}
+                  </div>
+              </div>
+
+              {/* Cloud Sync Indicator */}
+              <div className="flex flex-col items-end border-l border-slate-100 pl-6">
+                  <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isSyncEnabled ? 'Cloud Synced' : 'Local Only'}</span>
+                  </div>
+              </div>
            </div>
         </div>
         <div className="flex-1 overflow-auto p-6 bg-slate-50 custom-scrollbar">
