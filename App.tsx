@@ -324,7 +324,7 @@ const App: React.FC = () => {
     return projectId ? `${projectId}-${maxSeq + 1}` : '';
   };
 
-  const handleCreateTask = (e: React.FormEvent) => {
+  const handleCreateTask = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     setModalError(null);
 
@@ -1140,7 +1140,19 @@ const App: React.FC = () => {
                    </div>
                    <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Description</label>
-                      <textarea required value={newTaskForm.description} onChange={e => setNewTaskForm({...newTaskForm, description: e.target.value})} rows={3} placeholder="What needs to be done?" className="w-full px-3 py-2 text-sm bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 resize-none" />
+                      <textarea 
+                        required 
+                        value={newTaskForm.description} 
+                        onChange={e => setNewTaskForm({...newTaskForm, description: e.target.value})} 
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                handleCreateTask(e);
+                            }
+                        }}
+                        rows={3} 
+                        placeholder="What needs to be done? (Ctrl+Enter to create)" 
+                        className="w-full px-3 py-2 text-sm bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 resize-none" 
+                      />
                    </div>
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">

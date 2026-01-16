@@ -150,7 +150,7 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
   const [editContent, setEditContent] = useState('');
   const [editTaskId, setEditTaskId] = useState('');
 
-  const handleAddEntry = (e: React.FormEvent) => {
+  const handleAddEntry = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     if (!logContent.trim()) return;
     onAddLog({
@@ -212,9 +212,14 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
                     ))}
                 </select>
                 <textarea 
-                    placeholder="Log progress..."
+                    placeholder="Log progress... (Ctrl+Enter to add)"
                     value={logContent}
                     onChange={(e) => setLogContent(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                            handleAddEntry(e);
+                        }
+                    }}
                     rows={3}
                     className="w-full text-xs p-3 border border-indigo-200 rounded-xl outline-none bg-white focus:ring-2 focus:ring-indigo-300 resize-none"
                 />
@@ -268,6 +273,12 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
                                     <textarea 
                                         value={editContent}
                                         onChange={(e) => setEditContent(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                                e.preventDefault();
+                                                handleSaveEdit();
+                                            }
+                                        }}
                                         className="w-full text-xs p-2 border border-slate-200 rounded outline-none resize-none h-20"
                                     />
                                     <div className="flex justify-end gap-2">

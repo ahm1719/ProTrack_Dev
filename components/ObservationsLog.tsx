@@ -74,7 +74,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
 
   const removeImage = (index: number) => setImages(prev => prev.filter((_, i) => i !== index));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     if (!content.trim() && images.length === 0) return;
     if (editingId) {
@@ -167,7 +167,12 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                             value={content} 
                             onChange={(e) => setContent(e.target.value)} 
                             onPaste={handlePaste} 
-                            placeholder="Describe observation..." 
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                    handleSubmit(e);
+                                }
+                            }}
+                            placeholder="Describe observation... (Ctrl+Enter to save)" 
                             className="w-full p-3 pr-10 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900 resize-none h-20 custom-scrollbar" 
                         />
                         <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute right-2 bottom-2 text-slate-400 hover:text-indigo-600 p-1" title="Attach Image"><ImageIcon size={18} /></button>
