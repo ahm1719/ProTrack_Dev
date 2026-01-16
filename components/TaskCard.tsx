@@ -160,7 +160,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const isCompleted = task.status === Status.DONE || task.status === Status.ARCHIVED;
   const canChangeStatus = allowStatusChange ?? !isReadOnly;
 
-  const handleSubmitUpdate = (e: React.FormEvent) => {
+  const handleSubmitUpdate = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     if (newUpdate.trim() || pendingAttachments.length > 0) {
       onAddUpdate(task.id, newUpdate, pendingAttachments.length > 0 ? pendingAttachments : undefined, selectedHighlight);
@@ -486,19 +486,24 @@ const TaskCard: React.FC<TaskCardProps> = ({
               <div className="pt-4 space-y-2">
                 <form onSubmit={handleSubmitUpdate}>
                     <div className="relative">
-                    <input
-                        type="text"
-                        placeholder="Log a quick update..."
+                    <textarea
+                        placeholder="Log a quick update... (Ctrl+Enter to save)"
                         value={newUpdate}
                         onChange={(e) => setNewUpdate(e.target.value)}
-                        className="w-full pl-4 pr-20 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                handleSubmitUpdate(e);
+                            }
+                        }}
+                        className="w-full pl-4 pr-24 py-3 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900 resize-y min-h-[80px]"
+                        rows={3}
                         autoFocus={autoExpand}
                     />
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    <div className="absolute right-2 bottom-2.5 flex items-center gap-1">
                         <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                            className="p-2 text-slate-400 hover:text-indigo-600 transition-colors hover:bg-slate-100 rounded-lg"
                             title="Attach File to update"
                         >
                             <Paperclip size={18} />
@@ -506,7 +511,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         <button
                             type="submit"
                             disabled={!newUpdate.trim() && pendingAttachments.length === 0}
-                            className="p-1 text-indigo-600 disabled:text-slate-300 hover:text-indigo-800"
+                            className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:bg-slate-300 transition-all shadow-sm flex items-center justify-center"
+                            title="Add Update"
                         >
                             <CheckCircle2 size={18} />
                         </button>
