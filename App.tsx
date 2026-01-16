@@ -51,8 +51,8 @@ import { generateWeeklySummary } from './services/geminiService';
 import { getStoredDirectoryHandle, performBackup, selectBackupFolder } from './services/backupService';
 
 // Define Build Numbers separately
-const VISUAL_BUILD = "UI: V2.10.0";
-const LOGIC_BUILD = "Logic: V2.10.0";
+const VISUAL_BUILD = "UI: V2.10.1";
+const LOGIC_BUILD = "Logic: V2.10.1";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -547,7 +547,12 @@ const App: React.FC = () => {
 
   const filteredTasks = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    const base = tasks.filter(t => t.description.toLowerCase().includes(q) || t.displayId.toLowerCase().includes(q));
+    const base = tasks.filter(t => {
+      const matchesDescription = t.description.toLowerCase().includes(q);
+      const matchesId = t.displayId.toLowerCase().includes(q);
+      const matchesUpdates = t.updates.some(u => u.content.toLowerCase().includes(q));
+      return matchesDescription || matchesId || matchesUpdates;
+    });
     
     // Determine the end of the currently viewed week (Today + 6 days) to define "Future"
     const lastVisibleDay = weekDays[weekDays.length - 1];
@@ -954,6 +959,7 @@ const App: React.FC = () => {
                             onToggleOffDay={(d) => persistData(tasks, logs, observations, offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d])}
                             onEditLog={handleEditLog}
                             onDeleteLog={handleDeleteLog}
+                            searchQuery={searchQuery}
                         />
                     </div>
                 </div>
