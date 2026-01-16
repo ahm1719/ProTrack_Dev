@@ -517,7 +517,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     </div>
                     
                     {updateHighlightOptions && (
-                        <div className="flex gap-2 mt-2">
+                        <div className="flex gap-2 mt-2 items-center">
                             {updateHighlightOptions.map(opt => (
                                 <button
                                     key={opt.id}
@@ -529,6 +529,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
                                     {opt.label}
                                 </button>
                             ))}
+                            {selectedHighlight && (
+                                <button
+                                    type="button"
+                                    onClick={() => setSelectedHighlight(undefined)}
+                                    className="px-2 py-0.5 text-[10px] font-bold rounded-full border border-slate-300 text-slate-500 hover:bg-slate-100 transition-all flex items-center gap-1"
+                                    title="Clear highlight"
+                                >
+                                    <X size={10} /> Clear
+                                </button>
+                            )}
                         </div>
                     )}
                 </form>
@@ -597,7 +607,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                             </button>
                         </div>
                         {updateHighlightOptions && (
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 items-center">
                                 {updateHighlightOptions.map(opt => (
                                     <button
                                         key={opt.id}
@@ -609,6 +619,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
                                         {opt.label}
                                     </button>
                                 ))}
+                                {editUpdateHighlight && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setEditUpdateHighlight(undefined)}
+                                        className="px-2 py-0.5 text-[10px] font-bold rounded-full border border-slate-300 text-slate-500 hover:bg-slate-100 transition-all flex items-center gap-1"
+                                        title="Clear highlight"
+                                    >
+                                        <X size={10} /> Clear
+                                    </button>
+                                )}
                             </div>
                         )}
                       </div>
