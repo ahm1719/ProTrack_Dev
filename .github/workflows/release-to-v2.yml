@@ -32,20 +32,14 @@ jobs:
           repository: ahm1719/Pro_TrackV2
           path: target
           token: ${{ secrets.PROTRACKV2_TOKEN }}
+          fetch-depth: 0
           persist-credentials: false
-      
-      - name: Debug - confirm new workflow version
-        run: |
-          echo "RUNNING NEW RSYNC VERSION - 2026-01-17"
-          ls -la
 
       - name: Ensure rsync is installed
         run: sudo apt-get update && sudo apt-get install -y rsync
 
       - name: Replace production repo contents with Dev contents
         run: |
-          sudo apt-get update && sudo apt-get install -y rsync
-
           # Wipe target working tree (keep .git)
           find target -mindepth 1 -maxdepth 1 ! -name ".git" -exec rm -rf {} +
 
@@ -55,10 +49,11 @@ jobs:
             --exclude '/.git' \
             --exclude '/.github' \
             ./ target/
-            
 
-      - name: Commit and push to Pro_TrackV2
+      - name: Commit and push to Pro_TrackV2 (token auth)
         working-directory: target
+        env:
+          PROTRACKV2_TOKEN: ${{ secrets.PROTRACKV2_TOKEN }}
         run: |
           git config user.name "dev-to-v2-bot"
           git config user.email "dev-to-v2-bot@users.noreply.github.com"
@@ -71,5 +66,7 @@ jobs:
           fi
 
           git commit -m "${{ inputs.message }} (${{ inputs.ref }})"
+
+          # Permanent, explicit auth for push (avoids interactive username prompts)
+          git remote set-url origin "https://x-access-token:${PROTRACKV2_TOKEN}@github.com/ahm1719/Pro_TrackV2.git"
           git push origin HEAD:main
-          
