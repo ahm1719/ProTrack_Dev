@@ -377,21 +377,25 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </div>
         )}
 
-        {/* Latest Update Preview */}
+        {/* Latest Update Preview - Enhanced for Prompt Requirement */}
         {latestUpdate && (
-            <div className="mt-3 bg-slate-50/60 rounded-lg p-3 text-xs text-slate-600 border border-slate-100 hover:border-indigo-100 transition-colors group/preview">
-                <div className="flex items-center gap-2 mb-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full shadow-sm" style={{ backgroundColor: latestUpdate.highlightColor || '#cbd5e1' }} />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex-1 group-hover/preview:text-indigo-400 transition-colors">
-                        Latest Update
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400">
-                        {formatDate(latestUpdate.timestamp)}
-                    </span>
+            <div 
+                className="mt-3 bg-white/50 rounded-lg p-2.5 text-xs text-slate-600 border border-slate-100 hover:border-indigo-100 transition-colors group/preview flex items-start gap-3 shadow-sm"
+                style={{ borderLeftWidth: '3px', borderLeftColor: latestUpdate.highlightColor || '#cbd5e1' }}
+            >
+                <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover/preview:text-indigo-400 transition-colors">
+                            Latest Update
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400">
+                            {formatDate(latestUpdate.timestamp)}
+                        </span>
+                    </div>
+                    <p className="line-clamp-2 leading-relaxed text-slate-700 font-medium">
+                        {latestUpdate.content}
+                    </p>
                 </div>
-                <p className="line-clamp-2 leading-relaxed pl-3.5 border-l-2 border-slate-200 ml-0.5 group-hover/preview:border-indigo-200 transition-colors">
-                    {latestUpdate.content}
-                </p>
             </div>
         )}
 

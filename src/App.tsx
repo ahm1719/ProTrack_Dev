@@ -17,7 +17,9 @@ import {
   Target,
   Layers,
   Calendar,
-  Briefcase
+  Briefcase,
+  TrendingUp,
+  MoreHorizontal
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -51,7 +53,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.10.11";
+const BUILD_VERSION = "V2.11.0";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -77,6 +79,16 @@ const getWeekNumber = (d: Date): number => {
   return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 };
 
+// Helper to determine End of Week (Sunday)
+const getEndOfWeek = (date: Date) => {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? 0 : 7); // Adjust to next Sunday
+  const endOfWeek = new Date(d.setDate(diff));
+  endOfWeek.setHours(23, 59, 59, 999);
+  return endOfWeek.toISOString().split('T')[0];
+};
+
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [logs, setLogs] = useState<DailyLog[]>([]);
@@ -88,7 +100,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
-  const [activeTaskTab, setActiveTaskTab] = useState<'current' | 'completed'>('current');
+  const [activeTaskTab, setActiveTaskTab] = useState<'current' | 'future' | 'completed'>('current');
   
   const [currentTime, setCurrentTime] = useState(new Date());
   const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
@@ -439,11 +451,27 @@ const App: React.FC = () => {
     return map;
   }, [tasks, weekDays]);
 
+  // Tab Filtering Logic
   const filteredTasks = useMemo(() => {
     const q = searchQuery.toLowerCase();
     const base = tasks.filter(t => t.description.toLowerCase().includes(q) || t.displayId.toLowerCase().includes(q));
-    if (activeTaskTab === 'current') return base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
-    return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
+    
+    if (activeTaskTab === 'completed') {
+        return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
+    }
+
+    // Active (Not Done/Archived)
+    const activeBase = base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
+    const endOfWeek = getEndOfWeek(new Date());
+
+    if (activeTaskTab === 'future') {
+        // Due date is strictly greater than this week's Sunday
+        return activeBase.filter(t => t.dueDate && t.dueDate > endOfWeek);
+    }
+
+    // Current: Due date is <= end of week OR No due date (backlog default)
+    return activeBase.filter(t => !t.dueDate || t.dueDate <= endOfWeek);
+
   }, [tasks, searchQuery, activeTaskTab]);
 
   const getStatusColorMini = (s: string) => {
@@ -459,6 +487,15 @@ const App: React.FC = () => {
       default:
         return 'bg-white border-slate-100 text-slate-600';
     }
+  };
+
+  const getStatusColorHex = (s: string) => {
+      // Helper for dashboard bars
+      if (s === Status.DONE) return '#10b981';
+      if (s === Status.IN_PROGRESS) return '#3b82f6';
+      if (s === Status.WAITING) return '#f59e0b';
+      if (s === Status.ARCHIVED) return '#64748b';
+      return '#cbd5e1'; // Not Started
   };
 
   const renderContent = () => {
@@ -495,29 +532,45 @@ const App: React.FC = () => {
                 </div>
              </div>
 
-             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
-                    <Layers size={14} /> Weekly Status Distribution
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                    <div className="bg-indigo-600 p-4 rounded-xl flex flex-col justify-between shadow-md shadow-indigo-100">
-                        <span className="text-[10px] font-bold text-indigo-100 uppercase tracking-wider">Active Backlog</span>
-                        <div className="flex items-end justify-between mt-2">
-                            <span className="text-3xl font-black text-white">{weeklyFocusCount}</span>
-                            <Target size={20} className="text-indigo-300" />
+             {/* Redesigned Dashboard Status Section */}
+             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-center mb-4">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <TrendingUp size={14} className="text-indigo-500" /> Weekly Pulse
+                    </p>
+                    <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-full">{tasks.length} Total Tasks</span>
+                </div>
+                
+                <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
+                    {/* Active Backlog Card */}
+                    <div className="min-w-[140px] flex-1 bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between group hover:border-indigo-200 transition-all">
+                        <div className="flex justify-between items-start">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Backlog</span>
+                            <Target size={14} className="text-indigo-400" />
                         </div>
-                    </div>
-                    {statusSummary.map(s => (
-                        <div key={s.label} className="bg-slate-50 border border-slate-100 p-4 rounded-xl flex flex-col justify-between hover:bg-white hover:border-indigo-100 transition-all group">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-indigo-500 truncate">{s.label}</span>
-                            <div className="flex items-end justify-between mt-2">
-                                <span className="text-3xl font-black text-slate-800">{s.count}</span>
-                                <div className="p-1 bg-white rounded border border-slate-100 shadow-xs">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-indigo-400" />
-                                </div>
+                        <div className="mt-2">
+                            <span className="text-2xl font-black text-slate-800">{weeklyFocusCount}</span>
+                            <div className="w-full bg-slate-200 h-1 rounded-full mt-1.5 overflow-hidden">
+                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(weeklyFocusCount / Math.max(tasks.length, 1)) * 100}%` }}></div>
                             </div>
                         </div>
-                    ))}
+                    </div>
+
+                    {/* Status Cards */}
+                    {statusSummary.map(s => {
+                        const isZero = s.count === 0;
+                        return (
+                            <div key={s.label} className={`min-w-[120px] flex-1 rounded-xl p-3 border flex flex-col justify-between transition-all ${isZero ? 'bg-white border-slate-100 opacity-60' : 'bg-white border-slate-200 hover:shadow-md'}`}>
+                                <div className="flex justify-between items-start">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase truncate max-w-[80px]" title={s.label}>{s.label}</span>
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getStatusColorHex(s.label) }}></div>
+                                </div>
+                                <div className="mt-2">
+                                    <span className={`text-2xl font-black ${isZero ? 'text-slate-300' : 'text-slate-700'}`}>{s.count}</span>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
              </div>
 
@@ -555,33 +608,34 @@ const App: React.FC = () => {
                             {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
                         </div>
                         <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                            {weekTasks[d]?.length ? weekTasks[d].map(t => (
-                                <div 
-                                  key={t.id} 
-                                  onClick={() => setHighlightedTaskId(t.id)} 
-                                  className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${getStatusColorMini(t.status)}`}
-                                >
-                                    <div className="flex justify-between items-center mb-1">
-                                      <span className={`font-mono font-bold ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.displayId}</span>
-                                      {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600" />}
-                                      {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600" />}
+                            {weekTasks[d]?.length ? weekTasks[d].map(t => {
+                                const latest = [...t.updates].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                                return (
+                                    <div 
+                                      key={t.id} 
+                                      onClick={() => setHighlightedTaskId(t.id)} 
+                                      className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${getStatusColorMini(t.status)}`}
+                                    >
+                                        <div className="flex justify-between items-center mb-1">
+                                          <span className={`font-mono font-bold ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.displayId}</span>
+                                          {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600" />}
+                                          {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600" />}
+                                        </div>
+                                        <p className={`line-clamp-2 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.description}</p>
+                                        
+                                        {/* Enhanced Preview in Horizontal Scroll */}
+                                        {latest && (
+                                            <div className="mt-2 flex items-start gap-1.5">
+                                                <div 
+                                                    className="w-1.5 h-1.5 rounded-full shrink-0 mt-1" 
+                                                    style={{ backgroundColor: latest.highlightColor || '#cbd5e1' }} 
+                                                />
+                                                <span className="text-[10px] text-slate-500 truncate font-medium flex-1 bg-white/50 px-1 rounded">{latest.content}</span>
+                                            </div>
+                                        )}
                                     </div>
-                                    <p className={`line-clamp-2 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.description}</p>
-                                    
-                                    {t.updates.length > 0 && (() => {
-                                      const latest = [...t.updates].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-                                      return (
-                                          <div className="mt-2 flex items-center gap-1.5 bg-white/60 p-1.5 rounded border border-black/5">
-                                              <div 
-                                                  className="w-1.5 h-1.5 rounded-full shrink-0" 
-                                                  style={{ backgroundColor: latest.highlightColor || '#cbd5e1' }} 
-                                              />
-                                              <span className="text-[10px] text-slate-600 truncate font-medium flex-1">{latest.content}</span>
-                                          </div>
-                                      );
-                                    })()}
-                                </div>
-                            )) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 italic">No deadlines</div>}
+                                );
+                            }) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 italic">No deadlines</div>}
                         </div>
                     </div>
                 ))}
@@ -591,10 +645,11 @@ const App: React.FC = () => {
                 <div className="xl:col-span-2 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200 overflow-hidden shadow-inner">
                     <div className="bg-white p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex bg-slate-100 p-1 rounded-xl">
-                            <button onClick={() => setActiveTaskTab('current')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'current' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Active Tasks</button>
-                            <button onClick={() => setActiveTaskTab('completed')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'completed' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Archive & Done</button>
+                            <button onClick={() => setActiveTaskTab('current')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'current' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Active Tasks</button>
+                            <button onClick={() => setActiveTaskTab('future')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'future' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Future Tasks</button>
+                            <button onClick={() => setActiveTaskTab('completed')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'completed' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Archive & Done</button>
                         </div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{filteredTasks.length} {activeTaskTab} ITEMS</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{filteredTasks.length} {activeTaskTab === 'future' ? 'UPCOMING' : activeTaskTab} ITEMS</span>
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -602,8 +657,10 @@ const App: React.FC = () => {
                         </div>
                         {filteredTasks.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-20 text-slate-300 opacity-50">
-                                <ListTodo size={48} className="mb-4" />
-                                <p className="font-bold">No tasks match your criteria</p>
+                                {activeTaskTab === 'future' ? <Calendar size={48} className="mb-4" /> : <ListTodo size={48} className="mb-4" />}
+                                <p className="font-bold">
+                                    {activeTaskTab === 'future' ? 'No upcoming tasks scheduled.' : 'No tasks match your criteria.'}
+                                </p>
                             </div>
                         )}
                     </div>
