@@ -33,21 +33,29 @@ jobs:
           path: target
           token: ${{ secrets.PROTRACKV2_TOKEN }}
           persist-credentials: false
+      
+      - name: Debug - confirm new workflow version
+        run: |
+          echo "RUNNING NEW RSYNC VERSION - 2026-01-17"
+          ls -la
 
       - name: Ensure rsync is installed
         run: sudo apt-get update && sudo apt-get install -y rsync
 
       - name: Replace production repo contents with Dev contents
         run: |
-          # Remove everything in target except the .git folder
+          sudo apt-get update && sudo apt-get install -y rsync
+
+          # Wipe target working tree (keep .git)
           find target -mindepth 1 -maxdepth 1 ! -name ".git" -exec rm -rf {} +
 
-          # Copy Dev -> target, excluding folders we must not copy
+          # Sync from Dev workspace into target, excluding target and git/github folders
           rsync -a --delete \
-            --exclude 'target' \
-            --exclude '.git' \
-            --exclude '.github' \
+            --exclude '/target' \
+            --exclude '/.git' \
+            --exclude '/.github' \
             ./ target/
+            
 
       - name: Commit and push to Pro_TrackV2
         working-directory: target
@@ -64,3 +72,4 @@ jobs:
 
           git commit -m "${{ inputs.message }} (${{ inputs.ref }})"
           git push origin HEAD:main
+          
