@@ -392,7 +392,17 @@ const Settings: React.FC<SettingsProps> = ({
                         <div className="text-right mr-4 hidden md:block">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Last Backup</span>
                             <span className="text-xs font-mono text-slate-600">
-                                {backupSettings.lastBackup ? new Date(backupSettings.lastBackup).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : 'Never'}
+                                {backupSettings.lastBackup 
+                                    ? new Date(backupSettings.lastBackup).toLocaleString([], { 
+                                        year: 'numeric', 
+                                        month: 'numeric', 
+                                        day: 'numeric', 
+                                        hour: 'numeric', 
+                                        minute: '2-digit', 
+                                        hour12: true 
+                                      }) 
+                                    : 'Never'
+                                }
                             </span>
                         </div>
                         <div className="flex items-center gap-2">

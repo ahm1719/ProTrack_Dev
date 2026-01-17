@@ -51,7 +51,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.10.9";
+const BUILD_VERSION = "V2.10.10";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),

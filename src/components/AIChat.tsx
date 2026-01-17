@@ -117,14 +117,17 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, o
     const updatedTabs = tabs.map(t => t.id === activeTabId ? { ...t, messages: [...t.messages, userMsg] } : t);
     setTabs(updatedTabs);
     
+    // Capture state before clearing
     const currentImage = attachedImage; 
+    const currentInput = input.trim();
+
     setInput('');
     setAttachedImage(null);
     setIsLoading(true);
 
     try {
       const apiHistory = activeTab.messages.filter(m => m.id !== 'welcome');
-      const responseText = await chatWithAI(apiHistory, userMsg.text, tasks, logs, observations, appConfig, currentImage || undefined);
+      const responseText = await chatWithAI(apiHistory, currentInput, tasks, logs, observations, appConfig, currentImage || undefined);
 
       const botMsg: ChatMessage = {
         id: uuidv4(),

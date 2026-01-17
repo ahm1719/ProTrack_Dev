@@ -168,6 +168,13 @@ export const chatWithAI = async (
       === OBSERVATIONS (Kanban) ===
       ${observationContext}
 
+      === SYSTEM KNOWLEDGE (User Guide) ===
+      - This tool replaces Excel for weekly task tracking.
+      - Core Workflow: Define Tasks -> Log Daily -> Track Status -> Generate AI Report.
+      - Observations are for ad-hoc notes, feedback, or visual issues.
+      - Data is stored locally (Offline-first) with optional Cloud Sync.
+      - You can provide summaries or answer questions about any of the data above.
+
       RULES:
       1. Answer questions based specifically on the data provided above.
       2. If asked about deadlines, check the 'Due' field.
@@ -184,6 +191,7 @@ export const chatWithAI = async (
       const parts: any[] = [{ text: msg.text }];
       
       if (msg.image) {
+        // Strip data:image/png;base64, prefix if present for the API call
         const match = msg.image.match(/^data:(.+);base64,(.+)$/);
         if (match) {
            parts.push({
