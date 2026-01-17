@@ -51,7 +51,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.10.7";
+const BUILD_VERSION = "V2.10.8";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -562,11 +562,21 @@ const App: React.FC = () => {
                                   className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${getStatusColorMini(t.status)}`}
                                 >
                                     <div className="flex justify-between items-center mb-1">
-                                      <span className="font-mono font-bold">{t.displayId}</span>
+                                      <span className={`font-mono font-bold ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.displayId}</span>
                                       {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600" />}
                                       {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600" />}
                                     </div>
-                                    <p className={`line-clamp-2 leading-tight ${t.status === Status.DONE ? 'line-through opacity-60' : ''}`}>{t.description}</p>
+                                    <p className={`line-clamp-2 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.description}</p>
+                                    
+                                    {t.updates.length > 0 && (() => {
+                                      const latest = [...t.updates].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                                      return (
+                                          <div className="mt-1.5 flex items-start gap-1.5 text-[10px] text-slate-500 bg-slate-50/50 p-1.5 rounded border border-slate-100/50">
+                                              <div className={`w-1.5 h-1.5 rounded-full mt-0.5 shrink-0 ${latest.highlightColor ? '' : 'bg-indigo-400'}`} style={{ backgroundColor: latest.highlightColor }} />
+                                              <span className="truncate">{latest.content}</span>
+                                          </div>
+                                      );
+                                    })()}
                                 </div>
                             )) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 italic">No deadlines</div>}
                         </div>

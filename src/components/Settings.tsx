@@ -1,7 +1,8 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen, Save, RefreshCw, Folder } from 'lucide-react';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen, Save, RefreshCw, Folder, CheckCircle2 } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, BackupSettings } from '../types';
 import { initFirebase } from '../services/firebaseService';
+import { saveManualBackup } from '../services/backupService';
 
 interface SettingsProps {
   tasks: Task[];
@@ -206,6 +207,7 @@ const Settings: React.FC<SettingsProps> = ({
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [configJson, setConfigJson] = useState('');
+  const [lastManualBackup, setLastManualBackup] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -253,21 +255,12 @@ const Settings: React.FC<SettingsProps> = ({
     e.target.value = '';
   };
 
-  const handleDownloadBackup = () => {
+  const handleDownloadBackup = async () => {
     const data = { tasks, logs, observations, offDays, appConfig };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    
-    const now = new Date();
-    const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    link.download = `ProTrack_Backup_${timestamp}.json`;
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const fileName = await saveManualBackup(data);
+    if (fileName) {
+        setLastManualBackup(fileName);
+    }
   };
 
   return (
@@ -491,10 +484,18 @@ const Settings: React.FC<SettingsProps> = ({
       </section>
 
       <div className="grid grid-cols-2 gap-4">
-          <button onClick={handleDownloadBackup} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
-              <Download className="text-indigo-400 group-hover:text-white" />
-              <span className="text-sm font-bold uppercase tracking-widest">Download Full System Backup (JSON)</span>
-          </button>
+          <div className="flex flex-col gap-2">
+            <button onClick={handleDownloadBackup} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
+                <Download className="text-indigo-400 group-hover:text-white" />
+                <span className="text-sm font-bold uppercase tracking-widest">Download Full System Backup (JSON)</span>
+            </button>
+            {lastManualBackup && (
+                <div className="text-center text-[10px] text-slate-500 flex items-center justify-center gap-1.5 animate-fade-in">
+                    <CheckCircle2 size={10} className="text-emerald-500" />
+                    Last manual backup saved as: <span className="font-mono text-slate-700 font-bold">{lastManualBackup}</span>
+                </div>
+            )}
+          </div>
           
           <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
              <div className="flex items-center justify-center gap-3 p-6 bg-white text-slate-700 rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50 transition-all shadow-sm">

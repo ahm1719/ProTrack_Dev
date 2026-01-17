@@ -134,7 +134,7 @@ export const performBackup = async (
   }
 };
 
-export const saveManualBackup = async (data: any) => {
+export const saveManualBackup = async (data: any): Promise<string | undefined> => {
   const now = new Date();
   const dateStr = now.toISOString().split('T')[0];
   const timeStr = `${now.getHours().toString().padStart(2, '0')}-${now.getMinutes().toString().padStart(2, '0')}`;
@@ -153,11 +153,10 @@ export const saveManualBackup = async (data: any) => {
       const writable = await handle.createWritable();
       await writable.write(JSON.stringify(data, null, 2));
       await writable.close();
-      return;
+      return handle.name;
     } catch (err: any) {
       if (err.name !== 'AbortError') console.error('Backup skipped', err);
-      // If abort, just return, don't fallback to legacy download as user cancelled intention.
-      return;
+      return undefined;
     }
   } 
 
@@ -171,4 +170,5 @@ export const saveManualBackup = async (data: any) => {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+  return filename;
 };
