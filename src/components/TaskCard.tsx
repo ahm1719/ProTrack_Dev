@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 interface TaskCardProps {
   task: Task;
   onUpdateStatus: (id: string, status: string) => void;
-  onEdit: (task: Task) => void;
+  onEdit?: (task: Task) => void;
   onDelete: (id: string) => void;
   onAddUpdate: (id: string, content: string, attachments?: TaskAttachment[], highlightColor?: string) => void;
   onEditUpdate?: (taskId: string, updateId: string, newContent: string, newTimestamp?: string, highlightColor?: string | null) => void;
@@ -28,7 +28,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onUpdateStatus, 
   onEdit, 
   onDelete, 
-  onAddUpdate,
+  onAddUpdate, 
   onEditUpdate,
   onDeleteUpdate,
   allowDelete = true, 
@@ -296,16 +296,17 @@ const TaskCard: React.FC<TaskCardProps> = ({
              )}
           </div>
           <div className="flex items-center gap-1">
-            {isReadOnly ? (
-              onNavigate && (
+            {onNavigate && (
                 <button 
-                  onClick={onNavigate} 
-                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium"
+                  onClick={(e) => { e.stopPropagation(); onNavigate(); }} 
+                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium mr-1"
+                  title="Open Task Details"
                 >
-                  Open <ArrowRight size={14} />
+                   <span className="hidden sm:inline">Open</span> <ArrowRight size={14} />
                 </button>
-              )
-            ) : (
+            )}
+
+            {!isReadOnly && (
               <>
                 <button 
                   onClick={() => taskFileInputRef.current?.click()}
@@ -321,10 +322,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   onChange={(e) => handleFileChange(e, true)}
                 />
                 
-                {!isDailyView && (
+                {!isDailyView && onEdit && (
                     <button 
                     onClick={() => onEdit(task)} 
                     className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    title="Edit Task"
                     >
                     <Edit2 size={16} />
                     </button>
