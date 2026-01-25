@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -53,7 +54,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.12.2";
+const BUILD_VERSION = "V2.12.3";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
