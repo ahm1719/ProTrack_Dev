@@ -89,7 +89,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
     setImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     if (!content.trim() && images.length === 0) return;
 
@@ -215,30 +215,35 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
             </div>
             
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-                <div className="flex flex-col md:flex-row gap-3">
+                <div className="flex flex-col md:flex-row gap-3 items-start">
                   <select 
                       value={status}
                       onChange={(e) => setStatus(e.target.value)}
-                      className="w-full md:w-48 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 cursor-pointer"
+                      className="w-full md:w-48 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 cursor-pointer h-10"
                   >
                       {columns.map(s => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                   </select>
-                  <div className="flex-1 flex gap-2">
+                  <div className="flex-1 flex gap-2 w-full">
                       <div className="relative flex-1">
-                        <input
-                            type="text"
+                        <textarea
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
                             onPaste={handlePaste}
-                            placeholder="Describe observation... (Paste images here)"
-                            className="w-full p-2 pr-10 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                    handleSubmit(e);
+                                }
+                            }}
+                            placeholder="Describe observation... (Paste images here) [Ctrl+Enter to add]"
+                            className="w-full p-2 pr-10 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900 resize-y min-h-[5rem]"
+                            rows={3}
                         />
                         <button 
                             type="button" 
                             onClick={() => fileInputRef.current?.click()}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 p-1"
+                            className="absolute right-2 bottom-2 text-slate-400 hover:text-indigo-600 p-1"
                             title="Attach Image"
                         >
                             <ImageIcon size={18} />
@@ -254,7 +259,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                       />
                       <button
                           type="submit"
-                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+                          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap h-10"
                       >
                           {editingId ? 'Save' : 'Add'}
                       </button>
@@ -333,7 +338,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                                       </div>
                                     )}
 
-                                    <p className="text-sm text-slate-700 mb-2 leading-snug break-words">{obs.content}</p>
+                                    <p className="text-sm text-slate-700 mb-2 leading-snug break-words whitespace-pre-wrap">{obs.content}</p>
                                     
                                     <div className="flex items-center justify-between pt-2 border-t border-slate-50 mt-2">
                                         <span className="text-[10px] text-slate-400 font-mono">
