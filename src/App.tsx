@@ -53,7 +53,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.12.4";
+const BUILD_VERSION = "V2.12.5";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -503,7 +503,11 @@ const App: React.FC = () => {
   // Tab Filtering Logic
   const filteredTasks = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    const base = tasks.filter(t => t.description.toLowerCase().includes(q) || t.displayId.toLowerCase().includes(q));
+    const base = tasks.filter(t => 
+        t.description.toLowerCase().includes(q) || 
+        t.displayId.toLowerCase().includes(q) || 
+        t.updates.some(u => u.content.toLowerCase().includes(q))
+    );
     
     if (activeTaskTab === 'completed') {
         return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
