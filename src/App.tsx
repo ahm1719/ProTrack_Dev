@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -54,7 +53,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.12.3";
+const BUILD_VERSION = "V2.12.4";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -478,8 +477,25 @@ const App: React.FC = () => {
 
   const weekTasks = useMemo(() => {
     const map: Record<string, Task[]> = {};
+    
+    // Priority weights helper
+    const getWeight = (p: string) => {
+        if (p === Priority.HIGH) return 3;
+        if (p === Priority.MEDIUM) return 2;
+        if (p === Priority.LOW) return 1;
+        return 0;
+    };
+
     weekDays.forEach(d => {
-      map[d] = tasks.filter(t => t.dueDate === d);
+      const dayTasks = tasks.filter(t => t.dueDate === d);
+      // Sort: High Priority First, then alphanumeric displayId
+      dayTasks.sort((a, b) => {
+          const wA = getWeight(a.priority);
+          const wB = getWeight(b.priority);
+          if (wA !== wB) return wB - wA; // Descending priority
+          return a.displayId.localeCompare(b.displayId, undefined, { numeric: true, sensitivity: 'base' });
+      });
+      map[d] = dayTasks;
     });
     return map;
   }, [tasks, weekDays]);
