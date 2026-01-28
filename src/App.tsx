@@ -20,7 +20,8 @@ import {
   Calendar,
   Briefcase,
   TrendingUp,
-  MoreHorizontal
+  MoreHorizontal,
+  GripVertical
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -54,7 +55,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.12.5";
+const BUILD_VERSION = "V2.12.6";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -119,6 +120,9 @@ const App: React.FC = () => {
   const [generatedReport, setGeneratedReport] = useState('');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+
+  // Drag and Drop State
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
   // Backup State
   const [backupSettings, setBackupSettings] = useState<BackupSettings>({
@@ -423,6 +427,58 @@ const App: React.FC = () => {
     localStorage.setItem('protrack_app_config', JSON.stringify(newConfig));
   };
 
+  // --- Drag and Drop Handlers ---
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTaskId(taskId);
+    e.dataTransfer.setData("text/plain", taskId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Necessary to allow dropping
+  };
+
+  const handleDrop = (e: React.DragEvent, targetTaskId: string, dateStr: string) => {
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData("text/plain");
+    
+    if (!draggedId || draggedId === targetTaskId) {
+        setDraggedTaskId(null);
+        return;
+    }
+
+    const dayTaskList = weekTasks[dateStr]; // This utilizes the current memoized sort order
+    if (!dayTaskList) return;
+
+    const fromIndex = dayTaskList.findIndex(t => t.id === draggedId);
+    const toIndex = dayTaskList.findIndex(t => t.id === targetTaskId);
+
+    if (fromIndex === -1 || toIndex === -1) {
+        setDraggedTaskId(null);
+        return;
+    }
+
+    // Create a new array reflecting the desired order
+    const newList = [...dayTaskList];
+    const [movedItem] = newList.splice(fromIndex, 1);
+    newList.splice(toIndex, 0, movedItem);
+
+    // Create a map of id -> new order index
+    const orderMap = new Map();
+    newList.forEach((t, index) => orderMap.set(t.id, index));
+
+    // Update global tasks state, assigning order to ALL items in this day's list to freeze the sort
+    const newTasks = tasks.map(t => {
+        if (orderMap.has(t.id)) {
+            return { ...t, order: orderMap.get(t.id) };
+        }
+        return t;
+    });
+
+    persistData(newTasks, logs, observations, offDays);
+    setDraggedTaskId(null);
+  };
+
   // --- Backup Handlers ---
   const handleSetupBackupFolder = async () => {
     const handle = await selectBackupFolder();
@@ -489,11 +545,22 @@ const App: React.FC = () => {
 
     weekDays.forEach(d => {
       const dayTasks = tasks.filter(t => t.dueDate === d);
-      // Sort: High Priority First, then alphanumeric displayId
+      // Sort logic supporting manual ordering
       dayTasks.sort((a, b) => {
+          // 1. Primary: Defined 'order' index
+          if (a.order !== undefined && b.order !== undefined) {
+              return a.order - b.order;
+          }
+          // Items with order come first
+          if (a.order !== undefined) return -1;
+          if (b.order !== undefined) return 1;
+
+          // 2. Secondary: Priority
           const wA = getWeight(a.priority);
           const wB = getWeight(b.priority);
           if (wA !== wB) return wB - wA; // Descending priority
+          
+          // 3. Tertiary: Alphanumeric displayId
           return a.displayId.localeCompare(b.displayId, undefined, { numeric: true, sensitivity: 'base' });
       });
       map[d] = dayTasks;
@@ -699,9 +766,14 @@ const App: React.FC = () => {
                                 const latest = [...t.updates].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                                 return (
                                     <div 
-                                      key={t.id} 
+                                      key={t.id}
+                                      draggable="true"
+                                      onDragStart={(e) => handleDragStart(e, t.id)}
+                                      onDragOver={handleDragOver}
+                                      onDrop={(e) => handleDrop(e, t.id, d)}
                                       onClick={() => setHighlightedTaskId(t.id)} 
-                                      className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${getStatusColorMini(t.status)}`}
+                                      className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group select-none ${getStatusColorMini(t.status)} ${draggedTaskId === t.id ? 'opacity-40 border-dashed border-indigo-400' : ''}`}
+                                      title="Drag to reorder"
                                     >
                                         <div className="flex justify-between items-center mb-1">
                                           <span className={`font-mono font-bold ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.displayId}</span>
