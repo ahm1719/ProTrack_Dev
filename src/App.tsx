@@ -544,6 +544,8 @@ const App: React.FC = () => {
 
   const getStatusColorHex = (s: string) => {
       // Helper for dashboard bars
+      if (appConfig.itemColors && appConfig.itemColors[s]) return appConfig.itemColors[s];
+      
       if (s === Status.DONE) return '#10b981';
       if (s === Status.IN_PROGRESS) return '#3b82f6';
       if (s === Status.WAITING) return '#f59e0b';
@@ -586,45 +588,74 @@ const App: React.FC = () => {
              </div>
 
              {/* Redesigned Dashboard Status Section */}
-             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <div className="flex justify-between items-center mb-4">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                        <TrendingUp size={14} className="text-indigo-500" /> Weekly Pulse
-                    </p>
-                    <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded-full">{tasks.length} Total Tasks</span>
-                </div>
-                
-                <div className="flex gap-4 overflow-x-auto pb-2 custom-scrollbar">
-                    {/* Active Backlog Card */}
-                    <div className="min-w-[140px] flex-1 bg-slate-50 rounded-xl p-3 border border-slate-100 flex flex-col justify-between group hover:border-indigo-200 transition-all">
-                        <div className="flex justify-between items-start">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase">Backlog</span>
-                            <Target size={14} className="text-indigo-400" />
+             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                 {/* Progress Overview - Left Side (1 col) */}
+                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center lg:col-span-1">
+                    <div className="flex justify-between items-end mb-6">
+                        <div>
+                             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <Target size={20} className="text-indigo-600" />
+                                Weekly Focus
+                             </h3>
+                             <p className="text-slate-500 text-xs mt-1">Active tasks vs Total backlog</p>
                         </div>
-                        <div className="mt-2">
-                            <span className="text-2xl font-black text-slate-800">{weeklyFocusCount}</span>
-                            <div className="w-full bg-slate-200 h-1 rounded-full mt-1.5 overflow-hidden">
-                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${(weeklyFocusCount / Math.max(tasks.length, 1)) * 100}%` }}></div>
-                            </div>
+                        <div className="text-right">
+                             <span className="text-3xl font-black text-indigo-600">{weeklyFocusCount}</span>
+                             <span className="text-slate-400 text-sm font-medium"> / {tasks.length}</span>
                         </div>
                     </div>
+                    {/* Progress Bar */}
+                    <div className="h-4 bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
+                        {statusSummary.map((s) => {
+                            if (s.count === 0) return null;
+                            const color = getStatusColorHex(s.label);
+                            const width = tasks.length > 0 ? (s.count / tasks.length) * 100 : 0;
+                            return (
+                                <div 
+                                    key={s.label} 
+                                    style={{ width: `${width}%`, backgroundColor: color }} 
+                                    className="h-full border-r border-white/20 last:border-0 hover:opacity-90 transition-opacity relative group"
+                                    title={`${s.label}: ${s.count}`}
+                                />
+                            );
+                        })}
+                    </div>
+                    <div className="flex flex-wrap gap-3 mt-6">
+                        {statusSummary.filter(s => s.count > 0).map(s => (
+                             <div key={s.label} className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                                 <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: getStatusColorHex(s.label) }}></div>
+                                 <span className="font-bold">{tasks.length > 0 ? Math.round((s.count / tasks.length) * 100) : 0}%</span> 
+                                 <span className="truncate max-w-[80px]">{s.label}</span>
+                             </div>
+                        ))}
+                    </div>
+                 </div>
 
-                    {/* Status Cards */}
+                 {/* Detailed Status Grid - Right Side (2 cols) */}
+                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 lg:col-span-2">
                     {statusSummary.map(s => {
                         const isZero = s.count === 0;
+                        const color = getStatusColorHex(s.label);
                         return (
-                            <div key={s.label} className={`min-w-[120px] flex-1 rounded-xl p-3 border flex flex-col justify-between transition-all ${isZero ? 'bg-white border-slate-100 opacity-60' : 'bg-white border-slate-200 hover:shadow-md'}`}>
-                                <div className="flex justify-between items-start">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase truncate max-w-[80px]" title={s.label}>{s.label}</span>
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: getStatusColorHex(s.label) }}></div>
+                            <div key={s.label} className={`p-4 rounded-2xl border transition-all flex flex-col justify-between group ${isZero ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-200'}`}>
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className={`p-2 rounded-xl transition-colors ${isZero ? 'grayscale opacity-50' : ''}`} style={{ backgroundColor: `${color}15`, color: color }}>
+                                        <Layers size={16} />
+                                    </div>
+                                    {!isZero && (
+                                        <span className="text-[10px] font-bold bg-slate-100 px-2 py-0.5 rounded-full text-slate-500">
+                                            {tasks.length > 0 ? Math.round((s.count / tasks.length) * 100) : 0}%
+                                        </span>
+                                    )}
                                 </div>
-                                <div className="mt-2">
-                                    <span className={`text-2xl font-black ${isZero ? 'text-slate-300' : 'text-slate-700'}`}>{s.count}</span>
+                                <div>
+                                    <span className={`text-3xl font-black block mb-0.5 ${isZero ? 'text-slate-300' : 'text-slate-800'}`}>{s.count}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate block group-hover:text-indigo-500 transition-colors" title={s.label}>{s.label}</span>
                                 </div>
                             </div>
                         );
                     })}
-                </div>
+                 </div>
              </div>
 
              {/* Tasks Due Today Section */}
