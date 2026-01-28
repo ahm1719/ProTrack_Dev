@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -778,7 +779,16 @@ const App: React.FC = () => {
         );
 
       case ViewMode.OBSERVATIONS:
-        return <ObservationsLog observations={observations} onAddObservation={o => persistData(tasks, logs, [...observations, o], offDays)} onEditObservation={o => persistData(tasks, logs, observations.map(x => x.id === o.id ? o : x), offDays)} onDeleteObservation={id => persistData(tasks, logs, observations.filter(x => x.id !== id), offDays)} columns={appConfig.observationStatuses} />;
+        return (
+            <ObservationsLog 
+                observations={observations} 
+                onAddObservation={o => persistData(tasks, logs, [...observations, o], offDays)} 
+                onEditObservation={o => persistData(tasks, logs, observations.map(x => x.id === o.id ? o : x), offDays)} 
+                onDeleteObservation={id => persistData(tasks, logs, observations.filter(x => x.id !== id), offDays)} 
+                columns={appConfig.observationStatuses} 
+                itemColors={appConfig.itemColors} 
+            />
+        );
       case ViewMode.SETTINGS:
         return (
           <Settings 
