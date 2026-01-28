@@ -858,15 +858,17 @@ const App: React.FC = () => {
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <div className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
-           <div className="relative max-w-md w-full">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" placeholder="Search tasks, logs, projects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-10 py-2 bg-slate-50 border-none rounded-lg text-sm outline-none" />
-              {searchQuery && (
-                  <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                      <X size={14} />
-                  </button>
-              )}
-           </div>
+           {view !== ViewMode.OBSERVATIONS ? (
+             <div className="relative max-w-md w-full">
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input type="text" placeholder="Search tasks, logs, projects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-10 py-2 bg-slate-50 border-none rounded-lg text-sm outline-none" />
+                {searchQuery && (
+                    <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                        <X size={14} />
+                    </button>
+                )}
+             </div>
+           ) : <div />}
            <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
