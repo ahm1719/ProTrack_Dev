@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+
+import React, { useState, useRef, useMemo } from 'react';
 import { Observation, ObservationStatus } from '../types';
 import { StickyNote, Plus, Trash2, Edit2, X, Circle, Clock, CheckCircle2, ArrowRight, ArrowLeft, Image as ImageIcon, XCircle, Maximize2, Search } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -136,6 +137,15 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
     return styles[index % styles.length];
   };
 
+  // Filter observations based on search query
+  const filteredObservations = useMemo(() => {
+    if (!searchQuery.trim()) return observations;
+    const query = searchQuery.toLowerCase().trim();
+    return observations.filter(o => 
+        (o.content || '').toLowerCase().includes(query)
+    );
+  }, [observations, searchQuery]);
+
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] animate-fade-in space-y-4 relative">
       {lightboxImage && (
@@ -231,10 +241,9 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
       <div className="flex-1 min-h-0 overflow-x-auto">
         <div className="flex h-full gap-4 min-w-[800px] md:min-w-0 pb-2">
             {columns.map((colName, index) => {
-                const colObs = observations.filter(o => 
-                    o.status === colName && 
-                    o.content.toLowerCase().includes(searchQuery.toLowerCase())
-                );
+                // Filter by column status from the already search-filtered list
+                const colObs = filteredObservations.filter(o => o.status === colName);
+                
                 const headerStyle = getColumnHeaderStyle(colName);
                 const { icon: Icon } = getColumnStyle(index);
 
@@ -252,7 +261,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                                 <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-2">
                                     <Icon size={24} className="opacity-20"/>
                                     <span className="text-xs italic">
-                                        {searchQuery ? 'No match' : 'Empty'}
+                                        {searchQuery && filteredObservations.length === 0 ? 'No match' : 'Empty'}
                                     </span>
                                 </div>
                             )}
