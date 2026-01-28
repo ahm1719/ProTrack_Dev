@@ -233,7 +233,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   return (
-    <div ref={cardRef} className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-300 hover:shadow-md ${isCompleted ? 'opacity-60 bg-slate-50' : ''} ${autoExpand ? 'ring-2 ring-indigo-500 shadow-lg' : ''}`}>
+    <div ref={cardRef} className={`bg-white rounded-xl shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md ${isCompleted ? 'opacity-60 bg-slate-50' : ''} ${autoExpand ? 'ring-2 ring-indigo-500 shadow-lg' : ''}`}>
       <div className="p-5">
         <div className="flex justify-between items-start mb-3">
           <div className="flex flex-wrap gap-2 items-center">
@@ -464,14 +464,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
       <div className="border-t border-slate-100">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-5 py-2 flex items-center justify-center gap-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+          className={`w-full px-5 py-2 flex items-center justify-center gap-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors ${!isExpanded ? 'rounded-b-xl' : ''}`}
         >
           {isExpanded ? 'Hide History' : (isReadOnly ? 'View History' : 'View History & Add Update')}
           {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
 
         {isExpanded && (
-          <div className="px-5 pb-5 bg-slate-50">
+          <div className="px-5 pb-5 bg-slate-50 rounded-b-xl">
             {!isReadOnly && (
               <div className="pt-4 space-y-2">
                 <form onSubmit={handleSubmitUpdate}>
