@@ -587,75 +587,65 @@ const App: React.FC = () => {
                 </div>
              </div>
 
-             {/* Redesigned Dashboard Status Section */}
-             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                 {/* Progress Overview - Left Side (1 col) */}
-                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center lg:col-span-1">
-                    <div className="flex justify-between items-end mb-6">
-                        <div>
-                             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                                <Target size={20} className="text-indigo-600" />
-                                Weekly Focus
-                             </h3>
-                             <p className="text-slate-500 text-xs mt-1">Active tasks vs Total backlog</p>
-                        </div>
-                        <div className="text-right">
-                             <span className="text-3xl font-black text-indigo-600">{weeklyFocusCount}</span>
-                             <span className="text-slate-400 text-sm font-medium"> / {tasks.length}</span>
-                        </div>
+             {/* Unified Dashboard Status Section */}
+             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+                    <div>
+                         <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <Target size={20} className="text-indigo-600" />
+                            Task Distribution
+                         </h3>
+                         <p className="text-slate-500 text-xs mt-1">Weekly focus vs overall backlog status</p>
                     </div>
-                    {/* Progress Bar */}
-                    <div className="h-4 bg-slate-100 rounded-full overflow-hidden flex shadow-inner">
-                        {statusSummary.map((s) => {
-                            if (s.count === 0) return null;
-                            const color = getStatusColorHex(s.label);
-                            const width = tasks.length > 0 ? (s.count / tasks.length) * 100 : 0;
-                            return (
-                                <div 
-                                    key={s.label} 
-                                    style={{ width: `${width}%`, backgroundColor: color }} 
-                                    className="h-full border-r border-white/20 last:border-0 hover:opacity-90 transition-opacity relative group"
-                                    title={`${s.label}: ${s.count}`}
-                                />
-                            );
-                        })}
+                    <div className="flex flex-col items-end">
+                         <div className="flex items-baseline gap-2">
+                            <span className="text-4xl font-black text-indigo-600">{weeklyFocusCount}</span>
+                            <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Active Tasks</span>
+                         </div>
+                         <span className="text-slate-400 text-xs font-medium">out of {tasks.length} total items</span>
                     </div>
-                    <div className="flex flex-wrap gap-3 mt-6">
-                        {statusSummary.filter(s => s.count > 0).map(s => (
-                             <div key={s.label} className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded border border-slate-100">
-                                 <div className="w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: getStatusColorHex(s.label) }}></div>
-                                 <span className="font-bold">{tasks.length > 0 ? Math.round((s.count / tasks.length) * 100) : 0}%</span> 
-                                 <span className="truncate max-w-[80px]">{s.label}</span>
-                             </div>
-                        ))}
-                    </div>
-                 </div>
+                </div>
 
-                 {/* Detailed Status Grid - Right Side (2 cols) */}
-                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 lg:col-span-2">
+                {/* Unified Progress Bar */}
+                <div className="h-8 bg-slate-50 rounded-xl overflow-hidden flex shadow-inner mb-8 border border-slate-100">
+                    {statusSummary.map((s) => {
+                        if (s.count === 0) return null;
+                        const color = getStatusColorHex(s.label);
+                        const width = tasks.length > 0 ? (s.count / tasks.length) * 100 : 0;
+                        return (
+                            <div 
+                                key={s.label} 
+                                style={{ width: `${width}%`, backgroundColor: color }} 
+                                className="h-full border-r border-white/20 last:border-0 relative group transition-all hover:opacity-90 flex items-center justify-center"
+                                title={`${s.label}: ${s.count}`}
+                            >
+                                {width > 10 && <span className="text-[10px] font-bold text-white/90 drop-shadow-sm">{Math.round(width)}%</span>}
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Consolidated Metrics Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     {statusSummary.map(s => {
                         const isZero = s.count === 0;
                         const color = getStatusColorHex(s.label);
+                        const percentage = tasks.length > 0 ? Math.round((s.count / tasks.length) * 100) : 0;
+                        
                         return (
-                            <div key={s.label} className={`p-4 rounded-2xl border transition-all flex flex-col justify-between group ${isZero ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-200'}`}>
-                                <div className="flex justify-between items-start mb-3">
-                                    <div className={`p-2 rounded-xl transition-colors ${isZero ? 'grayscale opacity-50' : ''}`} style={{ backgroundColor: `${color}15`, color: color }}>
-                                        <Layers size={16} />
-                                    </div>
-                                    {!isZero && (
-                                        <span className="text-[10px] font-bold bg-slate-100 px-2 py-0.5 rounded-full text-slate-500">
-                                            {tasks.length > 0 ? Math.round((s.count / tasks.length) * 100) : 0}%
-                                        </span>
-                                    )}
+                            <div key={s.label} className={`p-4 rounded-xl border transition-all flex flex-col justify-between h-24 ${isZero ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md'}`}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }}></div>
+                                    {!isZero && <span className="text-[10px] font-bold text-slate-400">{percentage}%</span>}
                                 </div>
                                 <div>
-                                    <span className={`text-3xl font-black block mb-0.5 ${isZero ? 'text-slate-300' : 'text-slate-800'}`}>{s.count}</span>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate block group-hover:text-indigo-500 transition-colors" title={s.label}>{s.label}</span>
+                                    <span className={`text-2xl font-black block leading-none mb-1 ${isZero ? 'text-slate-300' : 'text-slate-800'}`}>{s.count}</span>
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate block" title={s.label}>{s.label}</span>
                                 </div>
                             </div>
                         );
                     })}
-                 </div>
+                </div>
              </div>
 
              {/* Tasks Due Today Section */}
