@@ -500,7 +500,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                                 <div className="w-4 h-4 rounded-full border border-slate-200" style={{ backgroundColor: newUpdateColor }} />
                             </button>
                             {showColorPicker && (
-                                <div className="absolute bottom-full right-0 mb-2 p-2 bg-white rounded-xl shadow-lg border border-slate-200 flex flex-col gap-1 z-10 w-32 max-h-48 overflow-y-auto custom-scrollbar">
+                                <div className="absolute bottom-full right-0 mb-2 p-2 bg-white rounded-xl shadow-lg border border-slate-200 flex flex-col gap-1 z-50 w-32 max-h-48 overflow-y-auto custom-scrollbar">
                                     {updateTags.length > 0 ? updateTags.map((c) => (
                                         <button
                                             key={c.id}
@@ -560,7 +560,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               </div>
             )}
 
-            <div className="space-y-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar mt-4">
+            <div className="space-y-3 mt-4">
               {task.updates.length === 0 && (
                 <p className="text-center text-xs text-slate-400 py-2">No updates recorded yet.</p>
               )}
@@ -586,7 +586,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                             <button type="button" className="p-1.5 hover:bg-slate-100 rounded">
                                 <div className="w-3 h-3 rounded-full border border-slate-200" style={{ backgroundColor: editUpdateColor || '#cbd5e1' }} />
                             </button>
-                            <div className="absolute bottom-full left-0 mb-1 p-1 bg-white rounded shadow-lg border border-slate-200 hidden group-hover/edit-color:flex flex-col gap-1 z-10 w-32 max-h-48 overflow-y-auto custom-scrollbar">
+                            <div className="absolute top-full left-0 mt-1 p-1 bg-white rounded shadow-lg border border-slate-200 hidden group-hover/edit-color:flex flex-col gap-1 z-50 w-32 max-h-48 overflow-y-auto custom-scrollbar">
                                 <button type="button" onClick={() => setEditUpdateColor(null)} className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded text-xs w-full text-left">
                                     <div className="w-3 h-3 rounded-full border border-slate-200 bg-slate-100 shrink-0" />
                                     <span className="text-slate-500">None</span>
