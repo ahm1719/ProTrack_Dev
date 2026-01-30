@@ -71,7 +71,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   }, [autoExpand]);
 
-  // Ensure selected color is valid if tags change, fallback to neutral/gray
   useEffect(() => {
       if (updateTags.length > 0 && !updateTags.find(t => t.color === newUpdateColor)) {
           setNewUpdateColor(updateTags[0]?.color || '#94a3b8');
@@ -172,7 +171,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
       onAddUpdate(task.id, newUpdate, pendingAttachments.length > 0 ? pendingAttachments : undefined, newUpdateColor);
       setNewUpdate('');
       setPendingAttachments([]);
-      // Keep selected color for subsequent updates
       setShowColorPicker(false);
     }
   };
@@ -181,7 +179,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
     if (isReadOnly) return;
     setEditingUpdateId(update.id);
     setEditUpdateContent(update.content);
-    // Explicitly set to null if undefined to ensure controlled state consistency
     setEditUpdateColor(update.highlightColor || null);
     setShowEditColorPicker(false);
     
@@ -237,8 +234,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   return (
-    <div ref={cardRef} className={`bg-white rounded-xl shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md ${isCompleted ? 'opacity-60 bg-slate-50' : ''} ${autoExpand ? 'ring-2 ring-indigo-500 shadow-lg' : ''}`}>
-      <div className="p-5">
+    <div ref={cardRef} className={`bg-white rounded-xl shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md flex flex-col ${isCompleted ? 'opacity-60 bg-slate-50' : ''} ${autoExpand ? 'ring-2 ring-indigo-500 shadow-lg' : ''}`}>
+      <div className="p-5 flex-1 flex flex-col">
         <div className="flex justify-between items-start mb-3">
           <div className="flex flex-wrap gap-2 items-center">
              {editingField === 'source' ? (
@@ -253,7 +250,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
              ) : (
                 <span 
                   onClick={() => handleFieldClick('source', task.source)}
-                  className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded cursor-pointer hover:bg-slate-200 hover:text-slate-700 transition-colors border border-transparent hover:border-slate-300"
+                  className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded cursor-pointer hover:bg-slate-200 hover:text-slate-700 transition-colors border border-transparent hover:border-slate-300"
                 >
                   {task.source}
                 </span>
@@ -280,7 +277,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
              {editingField === 'priority' ? (
                  <select
                     autoFocus
-                    className="text-xs font-medium px-2 py-1 rounded border border-indigo-300 outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    className="text-[10px] font-medium px-2 py-1 rounded border border-indigo-300 outline-none focus:ring-2 focus:ring-indigo-500 bg-white h-7"
                     value={tempValue}
                     onChange={(e) => {
                         setTempValue(e.target.value);
@@ -294,7 +291,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
              ) : (
                 <span 
                   onClick={() => handleFieldClick('priority', task.priority)}
-                  className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(task.priority)} font-medium cursor-pointer hover:brightness-95 transition-all`}
+                  className={`text-[10px] px-2 py-1 rounded-full border ${getPriorityColor(task.priority)} font-medium cursor-pointer hover:brightness-95 transition-all`}
                 >
                   {task.priority}
                 </span>
@@ -304,7 +301,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
             {onNavigate && (
                 <button 
                   onClick={(e) => { e.stopPropagation(); onNavigate(); }} 
-                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium mr-1"
+                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-1 text-[11px] font-medium mr-1"
                   title="Open Task Details"
                 >
                    <span className="hidden sm:inline">Open</span> <ArrowRight size={14} />
@@ -352,7 +349,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         {editingField === 'description' ? (
             <textarea
                 autoFocus
-                className="w-full text-lg font-medium text-slate-800 bg-white border border-indigo-300 rounded p-2 outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                className="w-full text-base font-medium text-slate-800 bg-white border border-indigo-300 rounded p-2 outline-none focus:ring-2 focus:ring-indigo-500 resize-none mb-2"
                 rows={3}
                 value={tempValue}
                 onChange={(e) => setTempValue(e.target.value)}
@@ -365,15 +362,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
         ) : (
             <h3 
               onClick={() => handleFieldClick('description', task.description)}
-              className={`text-lg font-semibold text-slate-800 mb-2 leading-tight whitespace-pre-wrap cursor-pointer hover:text-indigo-700 transition-colors border border-transparent hover:border-dashed hover:border-slate-300 rounded p-0.5 -m-0.5 ${isCompleted ? 'line-through text-slate-500' : ''}`}
+              className={`text-base font-semibold text-slate-800 mb-2 leading-tight whitespace-pre-wrap cursor-pointer hover:text-indigo-700 transition-colors border border-transparent hover:border-dashed hover:border-slate-300 rounded p-0.5 -m-0.5 ${isCompleted ? 'line-through text-slate-500' : ''}`}
             >
               {task.description}
             </h3>
         )}
 
-        {/* Global Task Attachments */}
         {task.attachments && task.attachments.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
+            <div className="flex flex-wrap gap-1.5 mt-1 mb-2">
                 {task.attachments.map(att => (
                     <div key={att.id} className="flex items-center gap-1 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-bold text-slate-500 shadow-xs group">
                         <File size={10} />
@@ -388,18 +384,17 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </div>
         )}
 
-        {/* Latest Update Preview - Enhanced for Prompt Requirement */}
         {latestUpdate && (
             <div 
-                className="mt-3 bg-white/50 rounded-lg p-2.5 text-xs text-slate-600 border border-slate-100 hover:border-indigo-100 transition-colors group/preview flex items-start gap-3 shadow-sm"
+                className="mt-2 mb-3 bg-white/50 rounded-lg p-2.5 text-xs text-slate-600 border border-slate-100 hover:border-indigo-100 transition-colors group/preview flex items-start gap-3 shadow-sm"
                 style={{ borderLeftWidth: '3px', borderLeftColor: latestUpdate.highlightColor || '#cbd5e1' }}
             >
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover/preview:text-indigo-400 transition-colors">
-                            Latest Update
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider group-hover/preview:text-indigo-400 transition-colors">
+                            LATEST UPDATE
                         </span>
-                        <span className="text-[10px] font-mono text-slate-400">
+                        <span className="text-[9px] font-mono text-slate-300">
                             {formatDate(latestUpdate.timestamp)}
                         </span>
                     </div>
@@ -410,10 +405,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
             </div>
         )}
 
-        <div className="flex items-center justify-between mt-4">
-          <div className="flex items-center gap-4 text-sm text-slate-500">
-            <div className="flex items-center gap-1 group relative">
-              <Calendar size={14} className={editingField === 'dueDate' ? 'text-indigo-500' : ''} />
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2 border-t border-slate-50">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-medium text-slate-500 min-w-0">
+            <div className="flex items-center gap-1.5 group relative shrink-0">
+              <Calendar size={12} className={`shrink-0 ${editingField === 'dueDate' ? 'text-indigo-500' : 'text-slate-400'}`} />
               {editingField === 'dueDate' ? (
                   <input 
                     type="date"
@@ -425,57 +420,59 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         setEditingField(null);
                     }}
                     onBlur={() => setEditingField(null)}
-                    className="text-xs border border-indigo-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-indigo-500 outline-none"
+                    className="text-[10px] border border-indigo-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-indigo-500 outline-none bg-white"
                   />
               ) : (
                 <span 
                     onClick={() => handleFieldClick('dueDate', task.dueDate)}
-                    className="cursor-pointer hover:text-indigo-600 hover:underline decoration-dashed decoration-indigo-300 underline-offset-2"
+                    className="cursor-pointer hover:text-indigo-600 hover:underline decoration-dashed decoration-indigo-300 underline-offset-2 whitespace-nowrap"
                 >
                     {task.dueDate ? formatDate(task.dueDate) : 'No Date'}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1">
-               {task.status === Status.DONE ? <CheckCircle2 size={14} className="text-emerald-500"/> : 
-                task.status === Status.ARCHIVED ? <Archive size={14} className="text-slate-500"/> :
-                task.status === Status.WAITING ? <Hourglass size={14} className="text-amber-500"/> : 
-                <Clock size={14} />}
-               <span>{task.updates.length} updates</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+               {task.status === Status.DONE ? <CheckCircle2 size={12} className="text-emerald-500 shrink-0"/> : 
+                task.status === Status.ARCHIVED ? <Archive size={12} className="text-slate-400 shrink-0"/> :
+                task.status === Status.WAITING ? <Hourglass size={12} className="text-amber-500 shrink-0"/> : 
+                <Clock size={12} className="text-slate-400 shrink-0" />}
+               <span className="whitespace-nowrap">{task.updates.length} updates</span>
             </div>
           </div>
 
-          {!canChangeStatus ? (
-             <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${getStatusColor(task.status)}`}>
-               {task.status}
-             </span>
-          ) : (
-            <select
-              value={task.status}
-              onChange={(e) => onUpdateStatus(task.id, e.target.value)}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-full cursor-pointer border-none outline-none ring-0 ${getStatusColor(task.status)} hover:opacity-90 transition-opacity`}
-            >
-              {availableStatuses.map((s) => (
-                <option key={s} value={s} className="bg-white text-slate-800">
-                  {s}
-                </option>
-              ))}
-            </select>
-          )}
+          <div className="shrink-0">
+            {!canChangeStatus ? (
+               <span className={`inline-block text-[10px] font-bold px-3 py-1.5 rounded-full shadow-sm ${getStatusColor(task.status)} uppercase tracking-wide`}>
+                 {task.status}
+               </span>
+            ) : (
+              <select
+                value={task.status}
+                onChange={(e) => onUpdateStatus(task.id, e.target.value)}
+                className={`text-[10px] font-bold px-3 py-1.5 rounded-full cursor-pointer border-none outline-none ring-0 shadow-sm ${getStatusColor(task.status)} hover:brightness-105 transition-all uppercase tracking-wide m-0 appearance-none min-w-[80px] text-center`}
+              >
+                {availableStatuses.map((s) => (
+                  <option key={s} value={s} className="bg-white text-slate-800">
+                    {s}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="border-t border-slate-100">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className={`w-full px-5 py-2 flex items-center justify-center gap-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors ${!isExpanded ? 'rounded-b-xl' : ''}`}
+          className={`w-full px-5 py-2.5 flex items-center justify-center gap-2 text-[11px] font-bold text-slate-400 hover:bg-slate-50 hover:text-indigo-600 transition-all ${!isExpanded ? 'rounded-b-xl' : ''}`}
         >
-          {isExpanded ? 'Hide History' : (isReadOnly ? 'View History' : 'View History & Add Update')}
+          {isExpanded ? 'HIDE HISTORY' : (isReadOnly ? 'VIEW HISTORY' : 'VIEW HISTORY & ADD UPDATE')}
           {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
 
         {isExpanded && (
-          <div className="px-5 pb-5 bg-slate-50 rounded-b-xl">
+          <div className="px-5 pb-5 bg-slate-50 rounded-b-xl animate-fade-in">
             {!isReadOnly && (
               <div className="pt-4 space-y-2">
                 <form onSubmit={handleSubmitUpdate}>
@@ -489,7 +486,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                                 handleSubmitUpdate(e);
                             }
                         }}
-                        className="w-full pl-4 pr-24 py-3 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900 resize-y min-h-[80px]"
+                        className="w-full pl-4 pr-24 py-3 text-sm border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900 resize-y min-h-[80px] shadow-inner"
                         rows={3}
                         autoFocus={autoExpand}
                     />
@@ -498,27 +495,28 @@ const TaskCard: React.FC<TaskCardProps> = ({
                             <button
                                 type="button"
                                 onClick={() => setShowColorPicker(!showColorPicker)}
-                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200"
                                 title="Tag Color"
                             >
-                                <div className="w-4 h-4 rounded-full border border-slate-200" style={{ backgroundColor: newUpdateColor }} />
+                                <div className="w-4 h-4 rounded-full border border-white shadow-sm" style={{ backgroundColor: newUpdateColor }} />
                             </button>
                             {showColorPicker && (
                                 <>
                                     <div className="fixed inset-0 z-40" onClick={() => setShowColorPicker(false)} />
-                                    <div className="absolute bottom-full right-0 mb-2 p-2 bg-white rounded-xl shadow-lg border border-slate-200 flex flex-col gap-1 z-50 w-32 max-h-48 overflow-y-auto custom-scrollbar">
+                                    <div className="absolute bottom-full right-0 mb-2 p-2 bg-white rounded-xl shadow-xl border border-slate-200 flex flex-col gap-1 z-50 w-40 max-h-56 overflow-y-auto custom-scrollbar">
+                                        <div className="text-[9px] font-black text-slate-400 uppercase p-1.5 tracking-widest border-b border-slate-50 mb-1">Select Tag</div>
                                         {updateTags.length > 0 ? updateTags.map((c) => (
                                             <button
                                                 key={c.id}
                                                 type="button"
                                                 onClick={() => { setNewUpdateColor(c.color); setShowColorPicker(false); }}
-                                                className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded text-xs w-full text-left"
+                                                className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-lg text-xs w-full text-left transition-colors"
                                             >
-                                                <div className="w-3 h-3 rounded-full border border-slate-200 shrink-0" style={{ backgroundColor: c.color }} />
-                                                <span className="truncate text-slate-600 font-medium">{c.label}</span>
+                                                <div className="w-3.5 h-3.5 rounded-full border border-slate-200 shrink-0 shadow-xs" style={{ backgroundColor: c.color }} />
+                                                <span className="truncate text-slate-600 font-semibold">{c.label}</span>
                                             </button>
                                         )) : (
-                                            <span className="text-[10px] text-slate-400 p-2">No tags defined</span>
+                                            <span className="text-[10px] text-slate-400 p-2 italic">No tags defined</span>
                                         )}
                                     </div>
                                 </>
@@ -528,14 +526,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
                             className="p-2 text-slate-400 hover:text-indigo-600 transition-colors hover:bg-slate-100 rounded-lg"
-                            title="Attach File to update"
+                            title="Attach File"
                         >
                             <Paperclip size={18} />
                         </button>
                         <button
                             type="submit"
                             disabled={!newUpdate.trim() && pendingAttachments.length === 0}
-                            className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:bg-slate-300 transition-all shadow-sm flex items-center justify-center"
+                            className="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:bg-slate-300 transition-all shadow-md flex items-center justify-center"
                             title="Add Update"
                         >
                             <CheckCircle2 size={18} />
@@ -569,11 +567,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
             <div className="space-y-3 mt-4">
               {task.updates.length === 0 && (
-                <p className="text-center text-xs text-slate-400 py-2">No updates recorded yet.</p>
+                <p className="text-center text-xs text-slate-400 py-6 italic">No updates recorded yet.</p>
               )}
               {task.updates.slice().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((update) => (
                 <div key={update.id} className="flex gap-3 text-sm group">
-                  <div className="flex-shrink-0 w-24 text-xs text-slate-400 text-right pt-0.5">
+                  <div className="flex-shrink-0 w-24 text-[10px] font-mono text-slate-400 text-right pt-1">
                     {editingUpdateId === update.id ? (
                         <input 
                             type="date"
@@ -586,34 +584,34 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     )}
                   </div>
                   
-                  <div className="flex-grow">
+                  <div className="flex-grow min-w-0">
                     {editingUpdateId === update.id ? (
                       <div className="flex gap-2 items-center">
                         <div className="relative">
                             <button 
                                 type="button" 
                                 onClick={() => setShowEditColorPicker(!showEditColorPicker)}
-                                className="p-1.5 hover:bg-slate-100 rounded"
+                                className="p-1.5 hover:bg-slate-100 rounded border border-transparent hover:border-slate-200"
                             >
-                                <div className="w-3 h-3 rounded-full border border-slate-200" style={{ backgroundColor: editUpdateColor || '#cbd5e1' }} />
+                                <div className="w-3.5 h-3.5 rounded-full border border-white shadow-sm" style={{ backgroundColor: editUpdateColor || '#cbd5e1' }} />
                             </button>
                             {showEditColorPicker && (
                                 <>
                                     <div className="fixed inset-0 z-40" onClick={() => setShowEditColorPicker(false)} />
-                                    <div className="absolute top-full left-0 mt-1 p-1 bg-white rounded shadow-lg border border-slate-200 flex flex-col gap-1 z-50 w-32 max-h-48 overflow-y-auto custom-scrollbar">
-                                        <button type="button" onClick={() => { setEditUpdateColor(null); setShowEditColorPicker(false); }} className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded text-xs w-full text-left">
-                                            <div className="w-3 h-3 rounded-full border border-slate-200 bg-slate-100 shrink-0" />
-                                            <span className="text-slate-500">None</span>
+                                    <div className="absolute top-full left-0 mt-1 p-2 bg-white rounded-xl shadow-xl border border-slate-200 flex flex-col gap-1 z-50 w-40 max-h-56 overflow-y-auto custom-scrollbar">
+                                        <button type="button" onClick={() => { setEditUpdateColor(null); setShowEditColorPicker(false); }} className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-lg text-xs w-full text-left transition-colors">
+                                            <div className="w-3.5 h-3.5 rounded-full border border-slate-200 bg-slate-100 shrink-0 shadow-xs" />
+                                            <span className="text-slate-500 font-semibold">None</span>
                                         </button>
                                         {updateTags && updateTags.length > 0 && updateTags.map(tag => (
                                             <button 
                                                 key={tag.id} 
                                                 type="button" 
                                                 onClick={() => { setEditUpdateColor(tag.color); setShowEditColorPicker(false); }}
-                                                className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded text-xs w-full text-left"
+                                                className="flex items-center gap-2.5 p-2 hover:bg-slate-50 rounded-lg text-xs w-full text-left transition-colors"
                                             >
-                                                <div className="w-3 h-3 rounded-full border border-slate-200 shrink-0" style={{backgroundColor: tag.color}} />
-                                                <span className="truncate">{tag.label}</span>
+                                                <div className="w-3.5 h-3.5 rounded-full border border-white shadow-sm shrink-0" style={{backgroundColor: tag.color}} />
+                                                <span className="truncate font-semibold">{tag.label}</span>
                                             </button>
                                         ))}
                                     </div>
@@ -623,7 +621,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         <textarea
                           value={editUpdateContent}
                           onChange={(e) => setEditUpdateContent(e.target.value)}
-                          className="flex-grow p-2 text-xs border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white resize-y min-h-[60px]"
+                          className="flex-grow p-2 text-xs border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white resize-y min-h-[60px] shadow-sm"
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -633,31 +631,35 @@ const TaskCard: React.FC<TaskCardProps> = ({
                             if (e.key === 'Escape') cancelEditingUpdate();
                           }}
                         />
-                        <button 
-                          onClick={() => saveEditedUpdate(update.id)}
-                          className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
-                        >
-                          <Save size={14} />
-                        </button>
-                        <button 
-                          onClick={cancelEditingUpdate}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded"
-                        >
-                          <X size={14} />
-                        </button>
+                        <div className="flex flex-col gap-1">
+                            <button 
+                                onClick={() => saveEditedUpdate(update.id)}
+                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                title="Save"
+                            >
+                                <Save size={16} />
+                            </button>
+                            <button 
+                                onClick={cancelEditingUpdate}
+                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Cancel"
+                            >
+                                <X size={16} />
+                            </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <div className="relative">
-                            <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-14 flex items-start gap-2">
-                                <div className="mt-1 w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: update.highlightColor || '#cbd5e1' }} title="Tag Color"/>
-                                <span className="flex-1 whitespace-pre-wrap">{update.content}</span>
+                            <div className="p-3 bg-white rounded-xl border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-14 flex items-start gap-3 transition-shadow hover:shadow-md">
+                                <div className="mt-1 w-2 h-2 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: update.highlightColor || '#cbd5e1' }} title="Tag Color"/>
+                                <span className="flex-1 whitespace-pre-wrap leading-relaxed font-medium">{update.content}</span>
                             </div>
                             {!isReadOnly && (
-                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={() => startEditingUpdate(update)}
-                                    className="text-slate-400 hover:text-indigo-600 p-1"
+                                    className="text-slate-300 hover:text-indigo-600 p-1.5 hover:bg-indigo-50 rounded-lg transition-all"
                                     title="Edit Update"
                                 >
                                     <Edit2 size={12} />
@@ -665,7 +667,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                                 {onDeleteUpdate && (
                                     <button
                                         onClick={() => onDeleteUpdate(task.id, update.id)}
-                                        className="text-slate-400 hover:text-red-600 p-1"
+                                        className="text-slate-300 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-lg transition-all"
                                         title="Delete Update"
                                     >
                                         <Trash2 size={12} />
@@ -676,12 +678,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         </div>
                         
                         {update.attachments && update.attachments.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2 px-1">
                                 {update.attachments.map(att => (
                                     <button 
                                         key={att.id}
                                         onClick={() => downloadAttachment(att)}
-                                        className="flex items-center gap-1.5 bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 px-2 py-1 rounded text-[10px] font-bold text-slate-600 hover:text-indigo-600 transition-all shadow-xs"
+                                        className="flex items-center gap-1.5 bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 px-2 py-1 rounded-lg text-[10px] font-bold text-slate-500 hover:text-indigo-600 transition-all shadow-xs"
                                         title={`Download ${att.name}`}
                                     >
                                         <DownloadIcon size={10} />
