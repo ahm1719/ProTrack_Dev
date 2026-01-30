@@ -45,6 +45,7 @@ import ObservationsLog from './components/ObservationsLog';
 import Settings from './components/Settings';
 import AIChat from './components/AIChat';
 import UserManual from './components/UserManual';
+import { FullLogo } from './components/Branding';
 
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
@@ -887,11 +888,8 @@ const App: React.FC = () => {
     <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
       <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-slate-200 transition-all duration-300 flex flex-col z-20`}>
         <div className="p-4 flex flex-col items-center gap-1 border-b h-24 justify-center">
-           <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">P</div>
-              {isSidebarOpen && <span className="font-bold text-xl tracking-tight">ProTrack<span className="text-indigo-600">AI</span></span>}
-           </div>
-           {isSidebarOpen && <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest">{BUILD_VERSION}</span>}
+           <FullLogo isSidebarOpen={isSidebarOpen} />
+           {isSidebarOpen && <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest mt-1">{BUILD_VERSION}</span>}
         </div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
            {[
