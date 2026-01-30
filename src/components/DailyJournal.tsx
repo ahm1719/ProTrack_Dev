@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Task, DailyLog, Status } from '../types';
-import { Filter, RotateCcw, ChevronLeft, ChevronRight, Ban, Calendar as CalendarIcon, PlusCircle, Edit2, Trash2, X, Save } from 'lucide-react';
+import { Filter, RotateCcw, ChevronLeft, ChevronRight, Ban, Calendar as CalendarIcon, PlusCircle, Edit2, Trash2, X, Save, History } from 'lucide-react';
 
 interface DailyJournalProps {
   tasks: Task[];
@@ -141,14 +142,26 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
   const [entryDate, setEntryDate] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [logContent, setLogContent] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
+  
+  // Driving the timeline view based on the selected calendar date
   const [viewRange, setViewRange] = useState({
-    start: getStartOfWeek(new Date()),
-    end: getEndOfWeek(new Date())
+    start: getStartOfWeek(new Date(entryDate)),
+    end: getEndOfWeek(new Date(entryDate))
   });
 
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [editTaskId, setEditTaskId] = useState('');
+  const [editDate, setEditDate] = useState('');
+
+  // Update the timeline range whenever the user clicks a new date in the calendar
+  useEffect(() => {
+    const dateObj = new Date(entryDate);
+    setViewRange({
+      start: getStartOfWeek(dateObj),
+      end: getEndOfWeek(dateObj)
+    });
+  }, [entryDate]);
 
   const handleAddEntry = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
@@ -164,7 +177,7 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
 
   const handleSaveEdit = () => {
     if (editingLogId) {
-        onEditLog(editingLogId, editTaskId, editContent, entryDate); // Keep original date or current entryDate? using view date context for simplicity in this view
+        onEditLog(editingLogId, editTaskId, editContent, editDate);
         setEditingLogId(null);
     }
   };
@@ -184,13 +197,26 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
   
   const sortedDates = Object.keys(logsByDate).sort().reverse();
 
+  const handleResetToToday = () => {
+    setEntryDate(new Date().toLocaleDateString('en-CA'));
+  };
+
   return (
     <div className="space-y-6 h-full flex flex-col">
       <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-          <CalendarIcon className="text-indigo-600" />
-          History & Calendar
-        </h2>
+        <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <CalendarIcon className="text-indigo-600" />
+                History & Calendar
+            </h2>
+            <button 
+                onClick={handleResetToToday}
+                className="p-1.5 text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-1.5"
+                title="Go to Today"
+            >
+                <RotateCcw size={12} /> TODAY
+            </button>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -237,7 +263,8 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
       <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-[400px]">
         {sortedDates.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-center p-4">
-            <p className="text-slate-400 text-sm">No entries found.</p>
+            <p className="text-slate-400 text-sm">No entries found for this week.</p>
+            <p className="text-[10px] text-slate-400 mt-1">Select another date in the calendar to browse history.</p>
           </div>
         ) : (
           <div className="space-y-6 pt-2">
@@ -247,29 +274,39 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
                return (
                   <div key={date}>
                     <h3 className="font-bold text-slate-800 pl-1 mb-2 text-xs uppercase tracking-wide sticky top-0 bg-white/80 backdrop-blur-md py-1 z-10 flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                        <span className={`w-2 h-2 rounded-full ${date === entryDate ? 'bg-indigo-500 scale-125 ring-2 ring-indigo-200' : 'bg-slate-300'}`}></span>
                         {localDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric'})}
                     </h3>
                     <div className="relative border-l-2 border-indigo-100 ml-3 space-y-4 py-1 pb-4">
                         {logsByDate[date].slice().reverse().map((log) => {
                         const isEditing = editingLogId === log.id;
                         const task = tasks.find(t => t.id === (isEditing ? editTaskId : log.taskId));
+                        const isStatusChange = log.content.includes('Status:');
+
                         return (
                             <div key={log.id} className="relative pl-6 group">
-                            <div className="absolute -left-[7px] top-3 w-3 h-3 rounded-full bg-white border-2 border-slate-300 group-hover:border-indigo-500 transition-colors"></div>
+                            <div className={`absolute -left-[7px] top-3 w-3 h-3 rounded-full bg-white border-2 transition-colors ${isStatusChange ? 'border-indigo-400' : 'border-slate-300 group-hover:border-indigo-500'}`}></div>
                             
                             {isEditing ? (
                                 <div className="bg-white p-3 rounded-lg border-2 border-indigo-400 shadow-md space-y-2">
-                                    <select 
-                                        value={editTaskId} 
-                                        onChange={(e) => setEditTaskId(e.target.value)}
-                                        className="w-full text-xs p-2 border border-slate-200 rounded outline-none"
-                                    >
-                                        <option value="">(No Task Linked)</option>
-                                        {tasks.filter(t => t.status !== Status.ARCHIVED).map(t => (
-                                            <option key={t.id} value={t.id}>{t.displayId} - {t.description.substring(0, 30)}...</option>
-                                        ))}
-                                    </select>
+                                    <div className="flex gap-2">
+                                        <input 
+                                            type="date"
+                                            value={editDate}
+                                            onChange={(e) => setEditDate(e.target.value)}
+                                            className="w-1/2 text-xs p-1.5 border border-slate-200 rounded outline-none"
+                                        />
+                                        <select 
+                                            value={editTaskId} 
+                                            onChange={(e) => setEditTaskId(e.target.value)}
+                                            className="w-1/2 text-xs p-1.5 border border-slate-200 rounded outline-none"
+                                        >
+                                            <option value="">(No Task Linked)</option>
+                                            {tasks.filter(t => t.status !== Status.ARCHIVED).map(t => (
+                                                <option key={t.id} value={t.id}>{t.displayId} - {t.description.substring(0, 30)}...</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                     <textarea 
                                         value={editContent}
                                         onChange={(e) => setEditContent(e.target.value)}
@@ -287,15 +324,30 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
                                     </div>
                                 </div>
                             ) : (
-                                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all relative">
+                                <div className={`bg-white p-3 rounded-lg border shadow-sm hover:shadow-md transition-all relative ${isStatusChange ? 'border-indigo-100 bg-indigo-50/20' : 'border-slate-200'}`}>
                                     <div className="flex justify-between items-start">
-                                        {task && <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 mb-1">{task.displayId}</span>}
+                                        <div className="flex flex-wrap gap-1.5 items-center mb-1">
+                                            {task && <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600">{task.displayId}</span>}
+                                            {isStatusChange && <span className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter bg-white px-1.5 py-0.5 rounded border border-indigo-100 flex items-center gap-1"><History size={8}/> System Event</span>}
+                                        </div>
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => { setEditingLogId(log.id); setEditContent(log.content); setEditTaskId(log.taskId); }} className="p-1 text-slate-400 hover:text-indigo-600 rounded"><Edit2 size={12}/></button>
+                                            <button 
+                                                onClick={() => { 
+                                                    setEditingLogId(log.id); 
+                                                    setEditContent(log.content); 
+                                                    setEditTaskId(log.taskId);
+                                                    setEditDate(log.date);
+                                                }} 
+                                                className="p-1 text-slate-400 hover:text-indigo-600 rounded"
+                                            >
+                                                <Edit2 size={12}/>
+                                            </button>
                                             <button onClick={() => onDeleteLog(log.id)} className="p-1 text-slate-400 hover:text-red-600 rounded"><Trash2 size={12}/></button>
                                         </div>
                                     </div>
-                                    <p className="text-slate-700 text-xs leading-relaxed whitespace-pre-wrap">{log.content}</p>
+                                    <p className={`text-xs leading-relaxed whitespace-pre-wrap ${isStatusChange ? 'text-indigo-700 font-medium italic' : 'text-slate-700'}`}>
+                                        {log.content}
+                                    </p>
                                 </div>
                             )}
                             </div>

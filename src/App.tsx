@@ -55,7 +55,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.12.6";
+const BUILD_VERSION = "V2.13.0";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -90,11 +90,10 @@ const getWeekNumber = (d: Date): number => {
   return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 };
 
-// Helper to determine End of Week (Sunday)
 const getEndOfWeek = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? 0 : 7); // Adjust to next Sunday
+  const diff = d.getDate() - day + (day === 0 ? 0 : 7); 
   const endOfWeek = new Date(d.setDate(diff));
   endOfWeek.setHours(23, 59, 59, 999);
   return endOfWeek.toISOString().split('T')[0];
@@ -121,10 +120,8 @@ const App: React.FC = () => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
-  // Drag and Drop State
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
-  // Backup State
   const [backupSettings, setBackupSettings] = useState<BackupSettings>({
     enabled: false,
     intervalMinutes: 10,
@@ -152,11 +149,9 @@ const App: React.FC = () => {
     if (localAppConfig) {
       try {
         const parsed = JSON.parse(localAppConfig);
-        // Merge with default to ensure new config properties exist
         setAppConfig({ 
             ...DEFAULT_CONFIG, 
             ...parsed,
-            // Ensure updateHighlightOptions exists if loading from old config
             updateHighlightOptions: parsed.updateHighlightOptions || DEFAULT_CONFIG.updateHighlightOptions 
         });
       } catch (e) { console.error("Config parse error", e); }
@@ -180,7 +175,6 @@ const App: React.FC = () => {
       } catch (e) { console.error("Firebase init failed", e); }
     }
 
-    // Load Backup Settings
     const initBackup = async () => {
         const savedSettings = localStorage.getItem('protrack_backup_settings');
         if (savedSettings) {
@@ -191,7 +185,6 @@ const App: React.FC = () => {
             const handle = await getStoredDirectoryHandle();
             if (handle) {
                 backupDirHandle.current = handle;
-                // Ensure folder name is synced if missing
                 if (!JSON.parse(savedSettings || '{}').folderName) {
                     setBackupSettings(prev => ({ ...prev, folderName: handle.name }));
                 }
@@ -217,12 +210,10 @@ const App: React.FC = () => {
     }
   }, [isSyncEnabled]);
 
-  // Persist backup settings
   useEffect(() => {
     localStorage.setItem('protrack_backup_settings', JSON.stringify(backupSettings));
   }, [backupSettings]);
 
-  // Backup Interval Logic
   useEffect(() => {
     let intervalId: number;
 
@@ -239,7 +230,6 @@ const App: React.FC = () => {
             setBackupStatus('idle');
             setBackupSettings(prev => ({ ...prev, lastBackup: new Date().toISOString() }));
         } else {
-            // Check if failure was due to permission
             if (backupDirHandle.current) {
                 try {
                     const perm = await verifyPermission(backupDirHandle.current, false);
@@ -323,9 +313,37 @@ const App: React.FC = () => {
     setView(ViewMode.TASKS);
   };
 
-  const updateTaskStatus = (id: string, status: string) => {
-    const updated = tasks.map(t => t.id === id ? { ...t, status } : t);
-    persistData(updated, logs, observations, offDays);
+  const updateTaskStatus = (id: string, newStatus: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task || task.status === newStatus) return;
+
+    const oldStatus = task.status;
+    const content = `Status: ${oldStatus} → ${newStatus}`;
+    const timestamp = new Date().toISOString();
+    const dateStr = timestamp.split('T')[0];
+    
+    // Indigo color for system-generated status changes
+    const systemUpdateColor = '#6366f1';
+
+    const updatedTasks = tasks.map(t => t.id === id ? { 
+        ...t, 
+        status: newStatus,
+        updates: [...t.updates, { 
+            id: uuidv4(), 
+            timestamp, 
+            content,
+            highlightColor: systemUpdateColor 
+        }]
+    } : t);
+
+    const newLog: DailyLog = { 
+        id: uuidv4(), 
+        date: dateStr, 
+        taskId: id, 
+        content 
+    };
+
+    persistData(updatedTasks, [...logs, newLog], observations, offDays);
   };
 
   const updateTaskFields = (id: string, fields: Partial<Task>) => {
@@ -343,11 +361,10 @@ const App: React.FC = () => {
   const addUpdateToTask = (id: string, content: string, attachments?: TaskAttachment[], highlightColor?: string) => {
     const timestamp = new Date().toISOString();
     const updateId = uuidv4();
-    // Move attachments to Task level, do not keep in update
     const updated = tasks.map(t => t.id === id ? { 
         ...t, 
         attachments: attachments ? [...(t.attachments || []), ...attachments] : t.attachments,
-        updates: [...t.updates, { id: updateId, timestamp, content, highlightColor }] // No attachments here
+        updates: [...t.updates, { id: updateId, timestamp, content, highlightColor }]
     } : t);
     const newLog: DailyLog = { id: uuidv4(), date: new Date().toLocaleDateString('en-CA'), taskId: id, content };
     persistData(updated, [...logs, newLog], observations, offDays);
@@ -427,7 +444,6 @@ const App: React.FC = () => {
     localStorage.setItem('protrack_app_config', JSON.stringify(newConfig));
   };
 
-  // --- Drag and Drop Handlers ---
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     setDraggedTaskId(taskId);
     e.dataTransfer.setData("text/plain", taskId);
@@ -435,7 +451,7 @@ const App: React.FC = () => {
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault(); // Necessary to allow dropping
+    e.preventDefault();
   };
 
   const handleDrop = (e: React.DragEvent, targetTaskId: string, dateStr: string) => {
@@ -447,7 +463,7 @@ const App: React.FC = () => {
         return;
     }
 
-    const dayTaskList = weekTasks[dateStr]; // This utilizes the current memoized sort order
+    const dayTaskList = weekTasks[dateStr]; 
     if (!dayTaskList) return;
 
     const fromIndex = dayTaskList.findIndex(t => t.id === draggedId);
@@ -458,16 +474,13 @@ const App: React.FC = () => {
         return;
     }
 
-    // Create a new array reflecting the desired order
     const newList = [...dayTaskList];
     const [movedItem] = newList.splice(fromIndex, 1);
     newList.splice(toIndex, 0, movedItem);
 
-    // Create a map of id -> new order index
     const orderMap = new Map();
     newList.forEach((t, index) => orderMap.set(t.id, index));
 
-    // Update global tasks state, assigning order to ALL items in this day's list to freeze the sort
     const newTasks = tasks.map(t => {
         if (orderMap.has(t.id)) {
             return { ...t, order: orderMap.get(t.id) };
@@ -479,7 +492,6 @@ const App: React.FC = () => {
     setDraggedTaskId(null);
   };
 
-  // --- Backup Handlers ---
   const handleSetupBackupFolder = async () => {
     const handle = await selectBackupFolder();
     if (handle) {
@@ -535,7 +547,6 @@ const App: React.FC = () => {
   const weekTasks = useMemo(() => {
     const map: Record<string, Task[]> = {};
     
-    // Priority weights helper
     const getWeight = (p: string) => {
         if (p === Priority.HIGH) return 3;
         if (p === Priority.MEDIUM) return 2;
@@ -545,22 +556,17 @@ const App: React.FC = () => {
 
     weekDays.forEach(d => {
       const dayTasks = tasks.filter(t => t.dueDate === d);
-      // Sort logic supporting manual ordering
       dayTasks.sort((a, b) => {
-          // 1. Primary: Defined 'order' index
           if (a.order !== undefined && b.order !== undefined) {
               return a.order - b.order;
           }
-          // Items with order come first
           if (a.order !== undefined) return -1;
           if (b.order !== undefined) return 1;
 
-          // 2. Secondary: Priority
           const wA = getWeight(a.priority);
           const wB = getWeight(b.priority);
-          if (wA !== wB) return wB - wA; // Descending priority
+          if (wA !== wB) return wB - wA; 
           
-          // 3. Tertiary: Alphanumeric displayId
           return a.displayId.localeCompare(b.displayId, undefined, { numeric: true, sensitivity: 'base' });
       });
       map[d] = dayTasks;
@@ -568,7 +574,6 @@ const App: React.FC = () => {
     return map;
   }, [tasks, weekDays]);
 
-  // Tab Filtering Logic
   const filteredTasks = useMemo(() => {
     const q = searchQuery.toLowerCase();
     const base = tasks.filter(t => 
@@ -581,16 +586,13 @@ const App: React.FC = () => {
         return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
     }
 
-    // Active (Not Done/Archived)
     const activeBase = base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
     const endOfWeek = getEndOfWeek(new Date());
 
     if (activeTaskTab === 'future') {
-        // Due date is strictly greater than this week's Sunday
         return activeBase.filter(t => t.dueDate && t.dueDate > endOfWeek);
     }
 
-    // Current: Due date is <= end of week OR No due date (backlog default)
     return activeBase.filter(t => !t.dueDate || t.dueDate <= endOfWeek);
 
   }, [tasks, searchQuery, activeTaskTab]);
@@ -611,14 +613,13 @@ const App: React.FC = () => {
   };
 
   const getStatusColorHex = (s: string) => {
-      // Helper for dashboard bars
       if (appConfig.itemColors && appConfig.itemColors[s]) return appConfig.itemColors[s];
       
       if (s === Status.DONE) return '#10b981';
       if (s === Status.IN_PROGRESS) return '#3b82f6';
       if (s === Status.WAITING) return '#f59e0b';
       if (s === Status.ARCHIVED) return '#64748b';
-      return '#cbd5e1'; // Not Started
+      return '#cbd5e1'; 
   };
 
   const renderContent = () => {
@@ -655,7 +656,6 @@ const App: React.FC = () => {
                 </div>
              </div>
 
-             {/* Unified Dashboard Status Section */}
              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                 <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
                     <div>
@@ -674,7 +674,6 @@ const App: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Unified Progress Bar */}
                 <div className="h-8 bg-slate-50 rounded-xl overflow-hidden flex shadow-inner mb-8 border border-slate-100">
                     {statusSummary.map((s) => {
                         if (s.count === 0) return null;
@@ -693,7 +692,6 @@ const App: React.FC = () => {
                     })}
                 </div>
 
-                {/* Consolidated Metrics Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     {statusSummary.map(s => {
                         const isZero = s.count === 0;
@@ -716,7 +714,6 @@ const App: React.FC = () => {
                 </div>
              </div>
 
-             {/* Tasks Due Today Section */}
              {highPriorityDueToday.length > 0 && (
                 <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6">
                     <h3 className="text-amber-800 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
@@ -778,7 +775,6 @@ const App: React.FC = () => {
                                         <div className="flex justify-between items-center mb-1">
                                           <span className={`font-mono font-bold ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.displayId}</span>
                                           <div className="flex items-center gap-1">
-                                              {/* Priority Visual */}
                                               <div 
                                                 className={`w-2 h-2 rounded-full ${t.priority === Priority.HIGH ? 'bg-red-500' : t.priority === Priority.MEDIUM ? 'bg-amber-400' : 'bg-emerald-400'}`} 
                                                 title={`Priority: ${t.priority}`} 
@@ -789,7 +785,6 @@ const App: React.FC = () => {
                                         </div>
                                         <p className={`line-clamp-2 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.description}</p>
                                         
-                                        {/* Enhanced Preview in Horizontal Scroll */}
                                         {latest && (
                                             <div className="mt-2 flex items-start gap-1.5">
                                                 <div 
@@ -874,7 +869,6 @@ const App: React.FC = () => {
             appConfig={appConfig} 
             onUpdateConfig={handleUpdateAppConfig} 
             onPurgeData={(newTasks: Task[], newLogs: DailyLog[]) => persistData(newTasks, newLogs, observations, offDays)} 
-            // Backup Props Wiring
             backupSettings={backupSettings}
             setBackupSettings={setBackupSettings}
             onSetupBackupFolder={handleSetupBackupFolder}
@@ -960,7 +954,6 @@ const App: React.FC = () => {
            {renderContent()}
         </div>
 
-        {/* New Task Modal */}
         {showNewTaskModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
              <form onSubmit={handleCreateTask} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in">
