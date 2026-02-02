@@ -16,6 +16,7 @@ interface TaskDetailModalProps {
   availablePriorities: string[];
   updateTags: HighlightOption[];
   onDeleteTask: (id: string) => void;
+  statusColors?: Record<string, string>;
 }
 
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
@@ -29,7 +30,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   availableStatuses,
   availablePriorities,
   updateTags,
-  onDeleteTask
+  onDeleteTask,
+  statusColors = {}
 }) => {
   const [newUpdate, setNewUpdate] = useState('');
   const [pendingAttachments, setPendingAttachments] = useState<TaskAttachment[]>([]);
@@ -57,12 +59,31 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }
   }, [task.description]);
 
-  const getStatusColor = (s: string) => {
-    if (s === Status.DONE) return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-    if (s === Status.IN_PROGRESS) return 'bg-blue-100 text-blue-700 border-blue-200';
-    if (s === Status.WAITING) return 'bg-amber-100 text-amber-700 border-amber-200';
-    if (s === Status.ARCHIVED) return 'bg-slate-100 text-slate-500 border-slate-200';
-    return 'bg-slate-100 text-slate-600 border-slate-200';
+  const getContrastYIQ = (hexcolor: string) => {
+    if (!hexcolor) return '#ffffff';
+    const hex = hexcolor.replace('#', '');
+    if (hex.length !== 6) return '#ffffff';
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 128) ? '#1e293b' : '#ffffff';
+  };
+
+  const getStatusStyle = (s: string) => {
+    const custom = statusColors[s];
+    if (custom) {
+        return { 
+            backgroundColor: custom, 
+            color: getContrastYIQ(custom),
+            borderColor: custom
+        };
+    }
+    if (s === Status.DONE) return { backgroundColor: '#d1fae5', color: '#047857', borderColor: '#a7f3d0' }; // emerald-100 text-emerald-700
+    if (s === Status.IN_PROGRESS) return { backgroundColor: '#dbeafe', color: '#1d4ed8', borderColor: '#bfdbfe' }; // blue-100 text-blue-700
+    if (s === Status.WAITING) return { backgroundColor: '#fef3c7', color: '#b45309', borderColor: '#fde68a' }; // amber-100 text-amber-700
+    if (s === Status.ARCHIVED) return { backgroundColor: '#f1f5f9', color: '#64748b', borderColor: '#e2e8f0' }; // slate-100 text-slate-500
+    return { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#e2e8f0' }; // slate-100 text-slate-600
   };
 
   const getPriorityColor = (p: string) => {
@@ -215,7 +236,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 <select
                     value={task.status}
                     onChange={(e) => onUpdateStatus(task.id, e.target.value)}
-                    className={`text-xs font-bold px-3 py-1.5 rounded-full cursor-pointer border outline-none appearance-none transition-all ${getStatusColor(task.status)}`}
+                    className="text-xs font-bold px-3 py-1.5 rounded-full cursor-pointer border outline-none appearance-none transition-all"
+                    style={getStatusStyle(task.status)}
                 >
                     {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>

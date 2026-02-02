@@ -6,7 +6,6 @@ import { Clock, Calendar, CheckCircle2, Archive, Hourglass, ArrowRight, ListChec
 interface TaskCardProps {
   task: Task;
   onUpdateStatus: (id: string, status: string) => void;
-  // This prop will now trigger the modal
   onOpenTask: () => void;
   allowDelete?: boolean;
   isReadOnly?: boolean;
@@ -15,7 +14,8 @@ interface TaskCardProps {
   availablePriorities?: string[];
   isDailyView?: boolean;
   updateTags?: HighlightOption[];
-  onDelete?: (id: string) => void; // Kept for interface compatibility but main actions move to modal
+  statusColors?: Record<string, string>;
+  onDelete?: (id: string) => void;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ 
@@ -26,7 +26,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
   allowStatusChange,
   availableStatuses = Object.values(Status),
   availablePriorities = Object.values(Priority),
-  updateTags = []
+  updateTags = [],
+  statusColors = {}
 }) => {
   const latestUpdate = useMemo(() => {
     if (!task.updates || task.updates.length === 0) return null;
@@ -40,13 +41,32 @@ const TaskCard: React.FC<TaskCardProps> = ({
     return 'bg-slate-100 text-slate-800 border-slate-200';
   };
 
-  const getStatusColor = (s: string) => {
-    if (s === Status.DONE) return 'bg-emerald-500 text-white';
-    if (s === Status.IN_PROGRESS) return 'bg-blue-500 text-white';
-    if (s === Status.NOT_STARTED) return 'bg-slate-200 text-slate-600';
-    if (s === Status.WAITING) return 'bg-amber-400 text-white';
-    if (s === Status.ARCHIVED) return 'bg-slate-500 text-white';
-    return 'bg-slate-200 text-slate-600';
+  const getContrastYIQ = (hexcolor: string) => {
+    if (!hexcolor) return '#ffffff';
+    const hex = hexcolor.replace('#', '');
+    if (hex.length !== 6) return '#ffffff';
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 128) ? '#1e293b' : '#ffffff';
+  };
+
+  const getStatusStyle = (s: string) => {
+    const custom = statusColors[s];
+    if (custom) {
+        return { 
+            backgroundColor: custom, 
+            color: getContrastYIQ(custom),
+            borderColor: custom
+        };
+    }
+    // Default Fallbacks matching previous Tailwind classes
+    if (s === Status.DONE) return { backgroundColor: '#10b981', color: '#ffffff', borderColor: '#10b981' }; // emerald-500
+    if (s === Status.IN_PROGRESS) return { backgroundColor: '#3b82f6', color: '#ffffff', borderColor: '#3b82f6' }; // blue-500
+    if (s === Status.WAITING) return { backgroundColor: '#fbbf24', color: '#ffffff', borderColor: '#fbbf24' }; // amber-400
+    if (s === Status.ARCHIVED) return { backgroundColor: '#64748b', color: '#ffffff', borderColor: '#64748b' }; // slate-500
+    return { backgroundColor: '#e2e8f0', color: '#475569', borderColor: '#e2e8f0' }; // slate-200, slate-600
   };
 
   const formatDate = (dateStr: string) => {
@@ -149,14 +169,18 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
           <div className="shrink-0" onClick={e => e.stopPropagation()}>
             {!canChangeStatus ? (
-               <span className={`inline-block text-[10px] font-bold px-3 py-1.5 rounded-full shadow-sm ${getStatusColor(task.status)} uppercase tracking-wide`}>
+               <span 
+                 className="inline-block text-[10px] font-bold px-3 py-1.5 rounded-full shadow-sm uppercase tracking-wide border"
+                 style={getStatusStyle(task.status)}
+               >
                  {task.status}
                </span>
             ) : (
               <select
                 value={task.status}
                 onChange={(e) => onUpdateStatus(task.id, e.target.value)}
-                className={`text-[10px] font-bold px-3 py-1.5 rounded-full cursor-pointer border-none outline-none ring-0 shadow-sm ${getStatusColor(task.status)} hover:brightness-105 transition-all uppercase tracking-wide m-0 appearance-none min-w-[80px] text-center`}
+                className="text-[10px] font-bold px-3 py-1.5 rounded-full cursor-pointer border outline-none ring-0 shadow-sm hover:brightness-105 transition-all uppercase tracking-wide m-0 appearance-none min-w-[80px] text-center"
+                style={getStatusStyle(task.status)}
               >
                 {availableStatuses.map((s) => (
                   <option key={s} value={s} className="bg-white text-slate-800">

@@ -721,7 +721,16 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         {highPriorityDueToday.map(t => (
                             <div key={t.id} id={`task-card-${t.id}`}>
-                                <TaskCard task={t} onUpdateStatus={updateTaskStatus} onOpenTask={() => setActiveTaskId(t.id)} onDelete={deleteTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} updateTags={appConfig.updateHighlightOptions} />
+                                <TaskCard 
+                                    task={t} 
+                                    onUpdateStatus={updateTaskStatus} 
+                                    onOpenTask={() => setActiveTaskId(t.id)} 
+                                    onDelete={deleteTask} 
+                                    availableStatuses={appConfig.taskStatuses} 
+                                    availablePriorities={appConfig.taskPriorities} 
+                                    updateTags={appConfig.updateHighlightOptions} 
+                                    statusColors={appConfig.itemColors}
+                                />
                             </div>
                         ))}
                     </div>
@@ -736,7 +745,16 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         {overdueTasks.map(t => (
                             <div key={t.id} id={`task-card-${t.id}`}>
-                                <TaskCard task={t} onUpdateStatus={updateTaskStatus} onOpenTask={() => setActiveTaskId(t.id)} onDelete={deleteTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} updateTags={appConfig.updateHighlightOptions} />
+                                <TaskCard 
+                                    task={t} 
+                                    onUpdateStatus={updateTaskStatus} 
+                                    onOpenTask={() => setActiveTaskId(t.id)} 
+                                    onDelete={deleteTask} 
+                                    availableStatuses={appConfig.taskStatuses} 
+                                    availablePriorities={appConfig.taskPriorities} 
+                                    updateTags={appConfig.updateHighlightOptions} 
+                                    statusColors={appConfig.itemColors}
+                                />
                             </div>
                         ))}
                     </div>
@@ -823,7 +841,16 @@ const App: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             {filteredTasks.map(t => (
                                 <div key={t.id} id={`task-card-${t.id}`}>
-                                    <TaskCard task={t} onUpdateStatus={updateTaskStatus} onOpenTask={() => setActiveTaskId(t.id)} onDelete={deleteTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} updateTags={appConfig.updateHighlightOptions} />
+                                    <TaskCard 
+                                        task={t} 
+                                        onUpdateStatus={updateTaskStatus} 
+                                        onOpenTask={() => setActiveTaskId(t.id)} 
+                                        onDelete={deleteTask} 
+                                        availableStatuses={appConfig.taskStatuses} 
+                                        availablePriorities={appConfig.taskPriorities} 
+                                        updateTags={appConfig.updateHighlightOptions} 
+                                        statusColors={appConfig.itemColors}
+                                    />
                                 </div>
                             ))}
                         </div>
@@ -976,6 +1003,7 @@ const App: React.FC = () => {
                 availableStatuses={appConfig.taskStatuses}
                 availablePriorities={appConfig.taskPriorities}
                 updateTags={appConfig.updateHighlightOptions || []}
+                statusColors={appConfig.itemColors}
             />
         )}
 
