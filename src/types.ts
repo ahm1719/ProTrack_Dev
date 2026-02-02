@@ -58,6 +58,12 @@ export interface TaskAttachment {
   data: string; // Base64
 }
 
+export interface Subtask {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
 export interface TaskUpdate {
   id: string;
   timestamp: string; // ISO String
@@ -76,6 +82,7 @@ export interface Task {
   status: string; 
   priority: string; 
   updates: TaskUpdate[]; // Historical updates/comments
+  subtasks?: Subtask[]; // List of actionable sub-items
   createdAt: string;
   attachments?: TaskAttachment[]; // Global task attachments
   order?: number; // For manual sorting in daily view

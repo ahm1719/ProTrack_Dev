@@ -18,10 +18,7 @@ import {
   Target,
   Layers,
   Calendar,
-  Briefcase,
-  TrendingUp,
-  MoreHorizontal,
-  GripVertical
+  Briefcase
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -40,6 +37,7 @@ import {
 } from './types';
 
 import TaskCard from './components/TaskCard';
+import TaskDetailModal from './components/TaskDetailModal';
 import DailyJournal from './components/DailyJournal';
 import ObservationsLog from './components/ObservationsLog';
 import Settings from './components/Settings';
@@ -56,7 +54,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V3";
+const BUILD_VERSION = "V3.1";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -114,7 +112,11 @@ const App: React.FC = () => {
   const [activeTaskTab, setActiveTaskTab] = useState<'current' | 'future' | 'completed'>('current');
   
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
+  
+  // Navigation & Modals
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null); // For opening TaskDetailModal
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null); // For scrolling to task in list
+  
   const [showReportModal, setShowReportModal] = useState(false);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [generatedReport, setGeneratedReport] = useState('');
@@ -141,6 +143,8 @@ const App: React.FC = () => {
     status: Status.NOT_STARTED as string,
     priority: Priority.MEDIUM as string
   });
+
+  const activeTask = useMemo(() => tasks.find(t => t.id === activeTaskId), [tasks, activeTaskId]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -255,6 +259,16 @@ const App: React.FC = () => {
     return () => window.clearInterval(intervalId);
   }, [backupSettings.enabled, backupSettings.intervalMinutes, tasks, logs, observations, offDays, appConfig]);
 
+  useEffect(() => {
+      // Handle scrolling to highlighted task
+      if (highlightedTaskId && view === ViewMode.TASKS) {
+          setTimeout(() => {
+              const el = document.getElementById(`task-card-${highlightedTaskId}`);
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 300);
+      }
+  }, [highlightedTaskId, view]);
+
   const persistData = (newTasks: Task[], newLogs: DailyLog[], newObs: Observation[], newOffDays: string[]) => {
     setTasks(newTasks);
     setLogs(newLogs);
@@ -300,7 +314,8 @@ const App: React.FC = () => {
       createdAt: new Date().toISOString()
     };
     persistData([...tasks, newTask], logs, observations, offDays);
-    setHighlightedTaskId(newTask.id);
+    setHighlightedTaskId(newTask.id); // Triggers scroll
+    setActiveTaskId(newTask.id); // Opens Modal immediately for editing
     setShowNewTaskModal(false);
     setNewTaskForm({
       source: `CW${getWeekNumber(new Date())}`,
@@ -323,7 +338,6 @@ const App: React.FC = () => {
     const timestamp = new Date().toISOString();
     const dateStr = timestamp.split('T')[0];
     
-    // Indigo color for system-generated status changes
     const systemUpdateColor = '#6366f1';
 
     const updatedTasks = tasks.map(t => t.id === id ? { 
@@ -423,9 +437,8 @@ const App: React.FC = () => {
   };
 
   const deleteTask = (id: string) => {
-    if (confirm('Delete task?')) {
-      persistData(tasks.filter(t => t.id !== id), logs, observations, offDays);
-    }
+    // Confirmation handled in modal now, but kept here for safety
+    persistData(tasks.filter(t => t.id !== id), logs, observations, offDays);
   };
 
   const handleEditLog = (logId: string, taskId: string, content: string, date: string) => {
@@ -598,21 +611,6 @@ const App: React.FC = () => {
 
   }, [tasks, searchQuery, activeTaskTab]);
 
-  const getStatusColorMini = (s: string) => {
-    switch (s) {
-      case Status.DONE:
-        return 'bg-emerald-50 border-emerald-200 text-emerald-700';
-      case Status.IN_PROGRESS:
-        return 'bg-blue-50 border-blue-200 text-blue-700';
-      case Status.WAITING:
-        return 'bg-amber-50 border-amber-200 text-amber-700';
-      case Status.ARCHIVED:
-        return 'bg-slate-100 border-slate-200 text-slate-400 opacity-75';
-      default:
-        return 'bg-white border-slate-100 text-slate-600';
-    }
-  };
-
   const getStatusColorHex = (s: string) => {
       if (appConfig.itemColors && appConfig.itemColors[s]) return appConfig.itemColors[s];
       
@@ -721,7 +719,11 @@ const App: React.FC = () => {
                         <AlertTriangle size={18} /> High Priority Due Today ({highPriorityDueToday.length})
                     </h3>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        {highPriorityDueToday.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onNavigate={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} onDelete={deleteTask} onAddUpdate={addUpdateToTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} updateTags={appConfig.updateHighlightOptions} />)}
+                        {highPriorityDueToday.map(t => (
+                            <div key={t.id} id={`task-card-${t.id}`}>
+                                <TaskCard task={t} onUpdateStatus={updateTaskStatus} onOpenTask={() => setActiveTaskId(t.id)} onDelete={deleteTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} updateTags={appConfig.updateHighlightOptions} />
+                            </div>
+                        ))}
                     </div>
                 </div>
              )}
@@ -732,7 +734,11 @@ const App: React.FC = () => {
                         <AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})
                     </h3>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        {overdueTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onNavigate={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} onDelete={deleteTask} onAddUpdate={addUpdateToTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} updateTags={appConfig.updateHighlightOptions} />)}
+                        {overdueTasks.map(t => (
+                            <div key={t.id} id={`task-card-${t.id}`}>
+                                <TaskCard task={t} onUpdateStatus={updateTaskStatus} onOpenTask={() => setActiveTaskId(t.id)} onDelete={deleteTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} updateTags={appConfig.updateHighlightOptions} />
+                            </div>
+                        ))}
                     </div>
                 </div>
              )}
@@ -769,8 +775,8 @@ const App: React.FC = () => {
                                       onDragStart={(e) => handleDragStart(e, t.id)}
                                       onDragOver={handleDragOver}
                                       onDrop={(e) => handleDrop(e, t.id, d)}
-                                      onClick={() => setHighlightedTaskId(t.id)} 
-                                      className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group select-none ${getStatusColorMini(t.status)} ${draggedTaskId === t.id ? 'opacity-40 border-dashed border-indigo-400' : ''}`}
+                                      onClick={() => setActiveTaskId(t.id)} 
+                                      className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group select-none ${t.status === Status.DONE ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'} ${draggedTaskId === t.id ? 'opacity-40 border-dashed border-indigo-400' : ''}`}
                                       title="Drag to reorder"
                                     >
                                         <div className="flex justify-between items-center mb-1">
@@ -815,7 +821,11 @@ const App: React.FC = () => {
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} isDailyView={true} updateTags={appConfig.updateHighlightOptions} />)}
+                            {filteredTasks.map(t => (
+                                <div key={t.id} id={`task-card-${t.id}`}>
+                                    <TaskCard task={t} onUpdateStatus={updateTaskStatus} onOpenTask={() => setActiveTaskId(t.id)} onDelete={deleteTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} updateTags={appConfig.updateHighlightOptions} />
+                                </div>
+                            ))}
                         </div>
                         {filteredTasks.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-20 text-slate-300 opacity-50">
@@ -948,9 +958,26 @@ const App: React.FC = () => {
               </div>
            </div>
         </div>
-        <div className="flex-1 overflow-auto p-6 bg-slate-50 custom-scrollbar">
+        <div className="flex-1 overflow-auto p-6 bg-slate-50 custom-scrollbar relative">
            {renderContent()}
         </div>
+
+        {/* Global Modal for Task Details */}
+        {activeTask && (
+            <TaskDetailModal 
+                task={activeTask}
+                onClose={() => setActiveTaskId(null)}
+                onUpdateStatus={updateTaskStatus}
+                onUpdateTask={updateTaskFields}
+                onAddUpdate={addUpdateToTask}
+                onEditUpdate={handleEditUpdate}
+                onDeleteUpdate={handleDeleteUpdate}
+                onDeleteTask={deleteTask}
+                availableStatuses={appConfig.taskStatuses}
+                availablePriorities={appConfig.taskPriorities}
+                updateTags={appConfig.updateHighlightOptions || []}
+            />
+        )}
 
         {showNewTaskModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">

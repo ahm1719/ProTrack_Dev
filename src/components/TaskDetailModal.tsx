@@ -1,0 +1,525 @@
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask } from '../types';
+import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
+
+interface TaskDetailModalProps {
+  task: Task;
+  onClose: () => void;
+  onUpdateStatus: (id: string, status: string) => void;
+  onUpdateTask: (id: string, fields: Partial<Task>) => void;
+  onAddUpdate: (id: string, content: string, attachments?: TaskAttachment[], highlightColor?: string) => void;
+  onEditUpdate?: (taskId: string, updateId: string, newContent: string, newTimestamp?: string, highlightColor?: string | null) => void;
+  onDeleteUpdate?: (taskId: string, updateId: string) => void;
+  availableStatuses: string[];
+  availablePriorities: string[];
+  updateTags: HighlightOption[];
+  onDeleteTask: (id: string) => void;
+}
+
+const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
+  task,
+  onClose,
+  onUpdateStatus,
+  onUpdateTask,
+  onAddUpdate,
+  onEditUpdate,
+  onDeleteUpdate,
+  availableStatuses,
+  availablePriorities,
+  updateTags,
+  onDeleteTask
+}) => {
+  const [newUpdate, setNewUpdate] = useState('');
+  const [pendingAttachments, setPendingAttachments] = useState<TaskAttachment[]>([]);
+  const [newUpdateColor, setNewUpdateColor] = useState<string>(updateTags[0]?.color || '#94a3b8');
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const taskFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Editing state for updates
+  const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
+  const [editUpdateContent, setEditUpdateContent] = useState('');
+  const [editUpdateDate, setEditUpdateDate] = useState('');
+  const [editUpdateColor, setEditUpdateColor] = useState<string | null>(null);
+  const [showEditColorPicker, setShowEditColorPicker] = useState(false);
+
+  // Auto-resize textareas
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  
+  useEffect(() => {
+    if (descriptionRef.current) {
+        descriptionRef.current.style.height = 'auto';
+        descriptionRef.current.style.height = descriptionRef.current.scrollHeight + 'px';
+    }
+  }, [task.description]);
+
+  const getStatusColor = (s: string) => {
+    if (s === Status.DONE) return 'bg-emerald-100 text-emerald-700 border-emerald-200';
+    if (s === Status.IN_PROGRESS) return 'bg-blue-100 text-blue-700 border-blue-200';
+    if (s === Status.WAITING) return 'bg-amber-100 text-amber-700 border-amber-200';
+    if (s === Status.ARCHIVED) return 'bg-slate-100 text-slate-500 border-slate-200';
+    return 'bg-slate-100 text-slate-600 border-slate-200';
+  };
+
+  const getPriorityColor = (p: string) => {
+    if (p === Priority.HIGH) return 'text-red-600 bg-red-50 border-red-100';
+    if (p === Priority.MEDIUM) return 'text-amber-600 bg-amber-50 border-amber-100';
+    if (p === Priority.LOW) return 'text-emerald-600 bg-emerald-50 border-emerald-100';
+    return 'text-slate-600 bg-slate-50 border-slate-100';
+  };
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+        const d = new Date(dateStr.includes('T') ? dateStr : dateStr + 'T12:00:00');
+        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    } catch (e) {
+        return dateStr;
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, isTaskFile = false) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file: File) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            if (event.target?.result) {
+                const attachment = {
+                    id: uuidv4(),
+                    name: file.name,
+                    type: file.type,
+                    data: event.target!.result as string
+                };
+                if (isTaskFile) {
+                    const currentAttachments = task.attachments || [];
+                    onUpdateTask(task.id, { attachments: [...currentAttachments, attachment] });
+                } else {
+                    setPendingAttachments(prev => [...prev, attachment]);
+                }
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+    if (e.target) e.target.value = '';
+  };
+
+  const removeTaskAttachment = (id: string) => {
+    if (task.attachments) {
+        onUpdateTask(task.id, { attachments: task.attachments.filter(a => a.id !== id) });
+    }
+  };
+
+  const downloadAttachment = (att: TaskAttachment) => {
+    const link = document.createElement('a');
+    link.href = att.data;
+    link.download = att.name;
+    link.click();
+  };
+
+  const handleSubmitUpdate = (e: React.FormEvent | React.KeyboardEvent) => {
+    e.preventDefault();
+    if (newUpdate.trim() || pendingAttachments.length > 0) {
+      onAddUpdate(task.id, newUpdate, pendingAttachments.length > 0 ? pendingAttachments : undefined, newUpdateColor);
+      setNewUpdate('');
+      setPendingAttachments([]);
+      setShowColorPicker(false);
+    }
+  };
+
+  // Subtask Handlers
+  const handleAddSubtask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubtaskTitle.trim()) return;
+    const newSubtask: Subtask = {
+        id: uuidv4(),
+        title: newSubtaskTitle.trim(),
+        completed: false
+    };
+    onUpdateTask(task.id, { subtasks: [...(task.subtasks || []), newSubtask] });
+    setNewSubtaskTitle('');
+  };
+
+  const toggleSubtask = (subtaskId: string) => {
+    const updatedSubtasks = (task.subtasks || []).map(st => 
+        st.id === subtaskId ? { ...st, completed: !st.completed } : st
+    );
+    onUpdateTask(task.id, { subtasks: updatedSubtasks });
+  };
+
+  const deleteSubtask = (subtaskId: string) => {
+    const updatedSubtasks = (task.subtasks || []).filter(st => st.id !== subtaskId);
+    onUpdateTask(task.id, { subtasks: updatedSubtasks });
+  };
+
+  const updateSubtaskTitle = (subtaskId: string, newTitle: string) => {
+      const updatedSubtasks = (task.subtasks || []).map(st => 
+        st.id === subtaskId ? { ...st, title: newTitle } : st
+      );
+      onUpdateTask(task.id, { subtasks: updatedSubtasks });
+  };
+
+  // Update Editing Handlers
+  const startEditingUpdate = (update: { id: string, content: string, timestamp: string, highlightColor?: string }) => {
+    setEditingUpdateId(update.id);
+    setEditUpdateContent(update.content);
+    setEditUpdateColor(update.highlightColor || null);
+    setShowEditColorPicker(false);
+    
+    const d = new Date(update.timestamp);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    setEditUpdateDate(`${year}-${month}-${day}`);
+  };
+
+  const saveEditedUpdate = (updateId: string) => {
+    if (onEditUpdate && editUpdateContent.trim()) {
+      let newTimestamp = undefined;
+      if (editUpdateDate) {
+         newTimestamp = new Date(`${editUpdateDate}T12:00:00`).toISOString();
+      }
+      onEditUpdate(task.id, updateId, editUpdateContent.trim(), newTimestamp, editUpdateColor);
+      setEditingUpdateId(null);
+      setShowEditColorPicker(false);
+    }
+  };
+
+  const handleDelete = () => {
+      if (confirm('Are you sure you want to delete this task completely?')) {
+          onDeleteTask(task.id);
+          onClose();
+      }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={onClose}>
+      <div 
+        className="bg-white w-full max-w-5xl h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col relative"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white sticky top-0 z-10">
+            <div className="flex items-center gap-3 overflow-hidden">
+                <div className="flex items-center gap-2 text-sm font-mono text-slate-500 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
+                    <span className="font-bold">{task.source}</span>
+                    <span className="text-slate-300">/</span>
+                    <span className="text-indigo-600 font-bold">{task.displayId}</span>
+                </div>
+                <div className="h-4 w-[1px] bg-slate-200 mx-1" />
+                <select
+                    value={task.status}
+                    onChange={(e) => onUpdateStatus(task.id, e.target.value)}
+                    className={`text-xs font-bold px-3 py-1.5 rounded-full cursor-pointer border outline-none appearance-none transition-all ${getStatusColor(task.status)}`}
+                >
+                    {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <select
+                    value={task.priority}
+                    onChange={(e) => onUpdateTask(task.id, { priority: e.target.value })}
+                    className={`text-xs font-bold px-3 py-1.5 rounded-full cursor-pointer border outline-none appearance-none transition-all ${getPriorityColor(task.priority)}`}
+                >
+                    {availablePriorities.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+            </div>
+            
+            <div className="flex items-center gap-2">
+                <button onClick={handleDelete} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Task">
+                    <Trash2 size={18} />
+                </button>
+                <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors" title="Close">
+                    <X size={20} />
+                </button>
+            </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col md:flex-row">
+            {/* Main Content Column */}
+            <div className="flex-1 p-8 md:pr-12 space-y-8 min-w-0">
+                {/* Description */}
+                <div className="group">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Description</label>
+                    <textarea 
+                        ref={descriptionRef}
+                        value={task.description}
+                        onChange={(e) => {
+                            onUpdateTask(task.id, { description: e.target.value });
+                            e.target.style.height = 'auto';
+                            e.target.style.height = e.target.scrollHeight + 'px';
+                        }}
+                        className="w-full text-xl font-medium text-slate-800 bg-transparent border-none outline-none resize-none placeholder-slate-300 focus:ring-0 p-0 leading-relaxed"
+                        placeholder="Task description..."
+                        rows={1}
+                    />
+                </div>
+
+                {/* Subtasks */}
+                <div>
+                    <div className="flex items-center justify-between mb-3">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <CheckCircle2 size={14} /> Subtasks
+                        </label>
+                        {task.subtasks && task.subtasks.length > 0 && (
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                                {task.subtasks.filter(t => t.completed).length}/{task.subtasks.length}
+                            </span>
+                        )}
+                    </div>
+                    
+                    <div className="space-y-1 mb-3">
+                        {task.subtasks?.map(st => (
+                            <div key={st.id} className="flex items-start gap-3 p-2 hover:bg-slate-50 rounded-lg group transition-colors">
+                                <button 
+                                    onClick={() => toggleSubtask(st.id)}
+                                    className={`mt-0.5 shrink-0 ${st.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-500'}`}
+                                >
+                                    {st.completed ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                                </button>
+                                <input 
+                                    value={st.title}
+                                    onChange={(e) => updateSubtaskTitle(st.id, e.target.value)}
+                                    className={`flex-1 bg-transparent border-none outline-none text-sm text-slate-700 ${st.completed ? 'line-through text-slate-400 decoration-slate-300' : ''}`}
+                                />
+                                <button 
+                                    onClick={() => deleteSubtask(st.id)}
+                                    className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                    
+                    <form onSubmit={handleAddSubtask} className="flex items-center gap-3 pl-2 opacity-60 hover:opacity-100 transition-opacity">
+                        <Plus size={18} className="text-slate-400" />
+                        <input 
+                            value={newSubtaskTitle}
+                            onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                            placeholder="Add a subtask..."
+                            className="flex-1 bg-transparent border-none outline-none text-sm py-2 placeholder-slate-400"
+                        />
+                    </form>
+                </div>
+
+                {/* History / Updates */}
+                <div className="pt-6 border-t border-slate-100">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 block flex items-center gap-2">
+                        <Clock size={14} /> Activity & Updates
+                    </label>
+
+                    {/* New Update Input */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6">
+                        <textarea
+                            placeholder="Write an update..."
+                            value={newUpdate}
+                            onChange={(e) => setNewUpdate(e.target.value)}
+                            className="w-full bg-transparent border-none outline-none text-sm text-slate-700 min-h-[60px] resize-y placeholder-slate-400"
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                    handleSubmitUpdate(e);
+                                }
+                            }}
+                        />
+                        {pendingAttachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-3 mt-2">
+                                {pendingAttachments.map(att => (
+                                    <div key={att.id} className="flex items-center gap-1 bg-white border border-indigo-200 px-2 py-1 rounded text-[10px] font-bold text-indigo-600 shadow-sm">
+                                        <File size={10} />
+                                        <span className="max-w-[150px] truncate">{att.name}</span>
+                                        <button onClick={() => setPendingAttachments(prev => prev.filter(p => p.id !== att.id))} className="text-slate-300 hover:text-red-500">
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <div className="flex justify-between items-center pt-2 border-t border-slate-200/50">
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => fileInputRef.current?.click()} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-200 rounded transition-colors" title="Attach file">
+                                    <Paperclip size={16} />
+                                </button>
+                                <div className="relative">
+                                    <button onClick={() => setShowColorPicker(!showColorPicker)} className="p-1.5 rounded hover:bg-slate-200 transition-colors flex items-center gap-1">
+                                        <div className="w-3 h-3 rounded-full shadow-sm border border-slate-300" style={{ backgroundColor: newUpdateColor }} />
+                                    </button>
+                                    {showColorPicker && (
+                                        <>
+                                            <div className="fixed inset-0 z-30" onClick={() => setShowColorPicker(false)} />
+                                            <div className="absolute bottom-full left-0 mb-2 p-2 bg-white rounded-xl shadow-xl border border-slate-200 flex flex-col gap-1 z-40 w-40 max-h-56 overflow-y-auto custom-scrollbar">
+                                                {updateTags.map(tag => (
+                                                    <button key={tag.id} onClick={() => { setNewUpdateColor(tag.color); setShowColorPicker(false); }} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded text-xs">
+                                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.color }} />
+                                                        <span className="truncate">{tag.label}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            <button 
+                                onClick={handleSubmitUpdate} 
+                                disabled={!newUpdate.trim() && pendingAttachments.length === 0}
+                                className="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                            >
+                                Post
+                            </button>
+                        </div>
+                        <input type="file" ref={fileInputRef} className="hidden" multiple onChange={(e) => handleFileChange(e, false)} />
+                    </div>
+
+                    {/* Timeline */}
+                    <div className="space-y-6 relative pl-4 border-l-2 border-slate-100 ml-2">
+                        {task.updates.slice().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(update => (
+                            <div key={update.id} className="relative pl-6 group">
+                                <div 
+                                    className="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full border-2 border-white shadow-sm"
+                                    style={{ backgroundColor: update.highlightColor || '#cbd5e1' }}
+                                />
+                                <div className="flex items-baseline justify-between mb-1">
+                                    <span className="text-[10px] font-bold text-slate-400 font-mono">
+                                        {new Date(update.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                                    </span>
+                                    {/* Action Buttons for Update */}
+                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => startEditingUpdate(update)} className="text-slate-300 hover:text-indigo-600"><Edit2 size={12}/></button>
+                                        {onDeleteUpdate && <button onClick={() => onDeleteUpdate(task.id, update.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={12}/></button>}
+                                    </div>
+                                </div>
+
+                                {editingUpdateId === update.id ? (
+                                    <div className="bg-white border-2 border-indigo-100 p-3 rounded-lg shadow-sm space-y-2">
+                                        <div className="flex gap-2 mb-2">
+                                            <input 
+                                                type="date"
+                                                value={editUpdateDate}
+                                                onChange={(e) => setEditUpdateDate(e.target.value)}
+                                                className="text-xs p-1 border border-slate-200 rounded"
+                                            />
+                                            {/* Tag Picker for Edit */}
+                                            <div className="relative">
+                                                <button onClick={() => setShowEditColorPicker(!showEditColorPicker)} className="p-1 border border-slate-200 rounded bg-slate-50"><div className="w-4 h-4 rounded-full" style={{backgroundColor: editUpdateColor || '#cbd5e1'}}/></button>
+                                                {showEditColorPicker && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-30" onClick={() => setShowEditColorPicker(false)}/>
+                                                        <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 shadow-xl rounded-lg p-2 z-40 w-32">
+                                                            {updateTags.map(t => (
+                                                                <button key={t.id} onClick={() => { setEditUpdateColor(t.color); setShowEditColorPicker(false); }} className="block w-full text-left px-2 py-1 text-xs hover:bg-slate-50 flex items-center gap-2">
+                                                                    <div className="w-2 h-2 rounded-full" style={{backgroundColor: t.color}}/> {t.label}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <textarea 
+                                            value={editUpdateContent}
+                                            onChange={e => setEditUpdateContent(e.target.value)}
+                                            className="w-full text-sm border border-slate-200 rounded p-2 focus:ring-2 focus:ring-indigo-100 outline-none"
+                                            rows={3}
+                                        />
+                                        <div className="flex justify-end gap-2">
+                                            <button onClick={() => setEditingUpdateId(null)} className="px-3 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded">Cancel</button>
+                                            <button onClick={() => saveEditedUpdate(update.id)} className="px-3 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded">Save</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                        {update.content}
+                                    </div>
+                                )}
+
+                                {update.attachments && update.attachments.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {update.attachments.map(att => (
+                                            <button 
+                                                key={att.id}
+                                                onClick={() => downloadAttachment(att)}
+                                                className="flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-1 rounded text-[10px] font-bold text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm"
+                                            >
+                                                <DownloadIcon size={10} />
+                                                <span className="max-w-[120px] truncate">{att.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Sidebar Column */}
+            <div className="w-full md:w-72 bg-slate-50/50 border-l border-slate-100 p-6 space-y-6 flex-shrink-0">
+                <div className="space-y-4">
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Project ID</label>
+                        <input 
+                            value={task.projectId}
+                            onChange={(e) => onUpdateTask(task.id, { projectId: e.target.value })}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-100 outline-none"
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Due Date</label>
+                        <input 
+                            type="date"
+                            value={task.dueDate}
+                            onChange={(e) => onUpdateTask(task.id, { dueDate: e.target.value })}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-100 outline-none"
+                        />
+                    </div>
+                    
+                    <div className="pt-4 border-t border-slate-200/50">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block flex items-center gap-2">
+                            <Paperclip size={12} /> Global Files
+                        </label>
+                        <div className="space-y-2">
+                            {task.attachments?.map(att => (
+                                <div key={att.id} className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg shadow-sm group">
+                                    <div className="p-1.5 bg-indigo-50 rounded text-indigo-600"><File size={14}/></div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-bold text-slate-700 truncate cursor-pointer hover:underline" onClick={() => downloadAttachment(att)}>{att.name}</p>
+                                        <p className="text-[9px] text-slate-400 uppercase">{att.type.split('/')[1] || 'FILE'}</p>
+                                    </div>
+                                    <button onClick={() => removeTaskAttachment(att.id)} className="p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <X size={14}/>
+                                    </button>
+                                </div>
+                            ))}
+                            <button 
+                                onClick={() => taskFileInputRef.current?.click()}
+                                className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-xs font-bold text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Plus size={14} /> Add File
+                            </button>
+                            <input type="file" ref={taskFileInputRef} className="hidden" onChange={(e) => handleFileChange(e, true)} />
+                        </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-200/50 space-y-2 text-xs text-slate-400">
+                        <div className="flex justify-between">
+                            <span>Created</span>
+                            <span className="font-mono">{formatDate(task.createdAt)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span>Updates</span>
+                            <span className="font-mono">{task.updates.length}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default TaskDetailModal;
