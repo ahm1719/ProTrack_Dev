@@ -19,7 +19,8 @@ import {
   Layers,
   Calendar,
   Briefcase,
-  Repeat
+  Repeat,
+  Maximize2
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -56,7 +57,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V3.4";
+const BUILD_VERSION = "V3.5";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -126,6 +127,7 @@ const App: React.FC = () => {
   const [modalError, setModalError] = useState<string | null>(null);
 
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
 
   const [backupSettings, setBackupSettings] = useState<BackupSettings>({
     enabled: false,
@@ -857,7 +859,16 @@ const App: React.FC = () => {
                                 <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
                                 <span className="text-lg font-bold text-slate-800">{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                             </div>
-                            {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
+                            <div className="flex items-center gap-2">
+                                {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); setExpandedDay(d); }}
+                                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600 transition-colors"
+                                    title="Expand View"
+                                >
+                                    <Maximize2 size={14} />
+                                </button>
+                            </div>
                         </div>
                         <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                             {weekTasks[d]?.length ? weekTasks[d].map(t => {
@@ -959,6 +970,108 @@ const App: React.FC = () => {
                     </div>
                 </div>
              </div>
+
+             {/* Expanded Day View Modal */}
+             {expandedDay && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setExpandedDay(null)}>
+                    <div 
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-fade-in"
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="p-4 border-b flex justify-between items-center bg-indigo-600 text-white">
+                            <div>
+                                <h2 className="font-bold flex items-center gap-2 text-lg">
+                                    {new Date(expandedDay).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
+                                </h2>
+                                <p className="text-indigo-200 text-xs font-medium">
+                                    {weekTasks[expandedDay]?.length || 0} Tasks
+                                </p>
+                            </div>
+                            <button onClick={() => setExpandedDay(null)} className="p-1 hover:bg-indigo-500 rounded-lg transition-colors"><X size={20}/></button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50">
+                            {weekTasks[expandedDay]?.length > 0 ? (
+                                weekTasks[expandedDay].map(t => {
+                                     const latest = [...t.updates].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                                     return (
+                                        <div 
+                                            key={t.id}
+                                            draggable="true"
+                                            onDragStart={(e) => handleDragStart(e, t.id)}
+                                            onDragOver={handleDragOver}
+                                            onDrop={(e) => handleDrop(e, t.id, expandedDay)}
+                                            onClick={() => setActiveTaskId(t.id)}
+                                            className={`bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer group flex items-start gap-4 ${t.status === Status.DONE ? 'opacity-60 bg-slate-50 border-slate-200' : 'border-slate-200 hover:border-indigo-300'} ${draggedTaskId === t.id ? 'opacity-40 border-dashed border-indigo-400' : ''}`}
+                                        >
+                                            <div className="mt-1 text-slate-300 group-hover:text-indigo-400 cursor-grab active:cursor-grabbing">
+                                                <svg width="12" height="20" viewBox="0 0 6 10" fill="currentColor" xmlns="http://www.w3.org/2000/svg" className="opacity-50">
+                                                  <circle cx="1" cy="1" r="1" />
+                                                  <circle cx="1" cy="5" r="1" />
+                                                  <circle cx="1" cy="9" r="1" />
+                                                  <circle cx="5" cy="1" r="1" />
+                                                  <circle cx="5" cy="5" r="1" />
+                                                  <circle cx="5" cy="9" r="1" />
+                                                </svg>
+                                            </div>
+                                            
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`font-mono font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-xs ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60 text-slate-500 bg-slate-100' : ''}`}>
+                                                            {t.displayId}
+                                                        </span>
+                                                        {t.recurrence && <Repeat size={12} className="text-indigo-400" />}
+                                                        <div 
+                                                            className={`text-[10px] px-1.5 py-0.5 rounded-full border font-bold ${t.priority === Priority.HIGH ? 'text-red-600 bg-red-50 border-red-100' : t.priority === Priority.MEDIUM ? 'text-amber-600 bg-amber-50 border-amber-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}
+                                                        >
+                                                            {t.priority}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {t.status === Status.DONE && <span className="text-xs font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 size={14}/> Done</span>}
+                                                        {t.status === Status.IN_PROGRESS && <span className="text-xs font-bold text-blue-600 flex items-center gap-1"><Clock size={14}/> In Progress</span>}
+                                                    </div>
+                                                </div>
+                                                
+                                                <p className={`text-sm text-slate-700 font-medium leading-relaxed ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>
+                                                    {t.description}
+                                                </p>
+
+                                                {/* Subtask Progress */}
+                                                {t.subtasks && t.subtasks.length > 0 && (
+                                                    <div className="mt-2 flex items-center gap-2">
+                                                        <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden max-w-[100px]">
+                                                            <div 
+                                                                className="h-full bg-emerald-500 rounded-full" 
+                                                                style={{ width: `${(t.subtasks.filter(st => st.completed).length / t.subtasks.length) * 100}%` }} 
+                                                            />
+                                                        </div>
+                                                        <span className="text-[10px] text-slate-400 font-medium">{t.subtasks.filter(st => st.completed).length}/{t.subtasks.length} subtasks</span>
+                                                    </div>
+                                                )}
+
+                                                {latest && (
+                                                    <div className="mt-2 p-2 bg-slate-50/80 rounded border border-slate-100 flex items-start gap-2 text-xs text-slate-600">
+                                                        <div className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: latest.highlightColor || '#cbd5e1' }} />
+                                                        <span className="truncate flex-1">{latest.content}</span>
+                                                        <span className="text-[10px] text-slate-400 font-mono whitespace-nowrap">{new Date(latest.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                     );
+                                })
+                            ) : (
+                                <div className="flex flex-col items-center justify-center h-full py-12 text-slate-400">
+                                    <ListTodo size={48} className="opacity-20 mb-2" />
+                                    <p className="font-medium">No tasks scheduled for this day.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+             )}
           </div>
         );
 
