@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask } from '../types';
-import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass } from 'lucide-react';
+import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, RecurrenceConfig } from '../types';
+import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TaskDetailModalProps {
@@ -48,6 +48,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [editUpdateDate, setEditUpdateDate] = useState('');
   const [editUpdateColor, setEditUpdateColor] = useState<string | null>(null);
   const [showEditColorPicker, setShowEditColorPicker] = useState(false);
+
+  // Recurrence State
+  const [recurrenceType, setRecurrenceType] = useState<string>(task.recurrence?.type || 'none');
+  const [recurrenceInterval, setRecurrenceInterval] = useState<number>(task.recurrence?.interval || 1);
 
   // Auto-resize textareas
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -101,6 +105,22 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     } catch (e) {
         return dateStr;
     }
+  };
+
+  const handleRecurrenceChange = (type: string, interval: number) => {
+      setRecurrenceType(type);
+      setRecurrenceInterval(interval);
+      
+      if (type === 'none') {
+          onUpdateTask(task.id, { recurrence: undefined });
+      } else {
+          onUpdateTask(task.id, { 
+              recurrence: { 
+                  type: type as RecurrenceConfig['type'], 
+                  interval: interval 
+              } 
+          });
+      }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, isTaskFile = false) => {
@@ -515,6 +535,36 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             onChange={(e) => onUpdateTask(task.id, { dueDate: e.target.value })}
                             className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-100 outline-none"
                         />
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block flex items-center gap-1">
+                            <Repeat size={12} /> Recurrence
+                        </label>
+                        <select 
+                            value={recurrenceType}
+                            onChange={(e) => handleRecurrenceChange(e.target.value, recurrenceInterval)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-100 outline-none"
+                        >
+                            <option value="none">None (One-time)</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                        {recurrenceType !== 'none' && (
+                            <div className="flex items-center gap-2 mt-2">
+                                <span className="text-xs text-slate-500">Every</span>
+                                <input 
+                                    type="number"
+                                    min="1"
+                                    value={recurrenceInterval}
+                                    onChange={(e) => handleRecurrenceChange(recurrenceType, parseInt(e.target.value) || 1)}
+                                    className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-medium text-center focus:ring-2 focus:ring-indigo-100 outline-none"
+                                />
+                                <span className="text-xs text-slate-500 capitalize">{recurrenceType.replace('ly', '(s)')}</span>
+                            </div>
+                        )}
                     </div>
                     
                     <div className="pt-4 border-t border-slate-200/50">

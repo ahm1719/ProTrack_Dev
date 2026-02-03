@@ -73,6 +73,11 @@ export interface TaskUpdate {
   highlightColor?: string; // For visual tagging of updates (e.g., Blockers)
 }
 
+export interface RecurrenceConfig {
+  type: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  interval: number;
+}
+
 export interface Task {
   id: string; // Internal UUID
   displayId: string; // User facing ID like P1130-28
@@ -84,6 +89,7 @@ export interface Task {
   priority: string; 
   updates: TaskUpdate[]; // Historical updates/comments
   subtasks?: Subtask[]; // List of actionable sub-items
+  recurrence?: RecurrenceConfig; // Recurrence settings
   createdAt: string;
   attachments?: TaskAttachment[]; // Global task attachments
   order?: number; // For manual sorting in daily view

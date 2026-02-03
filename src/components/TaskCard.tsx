@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { Task, Status, Priority, HighlightOption } from '../types';
-import { Clock, Calendar, CheckCircle2, Archive, Hourglass, ArrowRight, ListChecks } from 'lucide-react';
+import { Clock, Calendar, CheckCircle2, Archive, Hourglass, ArrowRight, ListChecks, Repeat } from 'lucide-react';
 
 interface TaskCardProps {
   task: Task;
@@ -105,8 +105,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
              <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded border border-transparent">
                 {task.source}
              </span>
-             <span className="font-mono text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded border border-transparent">
+             <span className="font-mono text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded border border-transparent flex items-center gap-1">
                 {task.displayId}
+                {task.recurrence && <Repeat size={10} className="text-indigo-400" />}
              </span>
              <span className={`text-[10px] px-2 py-1 rounded-full border ${getPriorityColor(task.priority)} font-medium`}>
                 {task.priority}

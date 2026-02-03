@@ -18,7 +18,8 @@ import {
   Target,
   Layers,
   Calendar,
-  Briefcase
+  Briefcase,
+  Repeat
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -33,7 +34,8 @@ import {
   ViewMode, 
   TaskAttachment,
   BackupSettings,
-  FileSystemDirectoryHandle
+  FileSystemDirectoryHandle,
+  RecurrenceConfig
 } from './types';
 
 import TaskCard from './components/TaskCard';
@@ -54,7 +56,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V3.1";
+const BUILD_VERSION = "V3.2";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -141,7 +143,9 @@ const App: React.FC = () => {
     description: '',
     dueDate: new Date().toISOString().split('T')[0],
     status: Status.NOT_STARTED as string,
-    priority: Priority.MEDIUM as string
+    priority: Priority.MEDIUM as string,
+    recurrenceType: 'none',
+    recurrenceInterval: 1
   });
 
   const activeTask = useMemo(() => tasks.find(t => t.id === activeTaskId), [tasks, activeTaskId]);
@@ -307,8 +311,17 @@ const App: React.FC = () => {
       return;
     }
 
+    let recurrenceConfig: RecurrenceConfig | undefined = undefined;
+    if (newTaskForm.recurrenceType !== 'none') {
+        recurrenceConfig = {
+            type: newTaskForm.recurrenceType as any,
+            interval: newTaskForm.recurrenceInterval
+        };
+    }
+
     const newTask: Task = {
       ...newTaskForm,
+      recurrence: recurrenceConfig,
       id: uuidv4(),
       updates: [],
       createdAt: new Date().toISOString()
@@ -324,9 +337,58 @@ const App: React.FC = () => {
       description: '',
       dueDate: new Date().toISOString().split('T')[0],
       status: appConfig.taskStatuses[0] || Status.NOT_STARTED,
-      priority: appConfig.taskPriorities[1] || Priority.MEDIUM
+      priority: appConfig.taskPriorities[1] || Priority.MEDIUM,
+      recurrenceType: 'none',
+      recurrenceInterval: 1
     });
     setView(ViewMode.TASKS);
+  };
+
+  const handleRecurringTaskCompletion = (task: Task): Task | null => {
+    if (!task.recurrence || !task.dueDate) return null;
+
+    const { type, interval } = task.recurrence;
+    const currentDue = new Date(task.dueDate);
+    let nextDue = new Date(currentDue);
+
+    if (type === 'daily') nextDue.setDate(currentDue.getDate() + interval);
+    if (type === 'weekly') nextDue.setDate(currentDue.getDate() + (interval * 7));
+    if (type === 'monthly') nextDue.setMonth(currentDue.getMonth() + interval);
+    if (type === 'yearly') nextDue.setFullYear(currentDue.getFullYear() + interval);
+
+    // Generate new ID
+    let newDisplayId = task.displayId;
+    const match = task.displayId.match(/^(.*?)(\d+)$/);
+    if (match) {
+        let prefix = match[1];
+        let num = parseInt(match[2]);
+        let nextNum = num + 1;
+        // Simple collision avoidance
+        while (tasks.some(t => t.displayId === `${prefix}${nextNum}`)) {
+            nextNum++;
+        }
+        newDisplayId = `${prefix}${nextNum}`;
+    } else {
+        // Fallback if no numeric suffix
+        let counter = 2;
+        while (tasks.some(t => t.displayId === `${task.displayId}-${counter}`)) {
+            counter++;
+        }
+        newDisplayId = `${task.displayId}-${counter}`;
+    }
+
+    const newTask: Task = {
+        ...task,
+        id: uuidv4(),
+        displayId: newDisplayId,
+        status: Status.NOT_STARTED, // Reset status
+        dueDate: nextDue.toISOString().split('T')[0],
+        updates: [], 
+        subtasks: task.subtasks?.map(st => ({...st, completed: false, completedAt: undefined})),
+        createdAt: new Date().toISOString()
+    };
+    
+    return newTask;
   };
 
   const updateTaskStatus = (id: string, newStatus: string) => {
@@ -340,7 +402,7 @@ const App: React.FC = () => {
     
     const systemUpdateColor = '#6366f1';
 
-    const updatedTasks = tasks.map(t => t.id === id ? { 
+    let updatedTasks = tasks.map(t => t.id === id ? { 
         ...t, 
         status: newStatus,
         updates: [...t.updates, { 
@@ -351,14 +413,28 @@ const App: React.FC = () => {
         }]
     } : t);
 
-    const newLog: DailyLog = { 
+    const newLogs = [...logs, { 
         id: uuidv4(), 
         date: dateStr, 
         taskId: id, 
         content 
-    };
+    }];
 
-    persistData(updatedTasks, [...logs, newLog], observations, offDays);
+    // Check for Recurrence Trigger
+    if (newStatus === Status.DONE && task.recurrence) {
+        const nextTask = handleRecurringTaskCompletion(task);
+        if (nextTask) {
+            updatedTasks = [...updatedTasks, nextTask];
+            newLogs.push({
+                id: uuidv4(),
+                date: dateStr,
+                taskId: nextTask.id,
+                content: `Recurring task created from ${task.displayId}`
+            });
+        }
+    }
+
+    persistData(updatedTasks, newLogs, observations, offDays);
   };
 
   const updateTaskFields = (id: string, fields: Partial<Task>) => {
@@ -798,7 +874,10 @@ const App: React.FC = () => {
                                       title="Drag to reorder"
                                     >
                                         <div className="flex justify-between items-center mb-1">
-                                          <span className={`font-mono font-bold ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.displayId}</span>
+                                          <span className={`font-mono font-bold ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''} flex items-center gap-1`}>
+                                            {t.displayId}
+                                            {t.recurrence && <Repeat size={10} className="text-indigo-400" />}
+                                          </span>
                                           <div className="flex items-center gap-1">
                                               <div 
                                                 className={`w-2 h-2 rounded-full ${t.priority === Priority.HIGH ? 'bg-red-500' : t.priority === Priority.MEDIUM ? 'bg-amber-400' : 'bg-emerald-400'}`} 
@@ -1074,6 +1153,39 @@ const App: React.FC = () => {
                          </select>
                       </div>
                    </div>
+                   
+                   <div className="pt-2 border-t border-slate-100">
+                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                           <Repeat size={12} /> Recurrence
+                       </label>
+                       <div className="flex gap-2">
+                           <select 
+                               value={newTaskForm.recurrenceType}
+                               onChange={(e) => setNewTaskForm({...newTaskForm, recurrenceType: e.target.value})}
+                               className="flex-1 px-3 py-2 text-sm bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100"
+                           >
+                               <option value="none">None (One-time)</option>
+                               <option value="daily">Daily</option>
+                               <option value="weekly">Weekly</option>
+                               <option value="monthly">Monthly</option>
+                               <option value="yearly">Yearly</option>
+                           </select>
+                           {newTaskForm.recurrenceType !== 'none' && (
+                               <div className="flex items-center gap-2 bg-slate-50 border rounded-xl px-2">
+                                   <span className="text-xs text-slate-500 whitespace-nowrap">Every</span>
+                                   <input 
+                                       type="number" 
+                                       min="1"
+                                       value={newTaskForm.recurrenceInterval}
+                                       onChange={(e) => setNewTaskForm({...newTaskForm, recurrenceInterval: parseInt(e.target.value) || 1})}
+                                       className="w-12 bg-transparent outline-none text-sm font-bold text-center"
+                                   />
+                                   <span className="text-xs text-slate-500 pr-1">{newTaskForm.recurrenceType.replace('ly', '(s)')}</span>
+                               </div>
+                           )}
+                       </div>
+                   </div>
+
                 </div>
                 <div className="p-4 border-t bg-slate-50 flex justify-end gap-3">
                    <button type="button" onClick={() => setShowNewTaskModal(false)} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded-lg transition-all">Cancel</button>
