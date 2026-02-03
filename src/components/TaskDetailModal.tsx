@@ -167,9 +167,17 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   };
 
   const toggleSubtask = (subtaskId: string) => {
-    const updatedSubtasks = (task.subtasks || []).map(st => 
-        st.id === subtaskId ? { ...st, completed: !st.completed } : st
-    );
+    const updatedSubtasks = (task.subtasks || []).map(st => {
+        if (st.id === subtaskId) {
+            const isCompleted = !st.completed;
+            return { 
+                ...st, 
+                completed: isCompleted,
+                completedAt: isCompleted ? new Date().toISOString() : undefined
+            };
+        }
+        return st;
+    });
     onUpdateTask(task.id, { subtasks: updatedSubtasks });
   };
 
@@ -299,20 +307,30 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             <div key={st.id} className="flex items-start gap-3 p-2 hover:bg-slate-50 rounded-lg group transition-colors">
                                 <button 
                                     onClick={() => toggleSubtask(st.id)}
-                                    className={`mt-0.5 shrink-0 ${st.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-500'}`}
+                                    className={`mt-1 shrink-0 ${st.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-500'}`}
+                                    title={st.completed ? "Mark as incomplete" : "Mark as done"}
                                 >
                                     {st.completed ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                                 </button>
-                                <input 
-                                    value={st.title}
-                                    onChange={(e) => updateSubtaskTitle(st.id, e.target.value)}
-                                    className={`flex-1 bg-transparent border-none outline-none text-sm text-slate-700 ${st.completed ? 'line-through text-slate-400 decoration-slate-300' : ''}`}
-                                />
+                                <div className="flex-1 min-w-0">
+                                    <input 
+                                        value={st.title}
+                                        onChange={(e) => updateSubtaskTitle(st.id, e.target.value)}
+                                        className={`w-full bg-transparent border-none outline-none text-sm p-0 focus:ring-0 ${st.completed ? 'line-through text-slate-400 decoration-slate-300' : 'text-slate-700 font-medium'}`}
+                                        placeholder="Subtask title"
+                                    />
+                                    {st.completed && st.completedAt && (
+                                        <p className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
+                                            Completed on {new Date(st.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    )}
+                                </div>
                                 <button 
                                     onClick={() => deleteSubtask(st.id)}
                                     className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                    title="Delete subtask"
                                 >
-                                    <X size={14} />
+                                    <Trash2 size={14} />
                                 </button>
                             </div>
                         ))}

@@ -62,6 +62,7 @@ export interface Subtask {
   id: string;
   title: string;
   completed: boolean;
+  completedAt?: string; // ISO String
 }
 
 export interface TaskUpdate {
