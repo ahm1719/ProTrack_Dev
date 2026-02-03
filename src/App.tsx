@@ -57,7 +57,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V3.5";
+const BUILD_VERSION = "V3.6";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -846,9 +846,17 @@ const App: React.FC = () => {
           <div className="h-full flex flex-col space-y-6 animate-fade-in">
              <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Daily Tasks</h1>
-                <button onClick={() => setShowNewTaskModal(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
-                    <Plus size={20} /> New Task
-                </button>
+                <div className="flex gap-3">
+                    <button 
+                        onClick={() => setExpandedDay(todayStr)}
+                        className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-3 rounded-xl hover:border-indigo-300 hover:text-indigo-600 transition-all font-bold shadow-sm"
+                    >
+                        <Maximize2 size={18} /> Focus Today
+                    </button>
+                    <button onClick={() => setShowNewTaskModal(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
+                        <Plus size={20} /> New Task
+                    </button>
+                </div>
              </div>
 
              <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-56">
@@ -863,7 +871,7 @@ const App: React.FC = () => {
                                 {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); setExpandedDay(d); }}
-                                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600 transition-colors"
+                                    className={`p-1 rounded transition-colors ${d === todayStr ? 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200' : 'hover:bg-slate-100 text-slate-400 hover:text-indigo-600'}`}
                                     title="Expand View"
                                 >
                                     <Maximize2 size={14} />
