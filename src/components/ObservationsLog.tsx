@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Observation, ObservationStatus } from '../types';
-import { StickyNote, Plus, Trash2, Edit2, X, Circle, Clock, CheckCircle2, ArrowRight, ArrowLeft, Image as ImageIcon, XCircle, Maximize2, Search } from 'lucide-react';
+import { StickyNote, Plus, Trash2, Edit2, X, Circle, Clock, CheckCircle2, ArrowRight, ArrowLeft, Image as ImageIcon, XCircle, Maximize2, Search, Copy } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ObservationsLogProps {
@@ -106,6 +106,12 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
     setStatus(columns[0] || ObservationStatus.NEW);
   };
 
+  const handleCopyText = (text: string) => {
+      navigator.clipboard.writeText(text);
+      // Optional: Add simple visual feedback logic here if needed, 
+      // but for now relying on user action.
+  };
+
   const advanceStatus = (obs: Observation) => {
       const currentIndex = columns.indexOf(obs.status as any);
       if (currentIndex !== -1 && currentIndex < columns.length - 1) {
@@ -123,16 +129,16 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
     if (customColor) {
         return { backgroundColor: `${customColor}15`, color: customColor, borderColor: `${customColor}30` };
     }
-    return { backgroundColor: '#f8fafc', color: '#64748b', borderColor: '#e2e8f0' };
+    return undefined;
   };
 
   const getColumnStyle = (index: number) => {
     const styles = [
-        { icon: Circle, color: 'bg-blue-50 text-blue-700 border-blue-200' },
-        { icon: Clock, color: 'bg-amber-50 text-amber-700 border-amber-200' },
-        { icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-        { icon: StickyNote, color: 'bg-purple-50 text-purple-700 border-purple-200' },
-        { icon: StickyNote, color: 'bg-slate-50 text-slate-700 border-slate-200' }
+        { icon: Circle, color: 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800' },
+        { icon: Clock, color: 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800' },
+        { icon: CheckCircle2, color: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800' },
+        { icon: StickyNote, color: 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800' },
+        { icon: StickyNote, color: 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700' }
     ];
     return styles[index % styles.length];
   };
@@ -160,22 +166,22 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
       <div className="flex-none space-y-4" id="obs-form">
         <div className="flex items-center justify-between">
             <div>
-                 <h1 className="text-2xl font-bold text-slate-900">Observations</h1>
-                 <p className="text-sm text-slate-500">Kanban board for feedback & notes.</p>
+                 <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Observations</h1>
+                 <p className="text-sm text-slate-500 dark:text-slate-400">Kanban board for feedback & notes.</p>
             </div>
             <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
                 <input 
                     type="text" 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search observations..."
-                    className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                    className="w-full pl-9 pr-8 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 shadow-sm dark:text-slate-200 dark:placeholder-slate-500"
                 />
                 {searchQuery && (
                     <button 
                         onClick={() => setSearchQuery('')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 hover:bg-slate-100 rounded-full transition-colors"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors"
                         title="Clear search"
                     >
                         <X size={14} />
@@ -184,14 +190,14 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
             </div>
         </div>
 
-        <div className={`bg-white p-4 rounded-xl border shadow-sm transition-all duration-300 ${editingId ? 'border-indigo-300 ring-2 ring-indigo-100' : 'border-slate-200'}`}>
+        <div className={`bg-white dark:bg-slate-800 p-4 rounded-xl border shadow-sm transition-all duration-300 ${editingId ? 'border-indigo-300 dark:border-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-900/50' : 'border-slate-200 dark:border-slate-700'}`}>
              <div className="flex items-center gap-2 mb-2">
-                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-2">
                     {editingId ? <Edit2 size={14}/> : <Plus size={14}/>}
                     {editingId ? 'Edit Card' : 'Add Card'}
                 </h3>
                 {editingId && (
-                    <button onClick={handleCancelEdit} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1 bg-red-50 px-2 py-0.5 rounded">Cancel</button>
+                    <button onClick={handleCancelEdit} className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 flex items-center gap-1 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded">Cancel</button>
                 )}
             </div>
             
@@ -200,9 +206,9 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                   <select 
                       value={status}
                       onChange={(e) => setStatus(e.target.value)}
-                      className="w-full md:w-48 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 cursor-pointer h-10"
+                      className="w-full md:w-48 p-2 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 dark:bg-slate-700 dark:text-slate-200 cursor-pointer h-10"
                   >
-                      {columns.map(s => <option key={s} value={s}>{s}</option>)}
+                      {columns.map(s => <option key={s} value={s} className="dark:bg-slate-800">{s}</option>)}
                   </select>
                   <div className="flex-1 flex gap-2">
                       <div className="relative flex-1">
@@ -216,9 +222,9 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                                 }
                             }}
                             placeholder="Describe observation... (Ctrl+Enter to save)" 
-                            className="w-full p-3 pr-10 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900 resize-none h-20 custom-scrollbar" 
+                            className="w-full p-3 pr-10 text-sm border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-200 dark:placeholder-slate-400 resize-none h-20 custom-scrollbar" 
                         />
-                        <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute right-2 bottom-2 text-slate-400 hover:text-indigo-600 p-1" title="Attach Image"><ImageIcon size={18} /></button>
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute right-2 bottom-2 text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400 p-1" title="Attach Image"><ImageIcon size={18} /></button>
                       </div>
                       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleFileSelect} />
                       <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap h-20">{editingId ? 'Save' : 'Add'}</button>
@@ -228,8 +234,8 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                   <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
                     {images.map((img: string, idx: number) => (
                       <div key={idx} className="relative flex-shrink-0 group">
-                        <img src={img} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-slate-200" />
-                        <button type="button" onClick={() => removeImage(idx)} className="absolute -top-1.5 -right-1.5 bg-white text-red-500 rounded-full shadow-sm hover:scale-110 transition-transform"><XCircle size={16} fill="white" /></button>
+                        <img src={img} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-slate-200 dark:border-slate-600" />
+                        <button type="button" onClick={() => removeImage(idx)} className="absolute -top-1.5 -right-1.5 bg-white dark:bg-slate-700 text-red-500 rounded-full shadow-sm hover:scale-110 transition-transform"><XCircle size={16} fill="currentColor" /></button>
                       </div>
                     ))}
                   </div>
@@ -241,24 +247,26 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
       <div className="flex-1 min-h-0 overflow-x-auto">
         <div className="flex h-full gap-4 min-w-[800px] md:min-w-0 pb-2">
             {columns.map((colName, index) => {
-                // Filter by column status from the already search-filtered list
                 const colObs = filteredObservations.filter(o => o.status === colName);
                 
                 const headerStyle = getColumnHeaderStyle(colName);
                 const { icon: Icon } = getColumnStyle(index);
 
                 return (
-                    <div key={colName} className="flex-1 flex flex-col bg-slate-100/50 rounded-xl border border-slate-200 overflow-hidden min-w-[250px]">
-                        <div className="p-3 border-b flex items-center justify-between backdrop-blur-sm" style={headerStyle}>
+                    <div key={colName} className="flex-1 flex flex-col bg-slate-100/50 dark:bg-slate-800/30 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden min-w-[250px]">
+                        <div 
+                            className={`p-3 border-b flex items-center justify-between backdrop-blur-sm ${!headerStyle ? 'bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700' : ''}`} 
+                            style={headerStyle}
+                        >
                             <div className="flex items-center gap-2 font-bold text-sm">
                                 <Icon size={16} />
                                 {colName}
                             </div>
-                            <span className="bg-white/60 px-2 py-0.5 rounded text-xs font-bold border border-white/40">{colObs.length}</span>
+                            <span className="bg-white/60 dark:bg-black/20 px-2 py-0.5 rounded text-xs font-bold border border-white/40 dark:border-white/10">{colObs.length}</span>
                         </div>
                         <div className="flex-1 overflow-y-auto p-2 space-y-2 custom-scrollbar">
                             {colObs.length === 0 && (
-                                <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-2">
+                                <div className="h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 gap-2">
                                     <Icon size={24} className="opacity-20"/>
                                     <span className="text-xs italic">
                                         {searchQuery && filteredObservations.length === 0 ? 'No match' : 'Empty'}
@@ -266,26 +274,45 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                                 </div>
                             )}
                             {colObs.slice().reverse().map(obs => (
-                                <div key={obs.id} className={`bg-white p-3 rounded-lg border shadow-sm group hover:shadow-md transition-all ${editingId === obs.id ? 'ring-2 ring-indigo-400 border-indigo-400' : 'border-slate-200'}`}>
+                                <div key={obs.id} className={`bg-white dark:bg-slate-800 p-3 rounded-lg border shadow-sm group hover:shadow-md transition-all ${editingId === obs.id ? 'ring-2 ring-indigo-400 border-indigo-400' : 'border-slate-200 dark:border-slate-700'}`}>
                                     {obs.images && obs.images.length > 0 && (
                                       <div className="flex gap-2 mb-2 overflow-x-auto custom-scrollbar pb-1">
                                         {obs.images.map((img: string, i: number) => (
                                           <div key={i} className="relative flex-shrink-0 cursor-pointer hover:opacity-90" onClick={() => setLightboxImage(img)}>
-                                            <img src={img} alt="Attachment" className="h-12 w-12 object-cover rounded-md border border-slate-100" />
+                                            <img src={img} alt="Attachment" className="h-12 w-12 object-cover rounded-md border border-slate-100 dark:border-slate-600" />
                                             <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black/20 rounded-md transition-opacity"><Maximize2 size={10} className="text-white drop-shadow-md" /></div>
                                           </div>
                                         ))}
                                       </div>
                                     )}
-                                    <p className="text-sm text-slate-700 mb-2 leading-snug break-words whitespace-pre-wrap">{obs.content}</p>
-                                    <div className="flex items-center justify-between pt-2 border-t border-slate-50 mt-2">
-                                        <span className="text-[10px] text-slate-400 font-mono">{new Date(obs.timestamp).toLocaleDateString()}</span>
+                                    <p className="text-sm text-slate-700 dark:text-slate-300 mb-2 leading-snug break-words whitespace-pre-wrap">{obs.content}</p>
+                                    <div className="flex items-center justify-between pt-2 border-t border-slate-50 dark:border-slate-700 mt-2">
+                                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">{new Date(obs.timestamp).toLocaleDateString()}</span>
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => handleEditClick(obs)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600 transition-colors" title="Edit"><Edit2 size={12} /></button>
-                                            <button onClick={() => onDeleteObservation(obs.id)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-red-600 transition-colors" title="Delete"><Trash2 size={12} /></button>
-                                            <div className="flex items-center gap-1 ml-1 pl-1 border-l border-slate-100">
-                                                {columns.indexOf(obs.status as any) > 0 && <button onClick={() => regressStatus(obs)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-amber-600 transition-colors" title="Move Back"><ArrowLeft size={12} /></button>}
-                                                {columns.indexOf(obs.status as any) < columns.length - 1 && <button onClick={() => advanceStatus(obs)} className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-emerald-600 transition-colors" title="Move Next"><ArrowRight size={12} /></button>}
+                                            <button 
+                                              onClick={() => handleCopyText(obs.content)} 
+                                              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" 
+                                              title="Copy Text"
+                                            >
+                                              <Copy size={12} />
+                                            </button>
+                                            <button 
+                                              onClick={() => handleEditClick(obs)} 
+                                              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" 
+                                              title="Edit"
+                                            >
+                                              <Edit2 size={12} />
+                                            </button>
+                                            <button 
+                                              onClick={() => onDeleteObservation(obs.id)} 
+                                              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 transition-colors" 
+                                              title="Delete"
+                                            >
+                                              <Trash2 size={12} />
+                                            </button>
+                                            <div className="flex items-center gap-1 ml-1 pl-1 border-l border-slate-100 dark:border-slate-700">
+                                                {columns.indexOf(obs.status as any) > 0 && <button onClick={() => regressStatus(obs)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-400 dark:text-slate-500 hover:text-amber-600 dark:hover:text-amber-500 transition-colors" title="Move Back"><ArrowLeft size={12} /></button>}
+                                                {columns.indexOf(obs.status as any) < columns.length - 1 && <button onClick={() => advanceStatus(obs)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-400 dark:text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-500 transition-colors" title="Move Next"><ArrowRight size={12} /></button>}
                                             </div>
                                         </div>
                                     </div>
