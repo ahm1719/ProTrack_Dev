@@ -83,18 +83,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             borderColor: custom
         };
     }
-    if (s === Status.DONE) return { backgroundColor: '#d1fae5', color: '#047857', borderColor: '#a7f3d0' }; // emerald-100 text-emerald-700
-    if (s === Status.IN_PROGRESS) return { backgroundColor: '#dbeafe', color: '#1d4ed8', borderColor: '#bfdbfe' }; // blue-100 text-blue-700
-    if (s === Status.WAITING) return { backgroundColor: '#fef3c7', color: '#b45309', borderColor: '#fde68a' }; // amber-100 text-amber-700
-    if (s === Status.ARCHIVED) return { backgroundColor: '#f1f5f9', color: '#64748b', borderColor: '#e2e8f0' }; // slate-100 text-slate-500
-    return { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#e2e8f0' }; // slate-100 text-slate-600
+    if (s === Status.DONE) return { backgroundColor: '#d1fae5', color: '#047857', borderColor: '#a7f3d0' }; 
+    if (s === Status.IN_PROGRESS) return { backgroundColor: '#dbeafe', color: '#1d4ed8', borderColor: '#bfdbfe' }; 
+    if (s === Status.WAITING) return { backgroundColor: '#fef3c7', color: '#b45309', borderColor: '#fde68a' }; 
+    if (s === Status.ARCHIVED) return { backgroundColor: '#f1f5f9', color: '#64748b', borderColor: '#e2e8f0' }; 
+    return { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#e2e8f0' }; 
   };
 
   const getPriorityColor = (p: string) => {
-    if (p === Priority.HIGH) return 'text-red-600 bg-red-50 border-red-100';
-    if (p === Priority.MEDIUM) return 'text-amber-600 bg-amber-50 border-amber-100';
-    if (p === Priority.LOW) return 'text-emerald-600 bg-emerald-50 border-emerald-100';
-    return 'text-slate-600 bg-slate-50 border-slate-100';
+    if (p === Priority.HIGH) return 'text-red-600 bg-red-50 border-red-100 dark:bg-red-900/30 dark:text-red-300 dark:border-red-900/50';
+    if (p === Priority.MEDIUM) return 'text-amber-600 bg-amber-50 border-amber-100 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-900/50';
+    if (p === Priority.LOW) return 'text-emerald-600 bg-emerald-50 border-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-900/50';
+    return 'text-slate-600 bg-slate-50 border-slate-100 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700';
   };
 
   const formatDate = (dateStr: string) => {
@@ -249,40 +249,40 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={onClose}>
       <div 
-        className="bg-white w-full max-w-5xl h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col relative"
+        className="bg-white dark:bg-slate-800 w-full max-w-5xl h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col relative"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white sticky top-0 z-10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 sticky top-0 z-10">
             <div className="flex items-center gap-3 overflow-hidden">
-                <div className="flex items-center gap-2 text-sm font-mono text-slate-500 bg-slate-50 px-2 py-1 rounded-md border border-slate-200">
+                <div className="flex items-center gap-2 text-sm font-mono text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-700 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-600">
                     <span className="font-bold">{task.source}</span>
-                    <span className="text-slate-300">/</span>
-                    <span className="text-indigo-600 font-bold">{task.displayId}</span>
+                    <span className="text-slate-300 dark:text-slate-500">/</span>
+                    <span className="text-indigo-600 dark:text-indigo-400 font-bold">{task.displayId}</span>
                 </div>
-                <div className="h-4 w-[1px] bg-slate-200 mx-1" />
+                <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-600 mx-1" />
                 <select
                     value={task.status}
                     onChange={(e) => onUpdateStatus(task.id, e.target.value)}
-                    className="text-xs font-bold px-3 py-1.5 rounded-full cursor-pointer border outline-none appearance-none transition-all"
+                    className="text-xs font-bold px-3 py-1.5 rounded-full cursor-pointer border outline-none appearance-none transition-all dark:border-transparent"
                     style={getStatusStyle(task.status)}
                 >
-                    {availableStatuses.map(s => <option key={s} value={s}>{s}</option>)}
+                    {availableStatuses.map(s => <option key={s} value={s} className="dark:bg-slate-800">{s}</option>)}
                 </select>
                 <select
                     value={task.priority}
                     onChange={(e) => onUpdateTask(task.id, { priority: e.target.value })}
                     className={`text-xs font-bold px-3 py-1.5 rounded-full cursor-pointer border outline-none appearance-none transition-all ${getPriorityColor(task.priority)}`}
                 >
-                    {availablePriorities.map(p => <option key={p} value={p}>{p}</option>)}
+                    {availablePriorities.map(p => <option key={p} value={p} className="dark:bg-slate-800">{p}</option>)}
                 </select>
             </div>
             
             <div className="flex items-center gap-2">
-                <button onClick={handleDelete} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete Task">
+                <button onClick={handleDelete} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete Task">
                     <Trash2 size={18} />
                 </button>
-                <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors" title="Close">
+                <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Close">
                     <X size={20} />
                 </button>
             </div>
@@ -294,7 +294,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             <div className="flex-1 p-8 md:pr-12 space-y-8 min-w-0">
                 {/* Description */}
                 <div className="group">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block">Description</label>
+                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Description</label>
                     <textarea 
                         ref={descriptionRef}
                         value={task.description}
@@ -303,7 +303,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             e.target.style.height = 'auto';
                             e.target.style.height = e.target.scrollHeight + 'px';
                         }}
-                        className="w-full text-xl font-medium text-slate-800 bg-transparent border-none outline-none resize-none placeholder-slate-300 focus:ring-0 p-0 leading-relaxed"
+                        className="w-full text-xl font-medium text-slate-800 dark:text-slate-200 bg-transparent border-none outline-none resize-none placeholder-slate-300 focus:ring-0 p-0 leading-relaxed"
                         placeholder="Task description..."
                         rows={1}
                     />
@@ -312,11 +312,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 {/* Subtasks */}
                 <div>
                     <div className="flex items-center justify-between mb-3">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
                             <CheckCircle2 size={14} /> Subtasks
                         </label>
                         {task.subtasks && task.subtasks.length > 0 && (
-                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">
                                 {task.subtasks.filter(t => t.completed).length}/{task.subtasks.length}
                             </span>
                         )}
@@ -324,10 +324,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     
                     <div className="space-y-1 mb-3">
                         {task.subtasks?.map(st => (
-                            <div key={st.id} className="flex items-start gap-3 p-2 hover:bg-slate-50 rounded-lg group transition-colors">
+                            <div key={st.id} className="flex items-start gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg group transition-colors">
                                 <button 
                                     onClick={() => toggleSubtask(st.id)}
-                                    className={`mt-1 shrink-0 ${st.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-500'}`}
+                                    className={`mt-1 shrink-0 ${st.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-500 dark:text-slate-500 dark:hover:text-indigo-400'}`}
                                     title={st.completed ? "Mark as incomplete" : "Mark as done"}
                                 >
                                     {st.completed ? <CheckCircle2 size={18} /> : <Circle size={18} />}
@@ -336,11 +336,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                     <input 
                                         value={st.title}
                                         onChange={(e) => updateSubtaskTitle(st.id, e.target.value)}
-                                        className={`w-full bg-transparent border-none outline-none text-sm p-0 focus:ring-0 ${st.completed ? 'line-through text-slate-400 decoration-slate-300' : 'text-slate-700 font-medium'}`}
+                                        className={`w-full bg-transparent border-none outline-none text-sm p-0 focus:ring-0 ${st.completed ? 'line-through text-slate-400 decoration-slate-300' : 'text-slate-700 dark:text-slate-300 font-medium'}`}
                                         placeholder="Subtask title"
                                     />
                                     {st.completed && st.completedAt && (
-                                        <p className="text-[10px] text-emerald-600 font-medium mt-0.5 flex items-center gap-1">
+                                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5 flex items-center gap-1">
                                             Completed on {new Date(st.completedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                         </p>
                                     )}
@@ -362,7 +362,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             value={newSubtaskTitle}
                             onChange={(e) => setNewSubtaskTitle(e.target.value)}
                             placeholder="Add a subtask..."
-                            className="flex-1 bg-transparent border-none outline-none text-sm py-2 placeholder-slate-400"
+                            className="flex-1 bg-transparent border-none outline-none text-sm py-2 placeholder-slate-400 dark:text-slate-300"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                                     handleAddSubtask(e);
@@ -373,18 +373,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
 
                 {/* History / Updates */}
-                <div className="pt-6 border-t border-slate-100">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 block flex items-center gap-2">
+                <div className="pt-6 border-t border-slate-100 dark:border-slate-700">
+                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 block flex items-center gap-2">
                         <Clock size={14} /> Activity & Updates
                     </label>
 
                     {/* New Update Input */}
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 mb-6">
                         <textarea
                             placeholder="Write an update..."
                             value={newUpdate}
                             onChange={(e) => setNewUpdate(e.target.value)}
-                            className="w-full bg-transparent border-none outline-none text-sm text-slate-700 min-h-[60px] resize-y placeholder-slate-400"
+                            className="w-full bg-transparent border-none outline-none text-sm text-slate-700 dark:text-slate-200 min-h-[60px] resize-y placeholder-slate-400"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                                     handleSubmitUpdate(e);
@@ -394,7 +394,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         {pendingAttachments.length > 0 && (
                             <div className="flex flex-wrap gap-2 mb-3 mt-2">
                                 {pendingAttachments.map(att => (
-                                    <div key={att.id} className="flex items-center gap-1 bg-white border border-indigo-200 px-2 py-1 rounded text-[10px] font-bold text-indigo-600 shadow-sm">
+                                    <div key={att.id} className="flex items-center gap-1 bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-800 px-2 py-1 rounded text-[10px] font-bold text-indigo-600 dark:text-indigo-400 shadow-sm">
                                         <File size={10} />
                                         <span className="max-w-[150px] truncate">{att.name}</span>
                                         <button onClick={() => setPendingAttachments(prev => prev.filter(p => p.id !== att.id))} className="text-slate-300 hover:text-red-500">
@@ -404,21 +404,21 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                 ))}
                             </div>
                         )}
-                        <div className="flex justify-between items-center pt-2 border-t border-slate-200/50">
+                        <div className="flex justify-between items-center pt-2 border-t border-slate-200/50 dark:border-slate-700">
                             <div className="flex items-center gap-2">
-                                <button onClick={() => fileInputRef.current?.click()} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-200 rounded transition-colors" title="Attach file">
+                                <button onClick={() => fileInputRef.current?.click()} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors" title="Attach file">
                                     <Paperclip size={16} />
                                 </button>
                                 <div className="relative">
-                                    <button onClick={() => setShowColorPicker(!showColorPicker)} className="p-1.5 rounded hover:bg-slate-200 transition-colors flex items-center gap-1">
-                                        <div className="w-3 h-3 rounded-full shadow-sm border border-slate-300" style={{ backgroundColor: newUpdateColor }} />
+                                    <button onClick={() => setShowColorPicker(!showColorPicker)} className="p-1.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors flex items-center gap-1">
+                                        <div className="w-3 h-3 rounded-full shadow-sm border border-slate-300 dark:border-slate-600" style={{ backgroundColor: newUpdateColor }} />
                                     </button>
                                     {showColorPicker && (
                                         <>
                                             <div className="fixed inset-0 z-30" onClick={() => setShowColorPicker(false)} />
-                                            <div className="absolute bottom-full left-0 mb-2 p-2 bg-white rounded-xl shadow-xl border border-slate-200 flex flex-col gap-1 z-40 w-40 max-h-56 overflow-y-auto custom-scrollbar">
+                                            <div className="absolute bottom-full left-0 mb-2 p-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-600 flex flex-col gap-1 z-40 w-40 max-h-56 overflow-y-auto custom-scrollbar">
                                                 {updateTags.map(tag => (
-                                                    <button key={tag.id} onClick={() => { setNewUpdateColor(tag.color); setShowColorPicker(false); }} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 rounded text-xs">
+                                                    <button key={tag.id} onClick={() => { setNewUpdateColor(tag.color); setShowColorPicker(false); }} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700 rounded text-xs dark:text-slate-300">
                                                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.color }} />
                                                         <span className="truncate">{tag.label}</span>
                                                     </button>
@@ -440,42 +440,42 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     </div>
 
                     {/* Timeline */}
-                    <div className="space-y-6 relative pl-4 border-l-2 border-slate-100 ml-2">
+                    <div className="space-y-6 relative pl-4 border-l-2 border-slate-100 dark:border-slate-700 ml-2">
                         {task.updates.slice().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(update => (
                             <div key={update.id} className="relative pl-6 group">
                                 <div 
-                                    className="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full border-2 border-white shadow-sm"
+                                    className="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full border-2 border-white dark:border-slate-800 shadow-sm"
                                     style={{ backgroundColor: update.highlightColor || '#cbd5e1' }}
                                 />
                                 <div className="flex items-baseline justify-between mb-1">
-                                    <span className="text-[10px] font-bold text-slate-400 font-mono">
+                                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 font-mono">
                                         {new Date(update.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                                     </span>
                                     {/* Action Buttons for Update */}
                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => startEditingUpdate(update)} className="text-slate-300 hover:text-indigo-600"><Edit2 size={12}/></button>
-                                        {onDeleteUpdate && <button onClick={() => onDeleteUpdate(task.id, update.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={12}/></button>}
+                                        <button onClick={() => startEditingUpdate(update)} className="text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400"><Edit2 size={12}/></button>
+                                        {onDeleteUpdate && <button onClick={() => onDeleteUpdate(task.id, update.id)} className="text-slate-300 hover:text-red-500 dark:hover:text-red-400"><Trash2 size={12}/></button>}
                                     </div>
                                 </div>
 
                                 {editingUpdateId === update.id ? (
-                                    <div className="bg-white border-2 border-indigo-100 p-3 rounded-lg shadow-sm space-y-2">
+                                    <div className="bg-white dark:bg-slate-900 border-2 border-indigo-100 dark:border-indigo-900 p-3 rounded-lg shadow-sm space-y-2">
                                         <div className="flex gap-2 mb-2">
                                             <input 
                                                 type="date"
                                                 value={editUpdateDate}
                                                 onChange={(e) => setEditUpdateDate(e.target.value)}
-                                                className="text-xs p-1 border border-slate-200 rounded"
+                                                className="text-xs p-1 border border-slate-200 dark:border-slate-600 rounded bg-white dark:bg-slate-800 dark:text-white"
                                             />
                                             {/* Tag Picker for Edit */}
                                             <div className="relative">
-                                                <button onClick={() => setShowEditColorPicker(!showEditColorPicker)} className="p-1 border border-slate-200 rounded bg-slate-50"><div className="w-4 h-4 rounded-full" style={{backgroundColor: editUpdateColor || '#cbd5e1'}}/></button>
+                                                <button onClick={() => setShowEditColorPicker(!showEditColorPicker)} className="p-1 border border-slate-200 dark:border-slate-600 rounded bg-slate-50 dark:bg-slate-800"><div className="w-4 h-4 rounded-full" style={{backgroundColor: editUpdateColor || '#cbd5e1'}}/></button>
                                                 {showEditColorPicker && (
                                                     <>
                                                         <div className="fixed inset-0 z-30" onClick={() => setShowEditColorPicker(false)}/>
-                                                        <div className="absolute top-full left-0 mt-1 bg-white border border-slate-200 shadow-xl rounded-lg p-2 z-40 w-32">
+                                                        <div className="absolute top-full left-0 mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 shadow-xl rounded-lg p-2 z-40 w-32">
                                                             {updateTags.map(t => (
-                                                                <button key={t.id} onClick={() => { setEditUpdateColor(t.color); setShowEditColorPicker(false); }} className="block w-full text-left px-2 py-1 text-xs hover:bg-slate-50 flex items-center gap-2">
+                                                                <button key={t.id} onClick={() => { setEditUpdateColor(t.color); setShowEditColorPicker(false); }} className="block w-full text-left px-2 py-1 text-xs hover:bg-slate-50 dark:hover:bg-slate-700 dark:text-slate-300 flex items-center gap-2">
                                                                     <div className="w-2 h-2 rounded-full" style={{backgroundColor: t.color}}/> {t.label}
                                                                 </button>
                                                             ))}
@@ -487,7 +487,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                         <textarea 
                                             value={editUpdateContent}
                                             onChange={e => setEditUpdateContent(e.target.value)}
-                                            className="w-full text-sm border border-slate-200 rounded p-2 focus:ring-2 focus:ring-indigo-100 outline-none"
+                                            className="w-full text-sm border border-slate-200 dark:border-slate-600 rounded p-2 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none bg-white dark:bg-slate-800 dark:text-white"
                                             rows={3}
                                             onKeyDown={(e) => {
                                                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -496,12 +496,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                             }}
                                         />
                                         <div className="flex justify-end gap-2">
-                                            <button onClick={() => setEditingUpdateId(null)} className="px-3 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded">Cancel</button>
+                                            <button onClick={() => setEditingUpdateId(null)} className="px-3 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded">Cancel</button>
                                             <button onClick={() => saveEditedUpdate(update.id)} className="px-3 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded">Save</button>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                    <div className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
                                         {update.content}
                                     </div>
                                 )}
@@ -512,7 +512,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                             <button 
                                                 key={att.id}
                                                 onClick={() => downloadAttachment(att)}
-                                                className="flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-1 rounded text-[10px] font-bold text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm"
+                                                className="flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 px-2 py-1 rounded text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-800 transition-all shadow-sm"
                                             >
                                                 <DownloadIcon size={10} />
                                                 <span className="max-w-[120px] truncate">{att.name}</span>
@@ -527,34 +527,34 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             </div>
 
             {/* Sidebar Column */}
-            <div className="w-full md:w-72 bg-slate-50/50 border-l border-slate-100 p-6 space-y-6 flex-shrink-0">
+            <div className="w-full md:w-72 bg-slate-50/50 dark:bg-slate-900/50 border-l border-slate-100 dark:border-slate-700 p-6 space-y-6 flex-shrink-0">
                 <div className="space-y-4">
                     <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Project ID</label>
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Project ID</label>
                         <input 
                             value={task.projectId}
                             onChange={(e) => onUpdateTask(task.id, { projectId: e.target.value })}
-                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-100 outline-none"
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none dark:text-white"
                         />
                     </div>
                     <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Due Date</label>
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Due Date</label>
                         <input 
                             type="date"
                             value={task.dueDate}
                             onChange={(e) => onUpdateTask(task.id, { dueDate: e.target.value })}
-                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-100 outline-none"
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none dark:text-white"
                         />
                     </div>
 
                     <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block flex items-center gap-1">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block flex items-center gap-1">
                             <Repeat size={12} /> Recurrence
                         </label>
                         <select 
                             value={recurrenceType}
                             onChange={(e) => handleRecurrenceChange(e.target.value, recurrenceInterval)}
-                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-100 outline-none"
+                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none dark:text-white"
                         >
                             <option value="none">None (One-time)</option>
                             <option value="daily">Daily</option>
@@ -564,30 +564,30 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         </select>
                         {recurrenceType !== 'none' && (
                             <div className="flex items-center gap-2 mt-2">
-                                <span className="text-xs text-slate-500">Every</span>
+                                <span className="text-xs text-slate-500 dark:text-slate-400">Every</span>
                                 <input 
                                     type="number"
                                     min="1"
                                     value={recurrenceInterval}
                                     onChange={(e) => handleRecurrenceChange(recurrenceType, parseInt(e.target.value) || 1)}
-                                    className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1 text-sm font-medium text-center focus:ring-2 focus:ring-indigo-100 outline-none"
+                                    className="w-16 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg px-2 py-1 text-sm font-medium text-center focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none dark:text-white"
                                 />
-                                <span className="text-xs text-slate-500 capitalize">{recurrenceType.replace('ly', '(s)')}</span>
+                                <span className="text-xs text-slate-500 dark:text-slate-400 capitalize">{recurrenceType.replace('ly', '(s)')}</span>
                             </div>
                         )}
                     </div>
                     
-                    <div className="pt-4 border-t border-slate-200/50">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 block flex items-center gap-2">
+                    <div className="pt-4 border-t border-slate-200/50 dark:border-slate-700">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block flex items-center gap-2">
                             <Paperclip size={12} /> Global Files
                         </label>
                         <div className="space-y-2">
                             {task.attachments?.map(att => (
-                                <div key={att.id} className="flex items-center gap-2 p-2 bg-white border border-slate-200 rounded-lg shadow-sm group">
-                                    <div className="p-1.5 bg-indigo-50 rounded text-indigo-600"><File size={14}/></div>
+                                <div key={att.id} className="flex items-center gap-2 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg shadow-sm group">
+                                    <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded text-indigo-600 dark:text-indigo-400"><File size={14}/></div>
                                     <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-bold text-slate-700 truncate cursor-pointer hover:underline" onClick={() => downloadAttachment(att)}>{att.name}</p>
-                                        <p className="text-[9px] text-slate-400 uppercase">{att.type.split('/')[1] || 'FILE'}</p>
+                                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate cursor-pointer hover:underline" onClick={() => downloadAttachment(att)}>{att.name}</p>
+                                        <p className="text-[9px] text-slate-400 dark:text-slate-500 uppercase">{att.type.split('/')[1] || 'FILE'}</p>
                                     </div>
                                     <button onClick={() => removeTaskAttachment(att.id)} className="p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <X size={14}/>
@@ -596,7 +596,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             ))}
                             <button 
                                 onClick={() => taskFileInputRef.current?.click()}
-                                className="w-full py-2 border border-dashed border-slate-300 rounded-lg text-xs font-bold text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-all flex items-center justify-center gap-2"
+                                className="w-full py-2 border border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-400 dark:text-slate-500 hover:border-indigo-400 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all flex items-center justify-center gap-2"
                             >
                                 <Plus size={14} /> Add File
                             </button>
@@ -604,7 +604,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         </div>
                     </div>
 
-                    <div className="pt-4 border-t border-slate-200/50 space-y-2 text-xs text-slate-400">
+                    <div className="pt-4 border-t border-slate-200/50 dark:border-slate-700 space-y-2 text-xs text-slate-400 dark:text-slate-500">
                         <div className="flex justify-between">
                             <span>Created</span>
                             <span className="font-mono">{formatDate(task.createdAt)}</span>

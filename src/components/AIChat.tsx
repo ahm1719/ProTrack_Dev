@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, MessageSquare, X, Sparkles, AlertCircle, Bot, User, Plus, Trash2, Edit3, Image as ImageIcon } from 'lucide-react';
 import { Task, DailyLog, ChatMessage, Observation, AppConfig } from '../types';
@@ -192,7 +193,7 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, o
 
       <div 
         ref={chatWindowRef}
-        className={`fixed bottom-6 right-6 w-[450px] max-w-[calc(100vw-3rem)] bg-white rounded-3xl shadow-2xl border border-slate-200 z-50 flex flex-col transition-all duration-300 origin-bottom-right overflow-hidden ${
+        className={`fixed bottom-6 right-6 w-[450px] max-w-[calc(100vw-3rem)] bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 z-50 flex flex-col transition-all duration-300 origin-bottom-right overflow-hidden ${
           isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none translate-y-10'
         }`}
         style={{ height: '650px', maxHeight: '85vh' }}
@@ -245,13 +246,13 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, o
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50 dark:bg-slate-900 custom-scrollbar">
           {activeTab.messages.map((msg) => (
             <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-              <div className={`w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${msg.role === 'user' ? 'bg-indigo-100 text-indigo-600' : 'bg-purple-100 text-purple-600'}`}>
+              <div className={`w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${msg.role === 'user' ? 'bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400' : 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400'}`}>
                 {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
               </div>
-              <div className={`max-w-[85%] p-4 rounded-3xl text-xs leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none'}`}>
+              <div className={`max-w-[85%] p-4 rounded-3xl text-xs leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-tl-none'}`}>
                  {msg.image && (
                    <div className="mb-2 rounded-xl overflow-hidden bg-black/10">
                      <img src={msg.image} alt="User upload" className="max-w-full max-h-48 object-cover" />
@@ -271,8 +272,8 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, o
           ))}
           {isLoading && (
             <div className="flex gap-3 animate-pulse">
-               <div className="w-9 h-9 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center"><Bot size={16} /></div>
-               <div className="bg-white border border-slate-200 px-5 py-4 rounded-3xl rounded-tl-none shadow-sm flex gap-1.5 items-center">
+               <div className="w-9 h-9 rounded-2xl bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 flex items-center justify-center"><Bot size={16} /></div>
+               <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-5 py-4 rounded-3xl rounded-tl-none shadow-sm flex gap-1.5 items-center">
                   <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" />
                   <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]" />
                   <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.4s]" />
@@ -282,9 +283,9 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, o
           <div ref={messagesEndRef} />
         </div>
 
-        <form onSubmit={handleSend} className="p-4 bg-white border-t border-slate-100 relative">
+        <form onSubmit={handleSend} className="p-4 bg-white dark:bg-slate-800 border-t border-slate-100 dark:border-slate-700 relative">
           {attachedImage && (
-            <div className="absolute bottom-full left-0 mb-0 ml-4 p-2 bg-white rounded-t-xl border border-b-0 border-slate-200 shadow-sm flex items-center gap-2 z-10">
+            <div className="absolute bottom-full left-0 mb-0 ml-4 p-2 bg-white dark:bg-slate-800 rounded-t-xl border border-b-0 border-slate-200 dark:border-slate-700 shadow-sm flex items-center gap-2 z-10">
               <div className="relative group">
                 <img src={attachedImage} alt="Preview" className="h-10 w-10 object-cover rounded-lg border border-slate-200" />
                 <button 
@@ -302,7 +303,7 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, o
             <button 
               type="button" 
               onClick={() => fileInputRef.current?.click()}
-              className={`p-2.5 rounded-xl transition-all ${attachedImage ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-indigo-500'}`}
+              className={`p-2.5 rounded-xl transition-all ${attachedImage ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 dark:bg-slate-700 text-slate-400 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-600 hover:text-indigo-500'}`}
               title="Attach Image"
             >
               <ImageIcon size={20} />
@@ -322,7 +323,7 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, o
               onChange={(e) => setInput(e.target.value)}
               onPaste={handlePaste}
               placeholder={`Message ${activeTab.title}...`}
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-5 pr-14 py-3.5 text-xs focus:ring-4 focus:ring-indigo-50 border-transparent focus:border-indigo-200 outline-none transition-all"
+              className="w-full bg-slate-50 dark:bg-slate-700 dark:text-white border border-slate-200 dark:border-slate-600 rounded-2xl pl-5 pr-14 py-3.5 text-xs focus:ring-4 focus:ring-indigo-50 dark:focus:ring-indigo-900 border-transparent focus:border-indigo-200 dark:focus:border-indigo-800 outline-none transition-all"
             />
             <button 
               type="submit" 
@@ -333,8 +334,8 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, o
             </button>
           </div>
           <div className="flex justify-between items-center mt-3 px-1">
-              <div className="text-[9px] text-slate-400 font-bold tracking-widest uppercase">{activeTab.title}</div>
-              <div className="text-[9px] text-slate-300 font-medium">Click outside to close</div>
+              <div className="text-[9px] text-slate-400 dark:text-slate-500 font-bold tracking-widest uppercase">{activeTab.title}</div>
+              <div className="text-[9px] text-slate-300 dark:text-slate-600 font-medium">Click outside to close</div>
           </div>
         </form>
       </div>

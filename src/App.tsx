@@ -138,6 +138,11 @@ const App: React.FC = () => {
   const [backupStatus, setBackupStatus] = useState<'idle' | 'running' | 'error' | 'permission_needed'>('idle');
   const backupDirHandle = useRef<FileSystemDirectoryHandle | null>(null);
 
+  // Theme State
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('protrack_theme') === 'dark';
+  });
+
   const [newTaskForm, setNewTaskForm] = useState({
     source: `CW${getWeekNumber(new Date())}`,
     projectId: '',
@@ -151,6 +156,17 @@ const App: React.FC = () => {
   });
 
   const activeTask = useMemo(() => tasks.find(t => t.id === activeTaskId), [tasks, activeTaskId]);
+
+  // Apply Theme
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('protrack_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('protrack_theme', 'light');
+    }
+  }, [isDarkMode]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -704,7 +720,7 @@ const App: React.FC = () => {
       case ViewMode.DASHBOARD:
         return (
           <div className="space-y-6 animate-fade-in">
-             <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+             <div className="bg-gradient-to-r from-indigo-600 to-purple-700 dark:from-indigo-900 dark:to-purple-900 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
                 <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                     <div className="flex flex-col gap-4">
                         <div className="flex flex-wrap gap-2">
@@ -733,25 +749,25 @@ const App: React.FC = () => {
                 </div>
              </div>
 
-             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+             <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
                 <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
                     <div>
-                         <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                            <Target size={20} className="text-indigo-600" />
+                         <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                            <Target size={20} className="text-indigo-600 dark:text-indigo-400" />
                             Task Distribution
                          </h3>
-                         <p className="text-slate-500 text-xs mt-1">Weekly focus vs overall backlog status</p>
+                         <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">Weekly focus vs overall backlog status</p>
                     </div>
                     <div className="flex flex-col items-end">
                          <div className="flex items-baseline gap-2">
-                            <span className="text-4xl font-black text-indigo-600">{weeklyFocusCount}</span>
-                            <span className="text-slate-400 text-sm font-bold uppercase tracking-wider">Active Tasks</span>
+                            <span className="text-4xl font-black text-indigo-600 dark:text-indigo-400">{weeklyFocusCount}</span>
+                            <span className="text-slate-400 dark:text-slate-500 text-sm font-bold uppercase tracking-wider">Active Tasks</span>
                          </div>
-                         <span className="text-slate-400 text-xs font-medium">out of {tasks.length} total items</span>
+                         <span className="text-slate-400 dark:text-slate-500 text-xs font-medium">out of {tasks.length} total items</span>
                     </div>
                 </div>
 
-                <div className="h-8 bg-slate-50 rounded-xl overflow-hidden flex shadow-inner mb-8 border border-slate-100">
+                <div className="h-8 bg-slate-50 dark:bg-slate-900 rounded-xl overflow-hidden flex shadow-inner mb-8 border border-slate-100 dark:border-slate-800">
                     {statusSummary.map((s) => {
                         if (s.count === 0) return null;
                         const color = getStatusColorHex(s.label);
@@ -776,14 +792,14 @@ const App: React.FC = () => {
                         const percentage = tasks.length > 0 ? Math.round((s.count / tasks.length) * 100) : 0;
                         
                         return (
-                            <div key={s.label} className={`p-4 rounded-xl border transition-all flex flex-col justify-between h-24 ${isZero ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200 hover:border-indigo-300 hover:shadow-md'}`}>
+                            <div key={s.label} className={`p-4 rounded-xl border transition-all flex flex-col justify-between h-24 ${isZero ? 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md'}`}>
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }}></div>
-                                    {!isZero && <span className="text-[10px] font-bold text-slate-400">{percentage}%</span>}
+                                    {!isZero && <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{percentage}%</span>}
                                 </div>
                                 <div>
-                                    <span className={`text-2xl font-black block leading-none mb-1 ${isZero ? 'text-slate-300' : 'text-slate-800'}`}>{s.count}</span>
-                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate block" title={s.label}>{s.label}</span>
+                                    <span className={`text-2xl font-black block leading-none mb-1 ${isZero ? 'text-slate-300 dark:text-slate-600' : 'text-slate-800 dark:text-slate-200'}`}>{s.count}</span>
+                                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate block" title={s.label}>{s.label}</span>
                                 </div>
                             </div>
                         );
@@ -792,8 +808,8 @@ const App: React.FC = () => {
              </div>
 
              {highPriorityDueToday.length > 0 && (
-                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6">
-                    <h3 className="text-amber-800 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-2xl p-6">
+                    <h3 className="text-amber-800 dark:text-amber-200 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
                         <AlertTriangle size={18} /> High Priority Due Today ({highPriorityDueToday.length})
                     </h3>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -816,8 +832,8 @@ const App: React.FC = () => {
              )}
 
              {overdueTasks.length > 0 && (
-                <div className="bg-red-50 border border-red-100 rounded-2xl p-6">
-                    <h3 className="text-red-800 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-2xl p-6">
+                    <h3 className="text-red-800 dark:text-red-200 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
                         <AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})
                     </h3>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -845,11 +861,11 @@ const App: React.FC = () => {
         return (
           <div className="h-full flex flex-col space-y-6 animate-fade-in">
              <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Daily Tasks</h1>
+                <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Daily Tasks</h1>
                 <div className="flex gap-3">
                     <button 
                         onClick={() => setExpandedDay(todayStr)}
-                        className="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-3 rounded-xl hover:border-indigo-300 hover:text-indigo-600 transition-all font-bold shadow-sm"
+                        className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 px-4 py-3 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all font-bold shadow-sm"
                     >
                         <Maximize2 size={18} /> Focus Today
                     </button>
@@ -861,17 +877,17 @@ const App: React.FC = () => {
 
              <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-56">
                 {weekDays.map(d => (
-                    <div key={d} className={`min-w-[280px] w-[280px] p-4 rounded-2xl border flex flex-col transition-all ${d === todayStr ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100 shadow-md scale-105 z-10' : 'bg-white border-slate-200 shadow-sm'}`}>
-                        <div className="flex justify-between items-start mb-3 border-b pb-2 border-slate-100">
+                    <div key={d} className={`min-w-[280px] w-[280px] p-4 rounded-2xl border flex flex-col transition-all ${d === todayStr ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-100 dark:ring-indigo-900 shadow-md scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'}`}>
+                        <div className="flex justify-between items-start mb-3 border-b pb-2 border-slate-100 dark:border-slate-700">
                             <div>
-                                <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
-                                <span className="text-lg font-bold text-slate-800">{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                                <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
+                                <span className="text-lg font-bold text-slate-800 dark:text-slate-100">{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); setExpandedDay(d); }}
-                                    className={`p-1 rounded transition-colors ${d === todayStr ? 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200' : 'hover:bg-slate-100 text-slate-400 hover:text-indigo-600'}`}
+                                    className={`p-1 rounded transition-colors ${d === todayStr ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-indigo-600'}`}
                                     title="Expand View"
                                 >
                                     <Maximize2 size={14} />
@@ -889,11 +905,11 @@ const App: React.FC = () => {
                                       onDragOver={handleDragOver}
                                       onDrop={(e) => handleDrop(e, t.id, d)}
                                       onClick={() => setActiveTaskId(t.id)} 
-                                      className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group select-none ${t.status === Status.DONE ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'} ${draggedTaskId === t.id ? 'opacity-40 border-dashed border-indigo-400' : ''}`}
+                                      className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 dark:hover:ring-indigo-600 transition-all cursor-pointer group select-none ${t.status === Status.DONE ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/50' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'} ${draggedTaskId === t.id ? 'opacity-40 border-dashed border-indigo-400' : ''}`}
                                       title="Drag to reorder"
                                     >
                                         <div className="flex justify-between items-center mb-1">
-                                          <span className={`font-mono font-bold ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''} flex items-center gap-1`}>
+                                          <span className={`font-mono font-bold ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : 'text-slate-700 dark:text-slate-200'} flex items-center gap-1`}>
                                             {t.displayId}
                                             {t.recurrence && <Repeat size={10} className="text-indigo-400" />}
                                           </span>
@@ -902,11 +918,11 @@ const App: React.FC = () => {
                                                 className={`w-2 h-2 rounded-full ${t.priority === Priority.HIGH ? 'bg-red-500' : t.priority === Priority.MEDIUM ? 'bg-amber-400' : 'bg-emerald-400'}`} 
                                                 title={`Priority: ${t.priority}`} 
                                               />
-                                              {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600" />}
-                                              {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600" />}
+                                              {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600 dark:text-emerald-400" />}
+                                              {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600 dark:text-blue-400" />}
                                           </div>
                                         </div>
-                                        <p className={`line-clamp-2 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.description}</p>
+                                        <p className={`line-clamp-2 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60 text-slate-500' : 'text-slate-600 dark:text-slate-300'}`}>{t.description}</p>
                                         
                                         {latest && (
                                             <div className="mt-2 flex items-start gap-1.5">
@@ -914,26 +930,26 @@ const App: React.FC = () => {
                                                     className="w-1.5 h-1.5 rounded-full shrink-0 mt-1" 
                                                     style={{ backgroundColor: latest.highlightColor || '#cbd5e1' }} 
                                                 />
-                                                <span className="text-[10px] text-slate-500 truncate font-medium flex-1 bg-white/50 px-1 rounded">{latest.content}</span>
+                                                <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate font-medium flex-1 bg-white/50 dark:bg-slate-700/50 px-1 rounded">{latest.content}</span>
                                             </div>
                                         )}
                                     </div>
                                 );
-                            }) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 italic">No deadlines</div>}
+                            }) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 dark:text-slate-600 italic">No deadlines</div>}
                         </div>
                     </div>
                 ))}
              </div>
 
              <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-3 gap-8">
-                <div className="xl:col-span-2 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200 overflow-hidden shadow-inner">
-                    <div className="bg-white p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
-                        <div className="flex bg-slate-100 p-1 rounded-xl">
-                            <button onClick={() => setActiveTaskTab('current')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'current' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Active Tasks</button>
-                            <button onClick={() => setActiveTaskTab('future')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'future' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Future Tasks</button>
-                            <button onClick={() => setActiveTaskTab('completed')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'completed' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Archive & Done</button>
+                <div className="xl:col-span-2 flex flex-col bg-slate-100/50 dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-inner">
+                    <div className="bg-white dark:bg-slate-800 p-5 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
+                            <button onClick={() => setActiveTaskTab('current')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'current' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Active Tasks</button>
+                            <button onClick={() => setActiveTaskTab('future')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'future' ? 'bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Future Tasks</button>
+                            <button onClick={() => setActiveTaskTab('completed')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'completed' ? 'bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Archive & Done</button>
                         </div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{filteredTasks.length} {activeTaskTab === 'future' ? 'UPCOMING' : activeTaskTab} ITEMS</span>
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{filteredTasks.length} {activeTaskTab === 'future' ? 'UPCOMING' : activeTaskTab} ITEMS</span>
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -953,7 +969,7 @@ const App: React.FC = () => {
                             ))}
                         </div>
                         {filteredTasks.length === 0 && (
-                            <div className="flex flex-col items-center justify-center py-20 text-slate-300 opacity-50">
+                            <div className="flex flex-col items-center justify-center py-20 text-slate-300 dark:text-slate-600 opacity-50">
                                 {activeTaskTab === 'future' ? <Calendar size={48} className="mb-4" /> : <ListTodo size={48} className="mb-4" />}
                                 <p className="font-bold">
                                     {activeTaskTab === 'future' ? 'No upcoming tasks scheduled.' : 'No tasks match your criteria.'}
@@ -962,7 +978,7 @@ const App: React.FC = () => {
                         )}
                     </div>
                 </div>
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden flex flex-col h-full">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                         <DailyJournal 
                             tasks={tasks} 
@@ -983,10 +999,10 @@ const App: React.FC = () => {
              {expandedDay && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setExpandedDay(null)}>
                     <div 
-                        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-fade-in"
+                        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-fade-in"
                         onClick={e => e.stopPropagation()}
                     >
-                        <div className="p-4 border-b flex justify-between items-center bg-indigo-600 text-white">
+                        <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-indigo-600 text-white">
                             <div>
                                 <h2 className="font-bold flex items-center gap-2 text-lg">
                                     {new Date(expandedDay).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}
@@ -998,7 +1014,7 @@ const App: React.FC = () => {
                             <button onClick={() => setExpandedDay(null)} className="p-1 hover:bg-indigo-500 rounded-lg transition-colors"><X size={20}/></button>
                         </div>
                         
-                        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50 dark:bg-slate-900">
                             {weekTasks[expandedDay]?.length > 0 ? (
                                 weekTasks[expandedDay].map(t => {
                                      const latest = [...t.updates].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
@@ -1010,9 +1026,9 @@ const App: React.FC = () => {
                                             onDragOver={handleDragOver}
                                             onDrop={(e) => handleDrop(e, t.id, expandedDay)}
                                             onClick={() => setActiveTaskId(t.id)}
-                                            className={`bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer group flex items-start gap-4 ${t.status === Status.DONE ? 'opacity-60 bg-slate-50 border-slate-200' : 'border-slate-200 hover:border-indigo-300'} ${draggedTaskId === t.id ? 'opacity-40 border-dashed border-indigo-400' : ''}`}
+                                            className={`bg-white dark:bg-slate-800 p-4 rounded-xl border shadow-sm hover:shadow-md transition-all cursor-pointer group flex items-start gap-4 ${t.status === Status.DONE ? 'opacity-60 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700' : 'border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500'} ${draggedTaskId === t.id ? 'opacity-40 border-dashed border-indigo-400' : ''}`}
                                         >
-                                            <div className="mt-1 text-slate-300 group-hover:text-indigo-400 cursor-grab active:cursor-grabbing">
+                                            <div className="mt-1 text-slate-300 dark:text-slate-600 group-hover:text-indigo-400 cursor-grab active:cursor-grabbing">
                                                 <svg width="12" height="20" viewBox="0 0 6 10" fill="currentColor" xmlns="http://www.w3.org/2000/svg" className="opacity-50">
                                                   <circle cx="1" cy="1" r="1" />
                                                   <circle cx="1" cy="5" r="1" />
@@ -1026,30 +1042,30 @@ const App: React.FC = () => {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex justify-between items-center mb-1">
                                                     <div className="flex items-center gap-2">
-                                                        <span className={`font-mono font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-xs ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60 text-slate-500 bg-slate-100' : ''}`}>
+                                                        <span className={`font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded text-xs ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700' : ''}`}>
                                                             {t.displayId}
                                                         </span>
                                                         {t.recurrence && <Repeat size={12} className="text-indigo-400" />}
                                                         <div 
-                                                            className={`text-[10px] px-1.5 py-0.5 rounded-full border font-bold ${t.priority === Priority.HIGH ? 'text-red-600 bg-red-50 border-red-100' : t.priority === Priority.MEDIUM ? 'text-amber-600 bg-amber-50 border-amber-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}
+                                                            className={`text-[10px] px-1.5 py-0.5 rounded-full border font-bold ${t.priority === Priority.HIGH ? 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border-red-100 dark:border-red-900/50' : t.priority === Priority.MEDIUM ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border-amber-100 dark:border-amber-900/50' : 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-900/50'}`}
                                                         >
                                                             {t.priority}
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        {t.status === Status.DONE && <span className="text-xs font-bold text-emerald-600 flex items-center gap-1"><CheckCircle2 size={14}/> Done</span>}
-                                                        {t.status === Status.IN_PROGRESS && <span className="text-xs font-bold text-blue-600 flex items-center gap-1"><Clock size={14}/> In Progress</span>}
+                                                        {t.status === Status.DONE && <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1"><CheckCircle2 size={14}/> Done</span>}
+                                                        {t.status === Status.IN_PROGRESS && <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1"><Clock size={14}/> In Progress</span>}
                                                     </div>
                                                 </div>
                                                 
-                                                <p className={`text-sm text-slate-700 font-medium leading-relaxed ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>
+                                                <p className={`text-sm text-slate-700 dark:text-slate-300 font-medium leading-relaxed ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>
                                                     {t.description}
                                                 </p>
 
                                                 {/* Subtask Progress */}
                                                 {t.subtasks && t.subtasks.length > 0 && (
                                                     <div className="mt-2 flex items-center gap-2">
-                                                        <div className="flex-1 h-1 bg-slate-100 rounded-full overflow-hidden max-w-[100px]">
+                                                        <div className="flex-1 h-1 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden max-w-[100px]">
                                                             <div 
                                                                 className="h-full bg-emerald-500 rounded-full" 
                                                                 style={{ width: `${(t.subtasks.filter(st => st.completed).length / t.subtasks.length) * 100}%` }} 
@@ -1060,10 +1076,10 @@ const App: React.FC = () => {
                                                 )}
 
                                                 {latest && (
-                                                    <div className="mt-2 p-2 bg-slate-50/80 rounded border border-slate-100 flex items-start gap-2 text-xs text-slate-600">
+                                                    <div className="mt-2 p-2 bg-slate-50/80 dark:bg-slate-700/50 rounded border border-slate-100 dark:border-slate-700 flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
                                                         <div className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: latest.highlightColor || '#cbd5e1' }} />
                                                         <span className="truncate flex-1">{latest.content}</span>
-                                                        <span className="text-[10px] text-slate-400 font-mono whitespace-nowrap">{new Date(latest.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono whitespace-nowrap">{new Date(latest.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -1071,7 +1087,7 @@ const App: React.FC = () => {
                                      );
                                 })
                             ) : (
-                                <div className="flex flex-col items-center justify-center h-full py-12 text-slate-400">
+                                <div className="flex flex-col items-center justify-center h-full py-12 text-slate-400 dark:text-slate-600">
                                     <ListTodo size={48} className="opacity-20 mb-2" />
                                     <p className="font-medium">No tasks scheduled for this day.</p>
                                 </div>
@@ -1112,6 +1128,8 @@ const App: React.FC = () => {
             onSetupBackupFolder={handleSetupBackupFolder}
             backupStatus={backupStatus}
             onVerifyBackupPermission={handleVerifyBackupPermission}
+            isDarkMode={isDarkMode}
+            onToggleTheme={setIsDarkMode}
           />
         );
       case ViewMode.HELP:
@@ -1122,11 +1140,11 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
-      <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-white border-r border-slate-200 transition-all duration-300 flex flex-col z-20`}>
-        <div className="p-4 flex flex-col items-center gap-1 border-b h-24 justify-center">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden transition-colors duration-300">
+      <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 flex flex-col z-20`}>
+        <div className="p-4 flex flex-col items-center gap-1 border-b dark:border-slate-800 h-24 justify-center">
            <FullLogo isSidebarOpen={isSidebarOpen} />
-           {isSidebarOpen && <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest mt-1">{BUILD_VERSION}</span>}
+           {isSidebarOpen && <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">{BUILD_VERSION}</span>}
         </div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
            {[
@@ -1134,37 +1152,37 @@ const App: React.FC = () => {
              { mode: ViewMode.TASKS, icon: ListTodo, label: 'Daily Tasks' },
              { mode: ViewMode.OBSERVATIONS, icon: MessageSquare, label: 'Observations' },
            ].map(item => (
-             <button key={item.mode} onClick={() => setView(item.mode)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === item.mode ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-500 hover:bg-slate-50'}`}>
+             <button key={item.mode} onClick={() => setView(item.mode)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === item.mode ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                 <item.icon size={20} />
                 {isSidebarOpen && <span>{item.label}</span>}
              </button>
            ))}
-           <div className="pt-4 mt-4 border-t">
-             <button onClick={() => setView(ViewMode.SETTINGS)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === ViewMode.SETTINGS ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-500 hover:bg-slate-50'}`}>
+           <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800">
+             <button onClick={() => setView(ViewMode.SETTINGS)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === ViewMode.SETTINGS ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                 <SettingsIcon size={20} />
                 {isSidebarOpen && <span>Settings</span>}
              </button>
-             <button onClick={() => setView(ViewMode.HELP)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === ViewMode.HELP ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-500 hover:bg-slate-50'}`}>
+             <button onClick={() => setView(ViewMode.HELP)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === ViewMode.HELP ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-bold' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                 <HelpCircle size={20} />
                 {isSidebarOpen && <span>User Guide</span>}
              </button>
            </div>
         </nav>
-        <div className="p-4 border-t">
-           <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-lg w-full flex justify-center">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800">
+           <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg w-full flex justify-center">
               {isSidebarOpen ? <LogOut size={20} className="rotate-180" /> : <Menu size={20} />}
            </button>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <div className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
+        <div className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 shrink-0 z-10 transition-colors duration-300">
            {view !== ViewMode.OBSERVATIONS ? (
              <div className="relative max-w-md w-full">
-                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input type="text" placeholder="Search tasks, logs, projects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-10 py-2 bg-slate-50 border-none rounded-lg text-sm outline-none" />
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+                <input type="text" placeholder="Search tasks, logs, projects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-10 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm outline-none dark:text-slate-200 dark:placeholder-slate-500" />
                 {searchQuery && (
-                    <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
                         <X size={14} />
                     </button>
                 )}
@@ -1172,20 +1190,20 @@ const App: React.FC = () => {
            ) : <div />}
            <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
                       {backupSettings.enabled ? 'Auto-Backup ON' : 'Auto-Backup OFF'}
                   </div>
-                  <div className="text-[9px] text-slate-300 font-mono">
+                  <div className="text-[9px] text-slate-300 dark:text-slate-600 font-mono">
                       Last: {backupSettings.lastBackup ? new Date(backupSettings.lastBackup).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true}) : 'Never'}
                   </div>
               </div>
               <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isSyncEnabled ? 'Cloud Synced' : 'Local Only'}</span>
+                  <div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`}></div>
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{isSyncEnabled ? 'Cloud Synced' : 'Local Only'}</span>
               </div>
            </div>
         </div>
-        <div className="flex-1 overflow-auto p-6 bg-slate-50 custom-scrollbar relative">
+        <div className="flex-1 overflow-auto p-6 bg-slate-50 dark:bg-slate-950 custom-scrollbar relative transition-colors duration-300">
            {renderContent()}
         </div>
 
@@ -1209,33 +1227,33 @@ const App: React.FC = () => {
 
         {showNewTaskModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-             <form onSubmit={handleCreateTask} className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in">
-                <div className="p-5 border-b flex justify-between items-center bg-indigo-600 text-white">
+             <form onSubmit={handleCreateTask} className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in">
+                <div className="p-5 border-b dark:border-slate-700 flex justify-between items-center bg-indigo-600 text-white">
                    <h2 className="font-bold flex items-center gap-2"><Plus size={20}/> Create New Task</h2>
                    <button type="button" onClick={() => setShowNewTaskModal(false)}><X size={20}/></button>
                 </div>
                 <div className="p-6 space-y-4">
                    {modalError && (
-                     <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-xs font-bold">
+                     <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-xl flex items-center gap-2 text-xs font-bold">
                         <AlertTriangle size={16} /> {modalError}
                      </div>
                    )}
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Source (CW)</label>
+                         <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Source (CW)</label>
                          <div className="relative">
                             <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input required value={newTaskForm.source} onChange={e => setNewTaskForm({...newTaskForm, source: e.target.value})} className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100" />
+                            <input required value={newTaskForm.source} onChange={e => setNewTaskForm({...newTaskForm, source: e.target.value})} className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 dark:text-white" />
                          </div>
                       </div>
                       <div className="space-y-1">
-                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Project ID</label>
+                         <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Project ID</label>
                          <div className="relative">
                             <Briefcase size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                             <input required list="active-projects" value={newTaskForm.projectId} onChange={e => {
                                 const pid = e.target.value;
                                 setNewTaskForm({...newTaskForm, projectId: pid, displayId: suggestNextId(pid)});
-                            }} placeholder="Project Name..." className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100" />
+                            }} placeholder="Project Name..." className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 dark:text-white" />
                             <datalist id="active-projects">
                                {activeProjects.map(p => <option key={p} value={p} />)}
                             </datalist>
@@ -1243,11 +1261,11 @@ const App: React.FC = () => {
                       </div>
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Display ID</label>
-                      <input required value={newTaskForm.displayId} onChange={e => setNewTaskForm({...newTaskForm, displayId: e.target.value})} placeholder="PRJ-001..." className="w-full px-3 py-2 text-sm font-mono bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100" />
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Display ID</label>
+                      <input required value={newTaskForm.displayId} onChange={e => setNewTaskForm({...newTaskForm, displayId: e.target.value})} placeholder="PRJ-001..." className="w-full px-3 py-2 text-sm font-mono bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 dark:text-white" />
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Description</label>
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Description</label>
                       <textarea 
                         required 
                         value={newTaskForm.description} 
@@ -1259,31 +1277,31 @@ const App: React.FC = () => {
                         }}
                         rows={3} 
                         placeholder="What needs to be done? (Ctrl+Enter to create)" 
-                        className="w-full px-3 py-2 text-sm bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 resize-none" 
+                        className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 dark:text-white resize-none" 
                       />
                    </div>
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Due Date</label>
-                         <input type="date" value={newTaskForm.dueDate} onChange={e => setNewTaskForm({...newTaskForm, dueDate: e.target.value})} className="w-full px-3 py-2 text-sm bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100" />
+                         <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Due Date</label>
+                         <input type="date" value={newTaskForm.dueDate} onChange={e => setNewTaskForm({...newTaskForm, dueDate: e.target.value})} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 dark:text-white" />
                       </div>
                       <div className="space-y-1">
-                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Priority</label>
-                         <select value={newTaskForm.priority} onChange={e => setNewTaskForm({...newTaskForm, priority: e.target.value})} className="w-full px-3 py-2 text-sm bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100">
+                         <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Priority</label>
+                         <select value={newTaskForm.priority} onChange={e => setNewTaskForm({...newTaskForm, priority: e.target.value})} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 dark:text-white">
                             {appConfig.taskPriorities.map(p => <option key={p} value={p}>{p}</option>)}
                          </select>
                       </div>
                    </div>
                    
-                   <div className="pt-2 border-t border-slate-100">
-                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                   <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+                       <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1 flex items-center gap-1">
                            <Repeat size={12} /> Recurrence
                        </label>
                        <div className="flex gap-2">
                            <select 
                                value={newTaskForm.recurrenceType}
                                onChange={(e) => setNewTaskForm({...newTaskForm, recurrenceType: e.target.value})}
-                               className="flex-1 px-3 py-2 text-sm bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100"
+                               className="flex-1 px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 dark:text-white"
                            >
                                <option value="none">None (One-time)</option>
                                <option value="daily">Daily</option>
@@ -1292,24 +1310,24 @@ const App: React.FC = () => {
                                <option value="yearly">Yearly</option>
                            </select>
                            {newTaskForm.recurrenceType !== 'none' && (
-                               <div className="flex items-center gap-2 bg-slate-50 border rounded-xl px-2">
-                                   <span className="text-xs text-slate-500 whitespace-nowrap">Every</span>
+                               <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl px-2">
+                                   <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Every</span>
                                    <input 
                                        type="number" 
                                        min="1"
                                        value={newTaskForm.recurrenceInterval}
                                        onChange={(e) => setNewTaskForm({...newTaskForm, recurrenceInterval: parseInt(e.target.value) || 1})}
-                                       className="w-12 bg-transparent outline-none text-sm font-bold text-center"
+                                       className="w-12 bg-transparent outline-none text-sm font-bold text-center dark:text-white"
                                    />
-                                   <span className="text-xs text-slate-500 pr-1">{newTaskForm.recurrenceType.replace('ly', '(s)')}</span>
+                                   <span className="text-xs text-slate-500 dark:text-slate-400 pr-1">{newTaskForm.recurrenceType.replace('ly', '(s)')}</span>
                                </div>
                            )}
                        </div>
                    </div>
 
                 </div>
-                <div className="p-4 border-t bg-slate-50 flex justify-end gap-3">
-                   <button type="button" onClick={() => setShowNewTaskModal(false)} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded-lg transition-all">Cancel</button>
+                <div className="p-4 border-t dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex justify-end gap-3">
+                   <button type="button" onClick={() => setShowNewTaskModal(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-all">Cancel</button>
                    <button type="submit" className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all">Create Task</button>
                 </div>
              </form>
@@ -1318,16 +1336,16 @@ const App: React.FC = () => {
 
         {showReportModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-                <div className="p-4 border-b flex justify-between items-center bg-indigo-600 text-white">
+             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+                <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-indigo-600 text-white">
                    <h2 className="font-bold flex items-center gap-2"><Sparkles size={18}/> Weekly AI Report</h2>
                    <button onClick={() => setShowReportModal(false)}><X size={20}/></button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-6">
-                   {isGeneratingReport ? <div className="flex flex-col items-center justify-center py-12 gap-4"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div><p>Analyzing week...</p></div> : <div className="prose prose-sm max-w-none">{generatedReport.split('\n').map((line, i) => <p key={i}>{line}</p>)}</div>}
+                <div className="flex-1 overflow-y-auto p-6 dark:text-slate-200">
+                   {isGeneratingReport ? <div className="flex flex-col items-center justify-center py-12 gap-4"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div><p>Analyzing week...</p></div> : <div className="prose prose-sm max-w-none dark:prose-invert">{generatedReport.split('\n').map((line, i) => <p key={i}>{line}</p>)}</div>}
                 </div>
-                <div className="p-4 border-t flex justify-end gap-2 bg-slate-50">
-                   <button onClick={() => { navigator.clipboard.writeText(generatedReport); alert('Copied!'); }} className="px-4 py-2 text-slate-600 font-bold rounded-lg hover:bg-slate-200">Copy</button>
+                <div className="p-4 border-t dark:border-slate-700 flex justify-end gap-2 bg-slate-50 dark:bg-slate-800">
+                   <button onClick={() => { navigator.clipboard.writeText(generatedReport); alert('Copied!'); }} className="px-4 py-2 text-slate-600 dark:text-slate-300 font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">Copy</button>
                    <button onClick={() => setShowReportModal(false)} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700">Close</button>
                 </div>
              </div>
