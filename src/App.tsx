@@ -57,7 +57,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V3.6";
+const BUILD_VERSION = "V3.7";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -1211,6 +1211,7 @@ const App: React.FC = () => {
         {activeTask && (
             <TaskDetailModal 
                 task={activeTask}
+                allTasks={tasks}
                 onClose={() => setActiveTaskId(null)}
                 onUpdateStatus={updateTaskStatus}
                 onUpdateTask={updateTaskFields}

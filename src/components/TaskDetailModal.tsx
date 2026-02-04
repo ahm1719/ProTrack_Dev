@@ -1,11 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, RecurrenceConfig } from '../types';
-import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat } from 'lucide-react';
+import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TaskDetailModalProps {
   task: Task;
+  allTasks: Task[];
   onClose: () => void;
   onUpdateStatus: (id: string, status: string) => void;
   onUpdateTask: (id: string, fields: Partial<Task>) => void;
@@ -19,8 +20,128 @@ interface TaskDetailModalProps {
   statusColors?: Record<string, string>;
 }
 
+const WorkloadDatePicker: React.FC<{ 
+    selectedDate: string; 
+    onChange: (d: string) => void; 
+    allTasks: Task[]; 
+    currentTaskId: string 
+}> = ({ selectedDate, onChange, allTasks, currentTaskId }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [viewDate, setViewDate] = useState(() => {
+        const d = new Date(selectedDate);
+        return isNaN(d.getTime()) ? new Date() : d;
+    });
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    const getWorkload = (dateStr: string) => {
+        return allTasks.filter(t => 
+            t.id !== currentTaskId && 
+            t.dueDate === dateStr && 
+            t.status !== Status.DONE && 
+            t.status !== Status.ARCHIVED
+        ).length;
+    };
+
+    const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+    const getFirstDayOfMonth = (year: number, month: number) => {
+        const day = new Date(year, month, 1).getDay();
+        return day === 0 ? 6 : day - 1; // Mon start
+    };
+
+    const generateDays = () => {
+        const year = viewDate.getFullYear();
+        const month = viewDate.getMonth();
+        const daysInMonth = getDaysInMonth(year, month);
+        const firstDay = getFirstDayOfMonth(year, month);
+        const days = [];
+
+        for (let i = 0; i < firstDay; i++) days.push(null);
+        for (let i = 1; i <= daysInMonth; i++) days.push(i);
+        return days;
+    };
+
+    const handleDateClick = (day: number) => {
+        const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        onChange(dateStr);
+        setIsOpen(false);
+    };
+
+    const formatDateDisplay = (dateStr: string) => {
+        if (!dateStr) return 'No Date';
+        return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    };
+
+    return (
+        <div className="relative" ref={wrapperRef}>
+            <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none dark:text-white text-left flex justify-between items-center"
+            >
+                {formatDateDisplay(selectedDate)}
+                <Calendar size={16} className="text-slate-400" />
+            </button>
+
+            {isOpen && (
+                <div className="absolute top-full left-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-3 w-64 animate-fade-in">
+                    <div className="flex justify-between items-center mb-2">
+                        <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"><ChevronLeft size={16} /></button>
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{viewDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span>
+                        <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"><ChevronRight size={16} /></button>
+                    </div>
+                    <div className="grid grid-cols-7 gap-1 mb-1">
+                        {['M','T','W','T','F','S','S'].map(d => <div key={d} className="text-center text-[10px] font-bold text-slate-400">{d}</div>)}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1">
+                        {generateDays().map((day, idx) => {
+                            if (!day) return <div key={idx} />;
+                            const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+                            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                            const workload = getWorkload(dateStr);
+                            const isSelected = dateStr === selectedDate;
+                            
+                            let workloadColor = 'bg-emerald-500';
+                            if (workload >= 3) workloadColor = 'bg-amber-500';
+                            if (workload >= 5) workloadColor = 'bg-red-500';
+
+                            return (
+                                <button 
+                                    key={idx} 
+                                    onClick={() => handleDateClick(day)}
+                                    className={`relative h-8 rounded-lg text-xs font-medium transition-all flex items-center justify-center ${isSelected ? 'bg-indigo-600 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'}`}
+                                >
+                                    {day}
+                                    {workload > 0 && !isSelected && (
+                                        <div className={`absolute top-0 right-0 w-3 h-3 text-[8px] flex items-center justify-center rounded-full text-white ${workloadColor} -mr-1 -mt-1 border border-white dark:border-slate-800 shadow-sm`}>
+                                            {workload}
+                                        </div>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 text-[9px] text-slate-400 text-center">
+                        Dots indicate existing active tasks
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   task,
+  allTasks,
   onClose,
   onUpdateStatus,
   onUpdateTask,
@@ -539,11 +660,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     </div>
                     <div className="space-y-1">
                         <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block">Due Date</label>
-                        <input 
-                            type="date"
-                            value={task.dueDate}
-                            onChange={(e) => onUpdateTask(task.id, { dueDate: e.target.value })}
-                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none dark:text-white"
+                        <WorkloadDatePicker 
+                            selectedDate={task.dueDate} 
+                            onChange={(d) => onUpdateTask(task.id, { dueDate: d })} 
+                            allTasks={allTasks}
+                            currentTaskId={task.id}
                         />
                     </div>
 
