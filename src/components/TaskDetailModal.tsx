@@ -93,14 +93,14 @@ const WorkloadDatePicker: React.FC<{
             </button>
 
             {isOpen && (
-                <div className="absolute top-full left-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-3 w-64 animate-fade-in">
-                    <div className="flex justify-between items-center mb-2">
-                        <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"><ChevronLeft size={16} /></button>
-                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{viewDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span>
-                        <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"><ChevronRight size={16} /></button>
+                <div className="absolute top-full left-0 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-4 w-72 animate-fade-in">
+                    <div className="flex justify-between items-center mb-4">
+                        <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 dark:text-slate-400 transition-colors"><ChevronLeft size={18} /></button>
+                        <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{viewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</span>
+                        <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 dark:text-slate-400 transition-colors"><ChevronRight size={18} /></button>
                     </div>
-                    <div className="grid grid-cols-7 gap-1 mb-1">
-                        {['M','T','W','T','F','S','S'].map(d => <div key={d} className="text-center text-[10px] font-bold text-slate-400">{d}</div>)}
+                    <div className="grid grid-cols-7 gap-1 mb-2">
+                        {['M','T','W','T','F','S','S'].map(d => <div key={d} className="text-center text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{d}</div>)}
                     </div>
                     <div className="grid grid-cols-7 gap-1">
                         {generateDays().map((day, idx) => {
@@ -118,11 +118,11 @@ const WorkloadDatePicker: React.FC<{
                                 <button 
                                     key={idx} 
                                     onClick={() => handleDateClick(day)}
-                                    className={`relative h-8 rounded-lg text-xs font-medium transition-all flex items-center justify-center ${isSelected ? 'bg-indigo-600 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'}`}
+                                    className={`relative h-9 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${isSelected ? 'bg-indigo-600 text-white shadow-md scale-105 z-10' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'}`}
                                 >
                                     {day}
                                     {workload > 0 && !isSelected && (
-                                        <div className={`absolute top-0 right-0 w-3 h-3 text-[8px] flex items-center justify-center rounded-full text-white ${workloadColor} -mr-1 -mt-1 border border-white dark:border-slate-800 shadow-sm`}>
+                                        <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 text-[10px] font-bold flex items-center justify-center rounded-full text-white ${workloadColor} border-2 border-white dark:border-slate-800 shadow-md z-20`}>
                                             {workload}
                                         </div>
                                     )}
@@ -130,8 +130,12 @@ const WorkloadDatePicker: React.FC<{
                             );
                         })}
                     </div>
-                    <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-700 text-[9px] text-slate-400 text-center">
-                        Dots indicate existing active tasks
+                    <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 flex justify-center">
+                        <div className="flex items-center gap-3 text-[9px] text-slate-400 font-medium">
+                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Light</span>
+                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div> Med</span>
+                            <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> Heavy</span>
+                        </div>
                     </div>
                 </div>
             )}
