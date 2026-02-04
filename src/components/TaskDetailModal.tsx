@@ -363,6 +363,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             onChange={(e) => setNewSubtaskTitle(e.target.value)}
                             placeholder="Add a subtask..."
                             className="flex-1 bg-transparent border-none outline-none text-sm py-2 placeholder-slate-400"
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                    handleAddSubtask(e);
+                                }
+                            }}
                         />
                     </form>
                 </div>
@@ -484,6 +489,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                             onChange={e => setEditUpdateContent(e.target.value)}
                                             className="w-full text-sm border border-slate-200 rounded p-2 focus:ring-2 focus:ring-indigo-100 outline-none"
                                             rows={3}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                                    saveEditedUpdate(update.id);
+                                                }
+                                            }}
                                         />
                                         <div className="flex justify-end gap-2">
                                             <button onClick={() => setEditingUpdateId(null)} className="px-3 py-1 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded">Cancel</button>
