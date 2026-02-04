@@ -100,6 +100,10 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays, tasks }: MiniCalend
             if (isSelected) bgClass = 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none scale-110 font-bold';
             else if (!isSelected && isToday) bgClass = 'border-2 border-indigo-500 text-indigo-700 dark:text-indigo-400 font-bold';
             
+            let badgeColorClass = 'bg-emerald-500 text-white';
+            if (taskCount >= 3) badgeColorClass = 'bg-amber-500 text-white';
+            if (taskCount >= 5) badgeColorClass = 'bg-red-500 text-white';
+
             currentWeek.days.push(
                 <button
                     key={dateStr}
@@ -108,7 +112,7 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays, tasks }: MiniCalend
                 >
                     {dayNum}
                     {taskCount > 0 && (
-                        <div className={`absolute -top-1 -right-1 w-3.5 h-3.5 text-[8px] font-bold rounded-full flex items-center justify-center border border-white dark:border-slate-800 z-10 ${isSelected ? 'bg-white text-indigo-600' : 'bg-indigo-500 dark:bg-indigo-600 text-white'}`}>
+                        <div className={`absolute -top-1.5 -right-1.5 w-4 h-4 text-[9px] font-bold rounded-full flex items-center justify-center border border-white dark:border-slate-800 z-10 ${badgeColorClass} shadow-sm`}>
                             {taskCount}
                         </div>
                     )}
@@ -149,6 +153,13 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays, tasks }: MiniCalend
                      </div>
                  </div>
              ))}
+          </div>
+          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 flex justify-center">
+                <div className="flex items-center gap-3 text-[9px] text-slate-400 font-medium">
+                    <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Light</span>
+                    <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div> Med</span>
+                    <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> Heavy</span>
+                </div>
           </div>
       </div>
     </div>
