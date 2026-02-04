@@ -57,7 +57,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V3.7";
+const BUILD_VERSION = "V3.8";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -876,69 +876,78 @@ const App: React.FC = () => {
              </div>
 
              <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-56">
-                {weekDays.map(d => (
-                    <div key={d} className={`min-w-[280px] w-[280px] p-4 rounded-2xl border flex flex-col transition-all ${d === todayStr ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-100 dark:ring-indigo-900 shadow-md scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'}`}>
-                        <div className="flex justify-between items-start mb-3 border-b pb-2 border-slate-100 dark:border-slate-700">
-                            <div>
-                                <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
-                                <span className="text-lg font-bold text-slate-800 dark:text-slate-100">{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); setExpandedDay(d); }}
-                                    className={`p-1 rounded transition-colors ${d === todayStr ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-indigo-600'}`}
-                                    title="Expand View"
-                                >
-                                    <Maximize2 size={14} />
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                            {weekTasks[d]?.length ? weekTasks[d].map(t => {
-                                const latest = [...t.updates].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-                                return (
-                                    <div 
-                                      key={t.id}
-                                      draggable="true"
-                                      onDragStart={(e) => handleDragStart(e, t.id)}
-                                      onDragOver={handleDragOver}
-                                      onDrop={(e) => handleDrop(e, t.id, d)}
-                                      onClick={() => setActiveTaskId(t.id)} 
-                                      className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 dark:hover:ring-indigo-600 transition-all cursor-pointer group select-none ${t.status === Status.DONE ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/50' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'} ${draggedTaskId === t.id ? 'opacity-40 border-dashed border-indigo-400' : ''}`}
-                                      title="Drag to reorder"
+                {weekDays.map(d => {
+                    const dayTasks = weekTasks[d] || [];
+                    const activeCount = dayTasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED).length;
+                    return (
+                        <div key={d} className={`min-w-[280px] w-[280px] p-4 rounded-2xl border flex flex-col transition-all ${d === todayStr ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-100 dark:ring-indigo-900 shadow-md scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'}`}>
+                            <div className="flex justify-between items-start mb-3 border-b pb-2 border-slate-100 dark:border-slate-700">
+                                <div>
+                                    <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
+                                    <span className="text-lg font-bold text-slate-800 dark:text-slate-100">{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {activeCount > 0 && (
+                                        <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                            {activeCount}
+                                        </span>
+                                    )}
+                                    {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setExpandedDay(d); }}
+                                        className={`p-1 rounded transition-colors ${d === todayStr ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900 dark:text-indigo-300 hover:bg-indigo-200 dark:hover:bg-indigo-800' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 dark:text-slate-500 hover:text-indigo-600'}`}
+                                        title="Expand View"
                                     >
-                                        <div className="flex justify-between items-center mb-1">
-                                          <span className={`font-mono font-bold ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : 'text-slate-700 dark:text-slate-200'} flex items-center gap-1`}>
-                                            {t.displayId}
-                                            {t.recurrence && <Repeat size={10} className="text-indigo-400" />}
-                                          </span>
-                                          <div className="flex items-center gap-1">
-                                              <div 
-                                                className={`w-2 h-2 rounded-full ${t.priority === Priority.HIGH ? 'bg-red-500' : t.priority === Priority.MEDIUM ? 'bg-amber-400' : 'bg-emerald-400'}`} 
-                                                title={`Priority: ${t.priority}`} 
-                                              />
-                                              {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600 dark:text-emerald-400" />}
-                                              {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600 dark:text-blue-400" />}
-                                          </div>
-                                        </div>
-                                        <p className={`line-clamp-2 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60 text-slate-500' : 'text-slate-600 dark:text-slate-300'}`}>{t.description}</p>
-                                        
-                                        {latest && (
-                                            <div className="mt-2 flex items-start gap-1.5">
+                                        <Maximize2 size={14} />
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                                {dayTasks.length ? dayTasks.map(t => {
+                                    const latest = [...t.updates].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                                    return (
+                                        <div 
+                                        key={t.id}
+                                        draggable="true"
+                                        onDragStart={(e) => handleDragStart(e, t.id)}
+                                        onDragOver={handleDragOver}
+                                        onDrop={(e) => handleDrop(e, t.id, d)}
+                                        onClick={() => setActiveTaskId(t.id)} 
+                                        className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 dark:hover:ring-indigo-600 transition-all cursor-pointer group select-none ${t.status === Status.DONE ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/50' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'} ${draggedTaskId === t.id ? 'opacity-40 border-dashed border-indigo-400' : ''}`}
+                                        title="Drag to reorder"
+                                        >
+                                            <div className="flex justify-between items-center mb-1">
+                                            <span className={`font-mono font-bold ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : 'text-slate-700 dark:text-slate-200'} flex items-center gap-1`}>
+                                                {t.displayId}
+                                                {t.recurrence && <Repeat size={10} className="text-indigo-400" />}
+                                            </span>
+                                            <div className="flex items-center gap-1">
                                                 <div 
-                                                    className="w-1.5 h-1.5 rounded-full shrink-0 mt-1" 
-                                                    style={{ backgroundColor: latest.highlightColor || '#cbd5e1' }} 
+                                                    className={`w-2 h-2 rounded-full ${t.priority === Priority.HIGH ? 'bg-red-500' : t.priority === Priority.MEDIUM ? 'bg-amber-400' : 'bg-emerald-400'}`} 
+                                                    title={`Priority: ${t.priority}`} 
                                                 />
-                                                <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate font-medium flex-1 bg-white/50 dark:bg-slate-700/50 px-1 rounded">{latest.content}</span>
+                                                {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600 dark:text-emerald-400" />}
+                                                {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600 dark:text-blue-400" />}
                                             </div>
-                                        )}
-                                    </div>
-                                );
-                            }) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 dark:text-slate-600 italic">No deadlines</div>}
+                                            </div>
+                                            <p className={`line-clamp-2 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60 text-slate-500' : 'text-slate-600 dark:text-slate-300'}`}>{t.description}</p>
+                                            
+                                            {latest && (
+                                                <div className="mt-2 flex items-start gap-1.5">
+                                                    <div 
+                                                        className="w-1.5 h-1.5 rounded-full shrink-0 mt-1" 
+                                                        style={{ backgroundColor: latest.highlightColor || '#cbd5e1' }} 
+                                                    />
+                                                    <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate font-medium flex-1 bg-white/50 dark:bg-slate-700/50 px-1 rounded">{latest.content}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                }) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 dark:text-slate-600 italic">No deadlines</div>}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
              </div>
 
              <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-3 gap-8">
