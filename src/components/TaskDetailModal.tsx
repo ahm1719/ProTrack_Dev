@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, RecurrenceConfig } from '../types';
-import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TaskDetailModalProps {
@@ -166,6 +166,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const taskFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Subtask Drag State
+  const [draggedSubtaskId, setDraggedSubtaskId] = useState<string | null>(null);
 
   // Editing state for updates
   const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
@@ -338,6 +341,35 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       onUpdateTask(task.id, { subtasks: updatedSubtasks });
   };
 
+  // Subtask Drag & Drop Handlers
+  const handleSubtaskDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedSubtaskId(id);
+    e.dataTransfer.effectAllowed = "move";
+    // Set transparent drag image or default
+  };
+
+  const handleSubtaskDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Necessary to allow dropping
+  };
+
+  const handleSubtaskDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedSubtaskId || draggedSubtaskId === targetId) return;
+
+    const currentSubtasks = task.subtasks || [];
+    const fromIndex = currentSubtasks.findIndex(s => s.id === draggedSubtaskId);
+    const toIndex = currentSubtasks.findIndex(s => s.id === targetId);
+
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    const newSubtasks = [...currentSubtasks];
+    const [movedSubtask] = newSubtasks.splice(fromIndex, 1);
+    newSubtasks.splice(toIndex, 0, movedSubtask);
+
+    onUpdateTask(task.id, { subtasks: newSubtasks });
+    setDraggedSubtaskId(null);
+  };
+
   // Update Editing Handlers
   const startEditingUpdate = (update: { id: string, content: string, timestamp: string, highlightColor?: string }) => {
     setEditingUpdateId(update.id);
@@ -449,7 +481,19 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     
                     <div className="space-y-1 mb-3">
                         {task.subtasks?.map(st => (
-                            <div key={st.id} className="flex items-start gap-3 p-2 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg group transition-colors">
+                            <div 
+                                key={st.id} 
+                                draggable="true"
+                                onDragStart={(e) => handleSubtaskDragStart(e, st.id)}
+                                onDragOver={handleSubtaskDragOver}
+                                onDrop={(e) => handleSubtaskDrop(e, st.id)}
+                                className={`flex items-start gap-3 p-2 rounded-lg group transition-all ${
+                                    draggedSubtaskId === st.id ? 'opacity-30 border-2 border-dashed border-indigo-400' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                                }`}
+                            >
+                                <div className="mt-1.5 cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-600 hover:text-indigo-500 dark:hover:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <GripVertical size={14} />
+                                </div>
                                 <button 
                                     onClick={() => toggleSubtask(st.id)}
                                     className={`mt-1 shrink-0 ${st.completed ? 'text-emerald-500' : 'text-slate-300 hover:text-indigo-500 dark:text-slate-500 dark:hover:text-indigo-400'}`}
@@ -481,7 +525,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         ))}
                     </div>
                     
-                    <form onSubmit={handleAddSubtask} className="flex items-center gap-3 pl-2 opacity-60 hover:opacity-100 transition-opacity">
+                    <form onSubmit={handleAddSubtask} className="flex items-center gap-3 pl-8 opacity-60 hover:opacity-100 transition-opacity">
                         <Plus size={18} className="text-slate-400" />
                         <input 
                             value={newSubtaskTitle}
