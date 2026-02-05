@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, RecurrenceConfig } from '../types';
 import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -23,18 +23,39 @@ interface TaskDetailModalProps {
 const AutoResizeTextarea = ({ value, onChange, className, placeholder, onKeyDown, autoFocus }: any) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    useEffect(() => {
+    const adjustHeight = () => {
         if (textareaRef.current) {
             textareaRef.current.style.height = 'auto';
-            textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
         }
+    };
+
+    useLayoutEffect(() => {
+        adjustHeight();
     }, [value]);
+
+    useEffect(() => {
+        // Re-adjust on window resize to handle wrapping changes
+        const handleResize = () => adjustHeight();
+        window.addEventListener('resize', handleResize);
+        
+        // Safety check: layout shifts slightly after mount due to animations or flexbox settling
+        const timer = setTimeout(adjustHeight, 50);
+        
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            clearTimeout(timer);
+        };
+    }, []);
 
     return (
         <textarea
             ref={textareaRef}
             value={value}
-            onChange={onChange}
+            onChange={(e) => {
+                onChange(e);
+                adjustHeight();
+            }}
             className={className}
             placeholder={placeholder}
             rows={1}
@@ -204,16 +225,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   // Recurrence State
   const [recurrenceType, setRecurrenceType] = useState<string>(task.recurrence?.type || 'none');
   const [recurrenceInterval, setRecurrenceInterval] = useState<number>(task.recurrence?.interval || 1);
-
-  // Auto-resize textareas
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  
-  useEffect(() => {
-    if (descriptionRef.current) {
-        descriptionRef.current.style.height = 'auto';
-        descriptionRef.current.style.height = descriptionRef.current.scrollHeight + 'px';
-    }
-  }, [task.description]);
 
   const getContrastYIQ = (hexcolor: string) => {
     if (!hexcolor) return '#ffffff';
@@ -476,17 +487,11 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 {/* Description */}
                 <div className="group">
                     <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Description</label>
-                    <textarea 
-                        ref={descriptionRef}
+                    <AutoResizeTextarea 
                         value={task.description}
-                        onChange={(e) => {
-                            onUpdateTask(task.id, { description: e.target.value });
-                            e.target.style.height = 'auto';
-                            e.target.style.height = e.target.scrollHeight + 'px';
-                        }}
-                        className="w-full text-xl font-medium text-slate-800 dark:text-slate-200 bg-transparent border-none outline-none resize-none placeholder-slate-300 focus:ring-0 p-0 leading-relaxed"
+                        onChange={(e: any) => onUpdateTask(task.id, { description: e.target.value })}
+                        className="w-full text-xl font-medium text-slate-800 dark:text-slate-200 bg-transparent border-none outline-none resize-none placeholder-slate-300 focus:ring-0 p-0 leading-relaxed overflow-hidden"
                         placeholder="Task description..."
-                        rows={1}
                     />
                 </div>
 
