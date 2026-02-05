@@ -20,6 +20,30 @@ interface TaskDetailModalProps {
   statusColors?: Record<string, string>;
 }
 
+const AutoResizeTextarea = ({ value, onChange, className, placeholder, onKeyDown, autoFocus }: any) => {
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    useEffect(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto';
+            textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
+        }
+    }, [value]);
+
+    return (
+        <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={onChange}
+            className={className}
+            placeholder={placeholder}
+            rows={1}
+            onKeyDown={onKeyDown}
+            autoFocus={autoFocus}
+        />
+    );
+};
+
 const WorkloadDatePicker: React.FC<{ 
     selectedDate: string; 
     onChange: (d: string) => void; 
@@ -302,7 +326,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   };
 
   // Subtask Handlers
-  const handleAddSubtask = (e: React.FormEvent) => {
+  const handleAddSubtask = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     if (!newSubtaskTitle.trim()) return;
     const newSubtask: Subtask = {
@@ -502,10 +526,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                     {st.completed ? <CheckCircle2 size={18} /> : <Circle size={18} />}
                                 </button>
                                 <div className="flex-1 min-w-0">
-                                    <input 
+                                    <AutoResizeTextarea 
                                         value={st.title}
-                                        onChange={(e) => updateSubtaskTitle(st.id, e.target.value)}
-                                        className={`w-full bg-transparent border-none outline-none text-sm p-0 focus:ring-0 ${st.completed ? 'line-through text-slate-400 decoration-slate-300' : 'text-slate-700 dark:text-slate-300 font-medium'}`}
+                                        onChange={(e: any) => updateSubtaskTitle(st.id, e.target.value)}
+                                        className={`w-full bg-transparent border-none outline-none text-sm p-0 focus:ring-0 resize-none overflow-hidden ${st.completed ? 'line-through text-slate-400 decoration-slate-300' : 'text-slate-700 dark:text-slate-300 font-medium'}`}
                                         placeholder="Subtask title"
                                     />
                                     {st.completed && st.completedAt && (
@@ -525,20 +549,21 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                         ))}
                     </div>
                     
-                    <form onSubmit={handleAddSubtask} className="flex items-center gap-3 pl-8 opacity-60 hover:opacity-100 transition-opacity">
-                        <Plus size={18} className="text-slate-400" />
-                        <input 
+                    <div className="flex items-start gap-3 pl-8 opacity-60 hover:opacity-100 transition-opacity group/add">
+                        <Plus size={18} className="text-slate-400 mt-2" />
+                        <AutoResizeTextarea 
                             value={newSubtaskTitle}
-                            onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                            onChange={(e: any) => setNewSubtaskTitle(e.target.value)}
                             placeholder="Add a subtask..."
-                            className="flex-1 bg-transparent border-none outline-none text-sm py-2 placeholder-slate-400 dark:text-slate-300"
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                            className="flex-1 bg-transparent border-none outline-none text-sm py-2 placeholder-slate-400 dark:text-slate-300 resize-none overflow-hidden"
+                            onKeyDown={(e: any) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
                                     handleAddSubtask(e);
                                 }
                             }}
                         />
-                    </form>
+                    </div>
                 </div>
 
                 {/* History / Updates */}
