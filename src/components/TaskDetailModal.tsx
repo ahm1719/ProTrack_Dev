@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, RecurrenceConfig } from '../types';
-import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical } from 'lucide-react';
+import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical, ChevronDown } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TaskDetailModalProps {
@@ -246,18 +246,18 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             borderColor: custom
         };
     }
-    if (s === Status.DONE) return { backgroundColor: '#d1fae5', color: '#047857', borderColor: '#a7f3d0' }; 
-    if (s === Status.IN_PROGRESS) return { backgroundColor: '#dbeafe', color: '#1d4ed8', borderColor: '#bfdbfe' }; 
-    if (s === Status.WAITING) return { backgroundColor: '#fef3c7', color: '#b45309', borderColor: '#fde68a' }; 
-    if (s === Status.ARCHIVED) return { backgroundColor: '#f1f5f9', color: '#64748b', borderColor: '#e2e8f0' }; 
+    if (s === Status.DONE) return { backgroundColor: '#d1fae5', color: '#065f46', borderColor: '#34d399' }; // emerald-100, emerald-800, emerald-400
+    if (s === Status.IN_PROGRESS) return { backgroundColor: '#dbeafe', color: '#1e40af', borderColor: '#60a5fa' }; // blue-100, blue-800, blue-400
+    if (s === Status.WAITING) return { backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' }; // amber-100, amber-800, amber-300
+    if (s === Status.ARCHIVED) return { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' }; // slate-100, slate-600, slate-300
     return { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#e2e8f0' }; 
   };
 
   const getPriorityColor = (p: string) => {
-    if (p === Priority.HIGH) return 'text-red-600 bg-red-50 border-red-100 dark:bg-red-900/30 dark:text-red-300 dark:border-red-900/50';
-    if (p === Priority.MEDIUM) return 'text-amber-600 bg-amber-50 border-amber-100 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-900/50';
-    if (p === Priority.LOW) return 'text-emerald-600 bg-emerald-50 border-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-900/50';
-    return 'text-slate-600 bg-slate-50 border-slate-100 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700';
+    if (p === Priority.HIGH) return 'text-red-700 bg-red-50 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-900/50';
+    if (p === Priority.MEDIUM) return 'text-amber-700 bg-amber-50 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-900/50';
+    if (p === Priority.LOW) return 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-900/50';
+    return 'text-slate-600 bg-slate-50 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700';
   };
 
   const formatDate = (dateStr: string) => {
@@ -438,6 +438,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       }
   };
 
+  const statusStyle = getStatusStyle(task.status);
+
   return (
     <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={onClose}>
       <div 
@@ -453,21 +455,36 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     <span className="text-indigo-600 dark:text-indigo-400 font-bold">{task.displayId}</span>
                 </div>
                 <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-600 mx-1" />
-                <select
-                    value={task.status}
-                    onChange={(e) => onUpdateStatus(task.id, e.target.value)}
-                    className="text-xs font-bold px-3 py-1.5 rounded-full cursor-pointer border outline-none appearance-none transition-all dark:border-transparent"
-                    style={getStatusStyle(task.status)}
-                >
-                    {availableStatuses.map(s => <option key={s} value={s} className="dark:bg-slate-800">{s}</option>)}
-                </select>
-                <select
-                    value={task.priority}
-                    onChange={(e) => onUpdateTask(task.id, { priority: e.target.value })}
-                    className={`text-xs font-bold px-3 py-1.5 rounded-full cursor-pointer border outline-none appearance-none transition-all ${getPriorityColor(task.priority)}`}
-                >
-                    {availablePriorities.map(p => <option key={p} value={p} className="dark:bg-slate-800">{p}</option>)}
-                </select>
+                
+                <div className="relative group">
+                    <select
+                        value={task.status}
+                        onChange={(e) => onUpdateStatus(task.id, e.target.value)}
+                        className="text-xs font-bold pl-3 pr-8 py-1.5 rounded-full cursor-pointer border outline-none appearance-none transition-all shadow-sm hover:brightness-95 focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 dark:focus:ring-offset-slate-800"
+                        style={statusStyle}
+                    >
+                        {availableStatuses.map(s => <option key={s} value={s} className="bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-200">{s}</option>)}
+                    </select>
+                    <ChevronDown 
+                        size={14} 
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                        style={{ color: statusStyle.color, opacity: 0.7 }}
+                    />
+                </div>
+
+                <div className="relative group">
+                    <select
+                        value={task.priority}
+                        onChange={(e) => onUpdateTask(task.id, { priority: e.target.value })}
+                        className={`text-xs font-bold pl-3 pr-8 py-1.5 rounded-full cursor-pointer border outline-none appearance-none transition-all shadow-sm hover:brightness-95 focus:ring-2 focus:ring-offset-1 focus:ring-indigo-500 dark:focus:ring-offset-slate-800 ${getPriorityColor(task.priority)}`}
+                    >
+                        {availablePriorities.map(p => <option key={p} value={p} className="bg-white text-slate-800 dark:bg-slate-800 dark:text-slate-200">{p}</option>)}
+                    </select>
+                    <ChevronDown 
+                        size={14} 
+                        className={`absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60 ${task.priority === Priority.HIGH ? 'text-red-700' : task.priority === Priority.MEDIUM ? 'text-amber-700' : task.priority === Priority.LOW ? 'text-emerald-700' : 'text-slate-600'}`}
+                    />
+                </div>
             </div>
             
             <div className="flex items-center gap-2">
