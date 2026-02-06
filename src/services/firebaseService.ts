@@ -36,25 +36,26 @@ export const initFirebase = (config: FirebaseConfig) => {
 // Helper to migrate legacy monolithic data to subcollections
 const migrateLegacyData = async (legacyData: any) => {
   if (!db) return;
+  const firestore = db;
   console.log("Starting legacy data migration...");
-  const batch = writeBatch(db);
-  const rootRef = doc(db, 'protrack', 'user_data');
+  const batch = writeBatch(firestore);
+  const rootRef = doc(firestore, 'protrack', 'user_data');
 
   if (Array.isArray(legacyData.tasks) && legacyData.tasks.length > 0) {
     legacyData.tasks.forEach((t: any) => {
-      batch.set(doc(db, 'protrack', 'user_data', 'tasks', t.id), t);
+      batch.set(doc(firestore, 'protrack', 'user_data', 'tasks', t.id), t);
     });
   }
   
   if (Array.isArray(legacyData.logs) && legacyData.logs.length > 0) {
     legacyData.logs.forEach((l: any) => {
-      batch.set(doc(db, 'protrack', 'user_data', 'logs', l.id), l);
+      batch.set(doc(firestore, 'protrack', 'user_data', 'logs', l.id), l);
     });
   }
 
   if (Array.isArray(legacyData.observations) && legacyData.observations.length > 0) {
     legacyData.observations.forEach((o: any) => {
-      batch.set(doc(db, 'protrack', 'user_data', 'observations', o.id), o);
+      batch.set(doc(firestore, 'protrack', 'user_data', 'observations', o.id), o);
     });
   }
 
@@ -78,6 +79,7 @@ export const subscribeToData = (
   callback: (data: { tasks: any[], logs: any[], observations: any[], offDays: any[], appConfig?: any }) => void
 ) => {
   if (!db) return;
+  const firestore = db;
 
   // Clear existing listeners
   unsubscribers.forEach(unsub => unsub());
@@ -95,7 +97,7 @@ export const subscribeToData = (
 
   try {
     // 1. Listen to Root Document (Settings & OffDays & Legacy Check)
-    const rootUnsub = onSnapshot(doc(db, 'protrack', 'user_data'), (docSnap) => {
+    const rootUnsub = onSnapshot(doc(firestore, 'protrack', 'user_data'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
         
@@ -115,21 +117,21 @@ export const subscribeToData = (
     unsubscribers.push(rootUnsub);
 
     // 2. Listen to Tasks Collection
-    const tasksUnsub = onSnapshot(query(collection(db, 'protrack', 'user_data', 'tasks')), (snapshot) => {
+    const tasksUnsub = onSnapshot(query(collection(firestore, 'protrack', 'user_data', 'tasks')), (snapshot) => {
       localCache.tasks = snapshot.docs.map(d => d.data());
       notify();
     });
     unsubscribers.push(tasksUnsub);
 
     // 3. Listen to Logs Collection
-    const logsUnsub = onSnapshot(query(collection(db, 'protrack', 'user_data', 'logs')), (snapshot) => {
+    const logsUnsub = onSnapshot(query(collection(firestore, 'protrack', 'user_data', 'logs')), (snapshot) => {
       localCache.logs = snapshot.docs.map(d => d.data());
       notify();
     });
     unsubscribers.push(logsUnsub);
 
     // 4. Listen to Observations Collection
-    const obsUnsub = onSnapshot(query(collection(db, 'protrack', 'user_data', 'observations')), (snapshot) => {
+    const obsUnsub = onSnapshot(query(collection(firestore, 'protrack', 'user_data', 'observations')), (snapshot) => {
       localCache.observations = snapshot.docs.map(d => d.data());
       notify();
     });
@@ -145,6 +147,7 @@ export const subscribeToData = (
 // New Granular Sync Function
 export const syncData = async (actions: SyncAction[]) => {
   if (!db) return;
+  const firestore = db;
   
   if (actions.length === 0) return;
 
@@ -154,14 +157,14 @@ export const syncData = async (actions: SyncAction[]) => {
       if (fullOverwrite.data) {
           // This is expensive, but rare (Restore Backup)
           const data = fullOverwrite.data;
-          const batch = writeBatch(db);
+          const batch = writeBatch(firestore);
           
           // We will just upsert.
-          data.tasks?.forEach((t: any) => batch.set(doc(db!, 'protrack', 'user_data', 'tasks', t.id), t));
-          data.logs?.forEach((l: any) => batch.set(doc(db!, 'protrack', 'user_data', 'logs', l.id), l));
-          data.observations?.forEach((o: any) => batch.set(doc(db!, 'protrack', 'user_data', 'observations', o.id), o));
+          data.tasks?.forEach((t: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'tasks', t.id), t));
+          data.logs?.forEach((l: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'logs', l.id), l));
+          data.observations?.forEach((o: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'observations', o.id), o));
           
-          batch.set(doc(db, 'protrack', 'user_data'), { 
+          batch.set(doc(firestore, 'protrack', 'user_data'), { 
               offDays: data.offDays || [],
               appConfig: data.appConfig || {}
           }, { merge: true });
@@ -171,7 +174,7 @@ export const syncData = async (actions: SyncAction[]) => {
       return;
   }
 
-  const batch = writeBatch(db);
+  const batch = writeBatch(firestore);
 
   actions.forEach(action => {
     let collectionName = '';
@@ -180,14 +183,14 @@ export const syncData = async (actions: SyncAction[]) => {
     if (action.type === 'observation') collectionName = 'observations';
 
     if (collectionName) {
-        const ref = doc(db!, 'protrack', 'user_data', collectionName, action.id!);
+        const ref = doc(firestore, 'protrack', 'user_data', collectionName, action.id!);
         if (action.action === 'delete') {
             batch.delete(ref);
         } else {
             batch.set(ref, action.data, { merge: true });
         }
     } else if (action.type === 'offDays' || action.type === 'config') {
-        const ref = doc(db!, 'protrack', 'user_data');
+        const ref = doc(firestore, 'protrack', 'user_data');
         if (action.type === 'offDays') batch.set(ref, { offDays: action.data }, { merge: true });
         if (action.type === 'config') batch.set(ref, { appConfig: action.data }, { merge: true });
     }
