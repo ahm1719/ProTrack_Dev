@@ -58,7 +58,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V3.9 - Cloud Sync+";
+const BUILD_VERSION = "V3.9.1 - Recurrence Fix";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -375,60 +375,70 @@ const App: React.FC = () => {
     setView(ViewMode.TASKS);
   };
 
-  const handleRecurringTaskCompletion = (task: Task): Task | null => {
-    if (!task.recurrence || !task.dueDate) return null;
-
-    const { type, interval } = task.recurrence;
-    const currentDue = new Date(task.dueDate);
-    let nextDue = new Date(currentDue);
-
-    if (type === 'daily') nextDue.setDate(currentDue.getDate() + interval);
-    if (type === 'weekly') nextDue.setDate(currentDue.getDate() + (interval * 7));
-    if (type === 'monthly') nextDue.setMonth(currentDue.getMonth() + interval);
-    if (type === 'yearly') nextDue.setFullYear(currentDue.getFullYear() + interval);
-
-    // Generate new ID
-    let newDisplayId = task.displayId;
-    const match = task.displayId.match(/^(.*?)(\d+)$/);
-    if (match) {
-        let prefix = match[1];
-        let num = parseInt(match[2]);
-        let nextNum = num + 1;
-        while (tasks.some(t => t.displayId === `${prefix}${nextNum}`)) {
-            nextNum++;
-        }
-        newDisplayId = `${prefix}${nextNum}`;
-    } else {
-        let counter = 2;
-        while (tasks.some(t => t.displayId === `${task.displayId}-${counter}`)) {
-            counter++;
-        }
-        newDisplayId = `${task.displayId}-${counter}`;
-    }
-
-    const newTask: Task = {
-        ...task,
-        id: uuidv4(),
-        displayId: newDisplayId,
-        status: Status.NOT_STARTED, 
-        dueDate: nextDue.toISOString().split('T')[0],
-        updates: [], 
-        subtasks: task.subtasks?.map(st => ({...st, completed: false, completedAt: undefined})),
-        createdAt: new Date().toISOString()
-    };
-    
-    return newTask;
+  const calculateNextDate = (currentDateStr: string, type: string, interval: number): string => {
+      // Robust local date calculation avoiding UTC shifts
+      const [y, m, d] = currentDateStr.split('-').map(Number);
+      const date = new Date(y, m - 1, d); // Construct local date at 00:00:00
+      
+      if (type === 'daily') date.setDate(date.getDate() + interval);
+      if (type === 'weekly') date.setDate(date.getDate() + (interval * 7));
+      if (type === 'monthly') date.setMonth(date.getMonth() + interval);
+      if (type === 'yearly') date.setFullYear(date.getFullYear() + interval);
+      
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   };
 
   const updateTaskStatus = (id: string, newStatus: string) => {
     const task = tasks.find(t => t.id === id);
     if (!task || task.status === newStatus) return;
 
+    // Recurrence Handling: "Rollover" strategy
+    if (newStatus === Status.DONE && task.recurrence && task.dueDate) {
+        const nextDate = calculateNextDate(task.dueDate, task.recurrence.type, task.recurrence.interval);
+        
+        const timestamp = new Date().toISOString();
+        const dateStr = timestamp.split('T')[0];
+        
+        const recurLog = {
+            id: uuidv4(),
+            date: dateStr,
+            taskId: task.id,
+            content: `Completed cycle. Rescheduled from ${task.dueDate} to ${nextDate}`
+        };
+
+        const updatedTask = {
+            ...task,
+            status: Status.NOT_STARTED, // Reset status
+            dueDate: nextDate, // Advance date
+            updates: [...task.updates, {
+                id: uuidv4(),
+                timestamp,
+                content: `Completed recurrence cycle. Due date advanced: ${task.dueDate} → ${nextDate}`,
+                highlightColor: '#10b981'
+            }],
+            subtasks: task.subtasks?.map(st => ({...st, completed: false, completedAt: undefined})) // Reset subtasks
+        };
+
+        const actions: SyncAction[] = [
+            { type: 'task', action: 'update', id: updatedTask.id, data: updatedTask },
+            { type: 'log', action: 'create', id: recurLog.id, data: recurLog }
+        ];
+
+        persistData(
+            tasks.map(t => t.id === id ? updatedTask : t), 
+            [...logs, recurLog], 
+            observations, 
+            offDays, 
+            actions
+        );
+        return; // Exit early, do not perform standard status update
+    }
+
+    // Normal Status Update
     const oldStatus = task.status;
     const content = `Status: ${oldStatus} → ${newStatus}`;
     const timestamp = new Date().toISOString();
     const dateStr = timestamp.split('T')[0];
-    
     const systemUpdateColor = '#6366f1';
 
     const updatedTask = { 
@@ -442,39 +452,25 @@ const App: React.FC = () => {
         }]
     };
 
-    let updatedTasks = tasks.map(t => t.id === id ? updatedTask : t);
-
     const newLog = { 
         id: uuidv4(), 
         date: dateStr, 
         taskId: id, 
         content 
     };
-    const newLogs = [...logs, newLog];
 
     const actions: SyncAction[] = [
         { type: 'task', action: 'update', id: updatedTask.id, data: updatedTask },
         { type: 'log', action: 'create', id: newLog.id, data: newLog }
     ];
 
-    // Check for Recurrence Trigger
-    if (newStatus === Status.DONE && task.recurrence) {
-        const nextTask = handleRecurringTaskCompletion(task);
-        if (nextTask) {
-            updatedTasks = [...updatedTasks, nextTask];
-            const recurLog = {
-                id: uuidv4(),
-                date: dateStr,
-                taskId: nextTask.id,
-                content: `Recurring task created from ${task.displayId}`
-            };
-            newLogs.push(recurLog);
-            actions.push({ type: 'task', action: 'create', id: nextTask.id, data: nextTask });
-            actions.push({ type: 'log', action: 'create', id: recurLog.id, data: recurLog });
-        }
-    }
-
-    persistData(updatedTasks, newLogs, observations, offDays, actions);
+    persistData(
+        tasks.map(t => t.id === id ? updatedTask : t), 
+        [...logs, newLog], 
+        observations, 
+        offDays, 
+        actions
+    );
   };
 
   const updateTaskFields = (id: string, fields: Partial<Task>) => {
