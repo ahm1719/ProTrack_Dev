@@ -159,3 +159,11 @@ export interface FileSystemWritableFileStream extends WritableStream {
   write(data: any): Promise<void>;
   close(): Promise<void>;
 }
+
+// --- Sync Types ---
+export interface SyncAction {
+  type: 'task' | 'log' | 'observation' | 'offDays' | 'config' | 'full';
+  action: 'create' | 'update' | 'delete' | 'overwrite';
+  id?: string;
+  data?: any;
+}

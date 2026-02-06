@@ -36,7 +36,8 @@ import {
   TaskAttachment,
   BackupSettings,
   FileSystemDirectoryHandle,
-  RecurrenceConfig
+  RecurrenceConfig,
+  SyncAction
 } from './types';
 
 import TaskCard from './components/TaskCard';
@@ -48,7 +49,7 @@ import AIChat from './components/AIChat';
 import UserManual from './components/UserManual';
 import { FullLogo } from './components/Branding';
 
-import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
+import { subscribeToData, syncData, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 import { 
   selectBackupFolder, 
@@ -57,7 +58,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V3.8";
+const BUILD_VERSION = "V3.9 - Cloud Sync+";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -228,10 +229,11 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isSyncEnabled) {
       const unsubscribe = subscribeToData((data: any) => {
-        setTasks(data.tasks || []);
-        setLogs(data.logs || []);
-        setObservations(data.observations || []);
+        if (data.tasks) setTasks(data.tasks);
+        if (data.logs) setLogs(data.logs);
+        if (data.observations) setObservations(data.observations);
         if (data.offDays) setOffDays(data.offDays);
+        if (data.appConfig) setAppConfig(prev => ({ ...prev, ...data.appConfig }));
       });
       return () => { if (unsubscribe) unsubscribe(); };
     }
@@ -291,13 +293,23 @@ const App: React.FC = () => {
       }
   }, [highlightedTaskId, view]);
 
-  const persistData = (newTasks: Task[], newLogs: DailyLog[], newObs: Observation[], newOffDays: string[]) => {
+  // Enhanced persistData to handle granular sync actions
+  const persistData = (
+      newTasks: Task[], 
+      newLogs: DailyLog[], 
+      newObs: Observation[], 
+      newOffDays: string[],
+      syncActions?: SyncAction[]
+  ) => {
     setTasks(newTasks);
     setLogs(newLogs);
     setObservations(newObs);
     setOffDays(newOffDays);
     localStorage.setItem('protrack_data', JSON.stringify({ tasks: newTasks, logs: newLogs, observations: newObs, offDays: newOffDays }));
-    if (isSyncEnabled) saveDataToCloud({ tasks: newTasks, logs: newLogs, observations: newObs, offDays: newOffDays });
+    
+    if (isSyncEnabled && syncActions && syncActions.length > 0) {
+        syncData(syncActions);
+    }
   };
 
   const activeProjects = useMemo(() => {
@@ -344,9 +356,10 @@ const App: React.FC = () => {
       updates: [],
       createdAt: new Date().toISOString()
     };
-    persistData([...tasks, newTask], logs, observations, offDays);
-    setHighlightedTaskId(newTask.id); // Triggers scroll
-    setActiveTaskId(newTask.id); // Opens Modal immediately for editing
+    persistData([...tasks, newTask], logs, observations, offDays, [{ type: 'task', action: 'create', id: newTask.id, data: newTask }]);
+    
+    setHighlightedTaskId(newTask.id); 
+    setActiveTaskId(newTask.id); 
     setShowNewTaskModal(false);
     setNewTaskForm({
       source: `CW${getWeekNumber(new Date())}`,
@@ -381,13 +394,11 @@ const App: React.FC = () => {
         let prefix = match[1];
         let num = parseInt(match[2]);
         let nextNum = num + 1;
-        // Simple collision avoidance
         while (tasks.some(t => t.displayId === `${prefix}${nextNum}`)) {
             nextNum++;
         }
         newDisplayId = `${prefix}${nextNum}`;
     } else {
-        // Fallback if no numeric suffix
         let counter = 2;
         while (tasks.some(t => t.displayId === `${task.displayId}-${counter}`)) {
             counter++;
@@ -399,7 +410,7 @@ const App: React.FC = () => {
         ...task,
         id: uuidv4(),
         displayId: newDisplayId,
-        status: Status.NOT_STARTED, // Reset status
+        status: Status.NOT_STARTED, 
         dueDate: nextDue.toISOString().split('T')[0],
         updates: [], 
         subtasks: task.subtasks?.map(st => ({...st, completed: false, completedAt: undefined})),
@@ -420,42 +431,56 @@ const App: React.FC = () => {
     
     const systemUpdateColor = '#6366f1';
 
-    let updatedTasks = tasks.map(t => t.id === id ? { 
-        ...t, 
+    const updatedTask = { 
+        ...task, 
         status: newStatus,
-        updates: [...t.updates, { 
+        updates: [...task.updates, { 
             id: uuidv4(), 
             timestamp, 
             content,
             highlightColor: systemUpdateColor 
         }]
-    } : t);
+    };
 
-    const newLogs = [...logs, { 
+    let updatedTasks = tasks.map(t => t.id === id ? updatedTask : t);
+
+    const newLog = { 
         id: uuidv4(), 
         date: dateStr, 
         taskId: id, 
         content 
-    }];
+    };
+    const newLogs = [...logs, newLog];
+
+    const actions: SyncAction[] = [
+        { type: 'task', action: 'update', id: updatedTask.id, data: updatedTask },
+        { type: 'log', action: 'create', id: newLog.id, data: newLog }
+    ];
 
     // Check for Recurrence Trigger
     if (newStatus === Status.DONE && task.recurrence) {
         const nextTask = handleRecurringTaskCompletion(task);
         if (nextTask) {
             updatedTasks = [...updatedTasks, nextTask];
-            newLogs.push({
+            const recurLog = {
                 id: uuidv4(),
                 date: dateStr,
                 taskId: nextTask.id,
                 content: `Recurring task created from ${task.displayId}`
-            });
+            };
+            newLogs.push(recurLog);
+            actions.push({ type: 'task', action: 'create', id: nextTask.id, data: nextTask });
+            actions.push({ type: 'log', action: 'create', id: recurLog.id, data: recurLog });
         }
     }
 
-    persistData(updatedTasks, newLogs, observations, offDays);
+    persistData(updatedTasks, newLogs, observations, offDays, actions);
   };
 
   const updateTaskFields = (id: string, fields: Partial<Task>) => {
+    const currentTask = tasks.find(t => t.id === id);
+    if (!currentTask) return;
+
     if (fields.displayId) {
        const isDuplicate = tasks.some(t => t.id !== id && t.displayId.toLowerCase() === fields.displayId?.toLowerCase());
        if (isDuplicate) {
@@ -463,95 +488,122 @@ const App: React.FC = () => {
           return;
        }
     }
-    const updated = tasks.map(t => t.id === id ? { ...t, ...fields } : t);
-    persistData(updated, logs, observations, offDays);
+    const updatedTask = { ...currentTask, ...fields };
+    const updatedTasks = tasks.map(t => t.id === id ? updatedTask : t);
+    persistData(updatedTasks, logs, observations, offDays, [{ type: 'task', action: 'update', id: updatedTask.id, data: updatedTask }]);
   };
 
   const addUpdateToTask = (id: string, content: string, attachments?: TaskAttachment[], highlightColor?: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+
     const timestamp = new Date().toISOString();
     const updateId = uuidv4();
-    const updated = tasks.map(t => t.id === id ? { 
-        ...t, 
-        attachments: attachments ? [...(t.attachments || []), ...attachments] : t.attachments,
-        updates: [...t.updates, { id: updateId, timestamp, content, highlightColor }]
-    } : t);
+    const updatedTask = { 
+        ...task, 
+        attachments: attachments ? [...(task.attachments || []), ...attachments] : task.attachments,
+        updates: [...task.updates, { id: updateId, timestamp, content, highlightColor }]
+    };
+    
+    const updatedTasks = tasks.map(t => t.id === id ? updatedTask : t);
     const newLog: DailyLog = { id: uuidv4(), date: new Date().toLocaleDateString('en-CA'), taskId: id, content };
-    persistData(updated, [...logs, newLog], observations, offDays);
+    
+    persistData(updatedTasks, [...logs, newLog], observations, offDays, [
+        { type: 'task', action: 'update', id: updatedTask.id, data: updatedTask },
+        { type: 'log', action: 'create', id: newLog.id, data: newLog }
+    ]);
   };
 
   const handleEditUpdate = (taskId: string, updateId: string, content: string, timestamp?: string, highlightColor?: string | null) => {
-    const newTasks = tasks.map(t => {
-      if (t.id === taskId) {
-        return {
-          ...t,
-          updates: t.updates.map(u => u.id === updateId ? { 
-              ...u, 
-              content, 
-              timestamp: timestamp || u.timestamp, 
-              highlightColor: highlightColor === null ? undefined : highlightColor 
-          } : u)
-        };
-      }
-      return t;
-    });
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
 
+    const updatedTask = {
+      ...task,
+      updates: task.updates.map(u => u.id === updateId ? { 
+          ...u, 
+          content, 
+          timestamp: timestamp || u.timestamp, 
+          highlightColor: highlightColor === null ? undefined : highlightColor 
+      } : u)
+    };
+
+    const newTasks = tasks.map(t => t.id === taskId ? updatedTask : t);
+
+    // Also update log if it matches content
+    let logAction: SyncAction | undefined;
     const newLogs = logs.map(l => {
       if (l.taskId === taskId) {
-        const originalTask = tasks.find(t => t.id === taskId);
-        const originalUpdate = originalTask?.updates.find(u => u.id === updateId);
+        const originalUpdate = task.updates.find(u => u.id === updateId);
         if (l.content === originalUpdate?.content) {
-            return { 
+            const updatedLog = { 
                 ...l, 
                 content, 
                 date: timestamp ? timestamp.split('T')[0] : l.date 
             };
+            logAction = { type: 'log', action: 'update', id: updatedLog.id, data: updatedLog };
+            return updatedLog;
         }
       }
       return l;
     });
 
-    persistData(newTasks, newLogs, observations, offDays);
+    const actions: SyncAction[] = [{ type: 'task', action: 'update', id: updatedTask.id, data: updatedTask }];
+    if (logAction) actions.push(logAction);
+
+    persistData(newTasks, newLogs, observations, offDays, actions);
   };
 
   const handleDeleteUpdate = (taskId: string, updateId: string) => {
     if (!confirm('Delete this history record?')) return;
     
     const task = tasks.find(t => t.id === taskId);
-    const update = task?.updates.find(u => u.id === updateId);
+    if (!task) return;
+    const update = task.updates.find(u => u.id === updateId);
     
-    const newTasks = tasks.map(t => {
-      if (t.id === taskId) {
-        return { ...t, updates: t.updates.filter(u => u.id !== updateId) };
-      }
-      return t;
+    const updatedTask = { ...task, updates: task.updates.filter(u => u.id !== updateId) };
+    const newTasks = tasks.map(t => t.id === taskId ? updatedTask : t);
+
+    // Find and delete associated log
+    let logIdToDelete: string | undefined;
+    const newLogs = logs.filter(l => {
+        const isMatch = l.taskId === taskId && l.content === update?.content;
+        if (isMatch) logIdToDelete = l.id;
+        return !isMatch;
     });
 
-    const newLogs = logs.filter(l => !(l.taskId === taskId && l.content === update?.content));
-    persistData(newTasks, newLogs, observations, offDays);
+    const actions: SyncAction[] = [{ type: 'task', action: 'update', id: updatedTask.id, data: updatedTask }];
+    if (logIdToDelete) actions.push({ type: 'log', action: 'delete', id: logIdToDelete });
+
+    persistData(newTasks, newLogs, observations, offDays, actions);
   };
 
   const deleteTask = (id: string) => {
-    // Confirmation handled in modal now, but kept here for safety
-    persistData(tasks.filter(t => t.id !== id), logs, observations, offDays);
+    persistData(tasks.filter(t => t.id !== id), logs, observations, offDays, [{ type: 'task', action: 'delete', id }]);
   };
 
   const handleEditLog = (logId: string, taskId: string, content: string, date: string) => {
-    const newLogs = logs.map(l => l.id === logId ? { ...l, taskId, content, date } : l);
-    persistData(tasks, newLogs, observations, offDays);
+    const updatedLog = { id: logId, taskId, content, date };
+    const newLogs = logs.map(l => l.id === logId ? updatedLog : l);
+    persistData(tasks, newLogs, observations, offDays, [{ type: 'log', action: 'update', id: logId, data: updatedLog }]);
   };
 
   const handleDeleteLog = (logId: string) => {
     if (confirm('Delete this journal entry?')) {
       const newLogs = logs.filter(l => l.id !== logId);
-      persistData(tasks, newLogs, observations, offDays);
+      persistData(tasks, newLogs, observations, offDays, [{ type: 'log', action: 'delete', id: logId }]);
     }
   };
 
   const handleUpdateAppConfig = (newConfig: AppConfig) => {
     setAppConfig(newConfig);
     localStorage.setItem('protrack_app_config', JSON.stringify(newConfig));
+    if (isSyncEnabled) {
+        syncData([{ type: 'config', action: 'update', data: newConfig }]);
+    }
   };
 
+  // Drag and Drop handlers...
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     setDraggedTaskId(taskId);
     e.dataTransfer.setData("text/plain", taskId);
@@ -589,14 +641,20 @@ const App: React.FC = () => {
     const orderMap = new Map();
     newList.forEach((t, index) => orderMap.set(t.id, index));
 
+    const syncActions: SyncAction[] = [];
     const newTasks = tasks.map(t => {
         if (orderMap.has(t.id)) {
-            return { ...t, order: orderMap.get(t.id) };
+            const newOrder = orderMap.get(t.id);
+            if (t.order !== newOrder) {
+                const updated = { ...t, order: newOrder };
+                syncActions.push({ type: 'task', action: 'update', id: updated.id, data: updated });
+                return updated;
+            }
         }
         return t;
     });
 
-    persistData(newTasks, logs, observations, offDays);
+    persistData(newTasks, logs, observations, offDays, syncActions);
     setDraggedTaskId(null);
   };
 
@@ -620,6 +678,7 @@ const App: React.FC = () => {
     }
   };
 
+  // View Helpers
   const todayStr = new Date().toLocaleDateString('en-CA');
   
   const weeklyFocusCount = useMemo(() => {
@@ -654,7 +713,6 @@ const App: React.FC = () => {
 
   const weekTasks = useMemo(() => {
     const map: Record<string, Task[]> = {};
-    
     const getWeight = (p: string) => {
         if (p === Priority.HIGH) return 3;
         if (p === Priority.MEDIUM) return 2;
@@ -707,7 +765,6 @@ const App: React.FC = () => {
 
   const getStatusColorHex = (s: string) => {
       if (appConfig.itemColors && appConfig.itemColors[s]) return appConfig.itemColors[s];
-      
       if (s === Status.DONE) return '#10b981';
       if (s === Status.IN_PROGRESS) return '#3b82f6';
       if (s === Status.WAITING) return '#f59e0b';
@@ -992,10 +1049,16 @@ const App: React.FC = () => {
                         <DailyJournal 
                             tasks={tasks} 
                             logs={logs} 
-                            onAddLog={(l) => persistData(tasks, [...logs, { ...l, id: uuidv4() }], observations, offDays)} 
+                            onAddLog={(l) => {
+                                const newLog = { ...l, id: uuidv4() };
+                                persistData(tasks, [...logs, newLog], observations, offDays, [{ type: 'log', action: 'create', id: newLog.id, data: newLog }]);
+                            }} 
                             onUpdateTask={updateTaskFields} 
                             offDays={offDays} 
-                            onToggleOffDay={(d) => persistData(tasks, logs, observations, offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d])}
+                            onToggleOffDay={(d) => {
+                                const newOffDays = offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d];
+                                persistData(tasks, logs, observations, newOffDays, [{ type: 'offDays', action: 'update', data: newOffDays }]);
+                            }}
                             onEditLog={handleEditLog}
                             onDeleteLog={handleDeleteLog}
                             searchQuery={searchQuery}
@@ -1112,9 +1175,9 @@ const App: React.FC = () => {
         return (
             <ObservationsLog 
                 observations={observations} 
-                onAddObservation={o => persistData(tasks, logs, [...observations, o], offDays)} 
-                onEditObservation={o => persistData(tasks, logs, observations.map(x => x.id === o.id ? o : x), offDays)} 
-                onDeleteObservation={id => persistData(tasks, logs, observations.filter(x => x.id !== id), offDays)} 
+                onAddObservation={o => persistData(tasks, logs, [...observations, o], offDays, [{ type: 'observation', action: 'create', id: o.id, data: o }])} 
+                onEditObservation={o => persistData(tasks, logs, observations.map(x => x.id === o.id ? o : x), offDays, [{ type: 'observation', action: 'update', id: o.id, data: o }])} 
+                onDeleteObservation={id => persistData(tasks, logs, observations.filter(x => x.id !== id), offDays, [{ type: 'observation', action: 'delete', id: id }])} 
                 columns={appConfig.observationStatuses} 
                 itemColors={appConfig.itemColors} 
             />
@@ -1126,12 +1189,12 @@ const App: React.FC = () => {
             logs={logs} 
             observations={observations}
             offDays={offDays} 
-            onImportData={(d) => persistData(d.tasks, d.logs, d.observations, d.offDays || [])} 
+            onImportData={(d) => persistData(d.tasks, d.logs, d.observations, d.offDays || [], [{ type: 'full', action: 'overwrite', data: d }])} 
             onSyncConfigUpdate={c => setIsSyncEnabled(!!c)} 
             isSyncEnabled={isSyncEnabled} 
             appConfig={appConfig} 
             onUpdateConfig={handleUpdateAppConfig} 
-            onPurgeData={(newTasks: Task[], newLogs: DailyLog[]) => persistData(newTasks, newLogs, observations, offDays)} 
+            onPurgeData={(newTasks: Task[], newLogs: DailyLog[]) => persistData(newTasks, newLogs, observations, offDays, [{ type: 'full', action: 'overwrite', data: { tasks: newTasks, logs: newLogs, observations, offDays, appConfig } }])} 
             backupSettings={backupSettings}
             setBackupSettings={setBackupSettings}
             onSetupBackupFolder={handleSetupBackupFolder}
