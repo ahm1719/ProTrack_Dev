@@ -19,7 +19,10 @@ import {
   Calendar,
   Briefcase,
   Repeat,
-  Maximize2
+  Maximize2,
+  FileText,
+  StickyNote,
+  ArrowRight
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -57,7 +60,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.0.1 - Data Safety Fix";
+const BUILD_VERSION = "V4.2.0 - Global Search";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -103,6 +106,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<ViewMode>(ViewMode.DASHBOARD);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
   const [activeTaskTab, setActiveTaskTab] = useState<'current' | 'future' | 'completed'>('current');
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -116,6 +120,8 @@ const App: React.FC = () => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+
+  const searchRef = useRef<HTMLDivElement>(null);
 
   // --- Add Missing States ---
   const [newTaskForm, setNewTaskForm] = useState({
@@ -143,6 +149,32 @@ const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('protrack_theme') === 'dark');
 
   const activeTask = useMemo(() => tasks.find(t => t.id === activeTaskId), [tasks, activeTaskId]);
+
+  // --- Global Search Logic ---
+  const globalSearchResults = useMemo(() => {
+    if (!searchQuery.trim() || searchQuery.length < 2) return null;
+    const q = searchQuery.toLowerCase();
+
+    const matchedTasks = tasks.filter(t => 
+      t.displayId.toLowerCase().includes(q) ||
+      t.projectId.toLowerCase().includes(q) ||
+      t.description.toLowerCase().includes(q) ||
+      t.updates.some(u => u.content.toLowerCase().includes(q))
+    ).slice(0, 10);
+
+    const matchedLogs = logs.filter(l => 
+      l.content.toLowerCase().includes(q)
+    ).slice(0, 10);
+
+    const matchedObs = observations.filter(o => 
+      o.content.toLowerCase().includes(q)
+    ).slice(0, 10);
+
+    const total = matchedTasks.length + matchedLogs.length + matchedObs.length;
+    if (total === 0) return null;
+
+    return { tasks: matchedTasks, logs: matchedLogs, observations: matchedObs };
+  }, [searchQuery, tasks, logs, observations]);
 
   // --- Add Missing Helper Functions ---
   const activeProjects = useMemo(() => {
@@ -175,19 +207,29 @@ const App: React.FC = () => {
     else { document.documentElement.classList.remove('dark'); localStorage.setItem('protrack_theme', 'light'); }
   }, [isDarkMode]);
 
-  // Handle global Escape key to close modals
+  // Handle global Escape key to close modals and search
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (expandedDay) setExpandedDay(null);
+        if (showSearchResults) setShowSearchResults(false);
+        else if (expandedDay) setExpandedDay(null);
         else if (showReportModal) setShowReportModal(false);
         else if (showNewTaskModal) setShowNewTaskModal(false);
         else if (activeTaskId) setActiveTaskId(null);
       }
     };
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setShowSearchResults(false);
+      }
+    };
     window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, [expandedDay, showReportModal, showNewTaskModal, activeTaskId]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [expandedDay, showReportModal, showNewTaskModal, activeTaskId, showSearchResults]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -457,9 +499,8 @@ const App: React.FC = () => {
     if (isSyncEnabled) syncData([{ type: 'config', action: 'update', data: newConfig }]);
   };
 
-  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+  const handleDragStart = (name: string, taskId: string) => {
     setDraggedTaskId(taskId);
-    e.dataTransfer.setData("text/plain", taskId);
   };
 
   const handleDrop = (e: React.DragEvent, targetTaskId: string, dateStr: string) => {
@@ -545,6 +586,25 @@ const App: React.FC = () => {
       return '#cbd5e1'; 
   };
 
+  const handleSearchResultClick = (type: 'task' | 'obs' | 'log', id: string) => {
+    setShowSearchResults(false);
+    setSearchQuery('');
+    
+    if (type === 'task') {
+      setActiveTaskId(id);
+    } else if (type === 'obs') {
+      setView(ViewMode.OBSERVATIONS);
+      // Logic to highlight specific obs could be added here if needed
+    } else if (type === 'log') {
+      const log = logs.find(l => l.id === id);
+      if (log && log.taskId) {
+        setActiveTaskId(log.taskId);
+      } else {
+        setView(ViewMode.TASKS);
+      }
+    }
+  };
+
   const renderContent = () => {
     switch (view) {
       case ViewMode.DASHBOARD:
@@ -590,7 +650,7 @@ const App: React.FC = () => {
              <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-56">
                 {weekDays.map(d => {
                     const dayTasks = weekTasks[d] || [], activeCount = dayTasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED).length;
-                    return (<div key={d} className={`min-w-[280px] w-[280px] p-4 rounded-2xl border flex flex-col transition-all ${d === todayStr ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-100 shadow-md scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'}`}><div className="flex justify-between items-start mb-3 border-b pb-2 border-slate-100 dark:border-slate-700"><div><span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span><span className="text-lg font-bold text-slate-800 dark:text-slate-100">{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span></div><div className="flex items-center gap-2">{activeCount > 0 && <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded-full">{activeCount}</span>}<button onClick={(e) => { e.stopPropagation(); setExpandedDay(d); }} className="hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 p-1 rounded transition-colors" title="Expand Day"><Maximize2 size={14} /></button></div></div><div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">{dayTasks.map(t => (<div key={t.id} draggable="true" onDragStart={(e) => handleDragStart(e, t.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, t.id, d)} onClick={() => setActiveTaskId(t.id)} className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 cursor-pointer select-none transition-all ${t.status === Status.DONE ? 'bg-emerald-50 dark:bg-emerald-900/20 opacity-70' : 'bg-white dark:bg-slate-800'} border-slate-200 dark:border-slate-700`}><div className="flex justify-between items-center mb-1"><span className="font-mono font-bold flex items-center gap-1">{t.displayId} {t.recurrence && <Repeat size={10} className="text-indigo-400" />}</span></div><p className="line-clamp-2 leading-tight">{t.description}</p></div>))}</div></div>);
+                    return (<div key={d} className={`min-w-[280px] w-[280px] p-4 rounded-2xl border flex flex-col transition-all ${d === todayStr ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-100 shadow-md scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'}`}><div className="flex justify-between items-start mb-3 border-b pb-2 border-slate-100 dark:border-slate-700"><div><span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span><span className="text-lg font-bold text-slate-800 dark:text-slate-100">{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span></div><div className="flex items-center gap-2">{activeCount > 0 && <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded-full">{activeCount}</span>}<button onClick={(e) => { e.stopPropagation(); setExpandedDay(d); }} className="hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 p-1 rounded transition-colors" title="Expand Day"><Maximize2 size={14} /></button></div></div><div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">{dayTasks.map(t => (<div key={t.id} draggable="true" onDragStart={() => handleDragStart('name', t.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, t.id, d)} onClick={() => setActiveTaskId(t.id)} className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 cursor-pointer select-none transition-all ${t.status === Status.DONE ? 'bg-emerald-50 dark:bg-emerald-900/20 opacity-70' : 'bg-white dark:bg-slate-800'} border-slate-200 dark:border-slate-700`}><div className="flex justify-between items-center mb-1"><span className="font-mono font-bold flex items-center gap-1">{t.displayId} {t.recurrence && <Repeat size={10} className="text-indigo-400" />}</span></div><p className="line-clamp-2 leading-tight">{t.description}</p></div>))}</div></div>);
                 })}
              </div>
              <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -622,9 +682,94 @@ const App: React.FC = () => {
         <div className="p-4 border-t border-slate-200 dark:border-slate-800"><button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg w-full flex justify-center">{isSidebarOpen ? <LogOut size={20} className="rotate-180" /> : <Menu size={20} />}</button></div>
       </aside>
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <div className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 shrink-0 z-10">
-           <div className="relative max-w-md w-full"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Search..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-10 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm outline-none dark:text-slate-200" /></div>
-           <div className="flex items-center gap-4"><div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div><span className="text-[10px] font-bold text-slate-400 uppercase">{isSyncEnabled ? 'Cloud Synced' : 'Local Only'}</span></div></div>
+        <div className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 shrink-0 z-30">
+           <div ref={searchRef} className="relative max-w-md w-full">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Global Search (Tasks, Logs, Observations)..." 
+                value={searchQuery} 
+                onFocus={() => setShowSearchResults(true)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setShowSearchResults(true);
+                }} 
+                className="w-full pl-10 pr-10 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm outline-none dark:text-slate-200 transition-all focus:ring-2 focus:ring-indigo-500" 
+              />
+              
+              {/* Global Search Results Dropdown */}
+              {showSearchResults && globalSearchResults && (
+                <div className="absolute top-full left-0 w-[500px] mt-2 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50 animate-fade-in flex flex-col max-h-[70vh]">
+                    <div className="p-3 border-b dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 flex justify-between items-center shrink-0">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Search Results for "{searchQuery}"</span>
+                        <button onClick={() => setShowSearchResults(false)} className="text-slate-400 hover:text-slate-600"><X size={14}/></button>
+                    </div>
+                    <div className="overflow-y-auto p-2 space-y-4 custom-scrollbar">
+                        {/* Tasks Category */}
+                        {globalSearchResults.tasks.length > 0 && (
+                          <div className="space-y-1">
+                            <h4 className="px-3 py-1 text-[9px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-tighter flex items-center gap-2">
+                                <ListTodo size={12}/> Tasks
+                            </h4>
+                            {globalSearchResults.tasks.map(t => (
+                              <button key={t.id} onClick={() => handleSearchResultClick('task', t.id)} className="w-full text-left p-3 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all group flex gap-3 items-start">
+                                  <div className="bg-indigo-100 dark:bg-indigo-900/50 p-2 rounded-lg text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform shrink-0"><FileText size={16}/></div>
+                                  <div className="min-w-0">
+                                      <div className="flex items-center gap-2 mb-0.5">
+                                          <span className="text-xs font-black font-mono text-indigo-600 dark:text-indigo-400">{t.displayId}</span>
+                                          <span className="text-[10px] text-slate-400 font-bold uppercase shrink-0">{t.projectId}</span>
+                                      </div>
+                                      <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1">{t.description}</p>
+                                  </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Logs Category */}
+                        {globalSearchResults.logs.length > 0 && (
+                          <div className="space-y-1">
+                            <h4 className="px-3 py-1 text-[9px] font-black text-emerald-500 dark:text-emerald-400 uppercase tracking-tighter flex items-center gap-2">
+                                <Clock size={12}/> Journal Logs
+                            </h4>
+                            {globalSearchResults.logs.map(l => (
+                              <button key={l.id} onClick={() => handleSearchResultClick('log', l.id)} className="w-full text-left p-3 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-xl transition-all group flex gap-3 items-start">
+                                  <div className="bg-emerald-100 dark:bg-emerald-900/50 p-2 rounded-lg text-emerald-600 dark:text-emerald-400 shrink-0"><Clock size={16}/></div>
+                                  <div className="min-w-0">
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">{l.date}</span>
+                                      <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">{l.content}</p>
+                                  </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Observations Category */}
+                        {globalSearchResults.observations.length > 0 && (
+                          <div className="space-y-1">
+                            <h4 className="px-3 py-1 text-[9px] font-black text-purple-500 dark:text-purple-400 uppercase tracking-tighter flex items-center gap-2">
+                                <StickyNote size={12}/> Observations
+                            </h4>
+                            {globalSearchResults.observations.map(o => (
+                              <button key={o.id} onClick={() => handleSearchResultClick('obs', o.id)} className="w-full text-left p-3 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-xl transition-all group flex gap-3 items-start">
+                                  <div className="bg-purple-100 dark:bg-purple-900/50 p-2 rounded-lg text-purple-600 dark:text-purple-400 shrink-0"><MessageSquare size={16}/></div>
+                                  <div className="min-w-0">
+                                      <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">{o.content}</p>
+                                  </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                    </div>
+                </div>
+              )}
+           </div>
+           <div className="flex items-center gap-4">
+             <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">{isSyncEnabled ? 'Cloud Synced' : 'Local Only'}</span>
+             </div>
+           </div>
         </div>
         <div className="flex-1 overflow-auto p-6 bg-slate-50 dark:bg-slate-950 custom-scrollbar relative transition-colors duration-300">{renderContent()}</div>
         
