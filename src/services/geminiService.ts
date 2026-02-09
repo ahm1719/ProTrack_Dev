@@ -1,6 +1,8 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { Task, DailyLog, ChatMessage, Observation, AppConfig } from "../types";
 
+// Helper to get the start of the current week (Monday)
 const getStartOfWeek = (date: Date) => {
   const d = new Date(date);
   const day = d.getDay();
@@ -8,34 +10,14 @@ const getStartOfWeek = (date: Date) => {
   return new Date(d.setDate(diff));
 };
 
-const getApiKey = () => {
-  // 1. Check Local Storage (Production/Deployed App) - This is the primary way for users
-  const localKey = localStorage.getItem('protrack_gemini_key');
-  if (localKey) return localKey;
-
-  // 2. Safe check for environment variables (Local Dev)
-  try {
-    // @ts-ignore
-    const env = window.process?.env || (import.meta as any).env;
-    if (env && env.API_KEY) {
-      return env.API_KEY;
-    }
-  } catch (e) {
-    // Ignore error if env is not accessible
-  }
-
-  return '';
-};
-
+/**
+ * Generates a weekly summary report using Gemini 3 Flash.
+ * Follows guidelines: uses process.env.API_KEY and model 'gemini-3-flash-preview'.
+ */
 export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[]): Promise<string> => {
   try {
-    const apiKey = getApiKey();
-    
-    if (!apiKey) {
-      throw new Error("API Key is missing. Please go to Settings and enter your Gemini API Key.");
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
+    // CRITICAL: Always use process.env.API_KEY as per guidelines.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     // 1. Filter data for the current week
     const today = new Date();
@@ -97,22 +79,23 @@ export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[]): Pr
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
-        thinkingConfig: { thinkingBudget: 0 } // Speed over deep reasoning for simple summarization
+        thinkingConfig: { thinkingBudget: 0 } // disable thinking for low latency summarization
       }
     });
 
+    // CRITICAL: Extract text using .text property, not a method.
     return response.text || "Could not generate summary.";
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    // Propagate a clean error message
-    if (error.message.includes("API Key is missing")) {
-      throw error;
-    }
     throw new Error("AI Service Error: " + (error.message || "Unknown error"));
   }
 };
 
+/**
+ * Chat with ProTrack AI about project data.
+ * Follows guidelines: uses process.env.API_KEY and model 'gemini-3-flash-preview'.
+ */
 export const chatWithAI = async (
   history: ChatMessage[], 
   newMessage: string, 
@@ -123,19 +106,15 @@ export const chatWithAI = async (
   image?: string // Base64 data URL of the image
 ): Promise<string> => {
   try {
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      throw new Error("API Key is missing. Please go to Settings.");
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
+    // CRITICAL: Always use process.env.API_KEY as per guidelines.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     // Build a comprehensive context of the current state
     const taskContext = tasks.map(t => 
       `[${t.displayId}] ${t.description} (Status: ${t.status}, Due: ${t.dueDate}, Priority: ${t.priority}, Updates: ${t.updates.length})`
     ).join('\n');
 
-    const logContext = logs.slice(0, 50).map(l => { // Limit to last 50 logs to save context
+    const logContext = logs.slice(0, 50).map(l => { 
        const t = tasks.find(task => task.id === l.taskId);
        return `[${l.date}] on ${t?.displayId || 'Unknown'}: ${l.content}`;
     }).join('\n');
@@ -186,12 +165,11 @@ export const chatWithAI = async (
       8. If you don't know something, say you don't see it in the records.
     `;
 
-    // Convert internal message format to Gemini API format, handling potential images in history
+    // Convert internal message format to Gemini API format
     const contents = history.map(msg => {
       const parts: any[] = [{ text: msg.text }];
       
       if (msg.image) {
-        // Strip data:image/png;base64, prefix if present for the API call
         const match = msg.image.match(/^data:(.+);base64,(.+)$/);
         if (match) {
            parts.push({
@@ -238,11 +216,11 @@ export const chatWithAI = async (
       }
     });
 
+    // CRITICAL: Extract text using .text property, not a method.
     return response.text || "I didn't get a response.";
 
   } catch (error: any) {
     console.error("Chat Error:", error);
-    if (error.message.includes("API Key is missing")) throw error;
     throw new Error("Failed to chat: " + (error.message || "Unknown error"));
   }
 };
