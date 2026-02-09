@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, RecurrenceConfig } from '../types';
 import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical, ChevronDown } from 'lucide-react';
@@ -226,6 +225,17 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [recurrenceType, setRecurrenceType] = useState<string>(task.recurrence?.type || 'none');
   const [recurrenceInterval, setRecurrenceInterval] = useState<number>(task.recurrence?.interval || 1);
 
+  // Add Escape key listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !editingUpdateId) {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, editingUpdateId]);
+
   const getContrastYIQ = (hexcolor: string) => {
     if (!hexcolor) return '#ffffff';
     const hex = hexcolor.replace('#', '');
@@ -441,7 +451,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const statusStyle = getStatusStyle(task.status);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-center items-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 animate-fade-in" onClick={onClose}>
       <div 
         className="bg-white dark:bg-slate-800 w-full max-w-6xl h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col relative"
         onClick={e => e.stopPropagation()}

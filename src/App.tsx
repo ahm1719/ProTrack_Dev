@@ -175,6 +175,20 @@ const App: React.FC = () => {
     else { document.documentElement.classList.remove('dark'); localStorage.setItem('protrack_theme', 'light'); }
   }, [isDarkMode]);
 
+  // Handle global Escape key to close modals
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (expandedDay) setExpandedDay(null);
+        else if (showReportModal) setShowReportModal(false);
+        else if (showNewTaskModal) setShowNewTaskModal(false);
+        else if (activeTaskId) setActiveTaskId(null);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [expandedDay, showReportModal, showNewTaskModal, activeTaskId]);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
     const savedConfig = localStorage.getItem('protrack_firebase_config');

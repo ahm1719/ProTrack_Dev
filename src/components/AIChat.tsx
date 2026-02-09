@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, MessageSquare, X, Sparkles, AlertCircle, Bot, User, Plus, Trash2, Edit3, Image as ImageIcon } from 'lucide-react';
 import { Task, DailyLog, ChatMessage, Observation, AppConfig } from '../types';
@@ -57,11 +56,20 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, observations, appConfig, o
         setIsOpen(false);
       }
     };
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
+    };
     if (isOpen) {
         document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEsc);
         setTimeout(() => inputRef.current?.focus(), 100);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('keydown', handleEsc);
+    };
   }, [isOpen]);
 
   const scrollToBottom = () => {

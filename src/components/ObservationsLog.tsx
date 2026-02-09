@@ -1,5 +1,4 @@
-
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Observation, ObservationStatus } from '../types';
 import { StickyNote, Plus, Trash2, Edit2, X, Circle, Clock, CheckCircle2, ArrowRight, ArrowLeft, Image as ImageIcon, XCircle, Maximize2, Search, Copy } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -29,6 +28,17 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
   
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Add Escape key listener for lightbox
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && lightboxImage) {
+        setLightboxImage(null);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [lightboxImage]);
 
   const processImageFile = (file: File) => {
     const reader = new FileReader();
@@ -108,8 +118,6 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
 
   const handleCopyText = (text: string) => {
       navigator.clipboard.writeText(text);
-      // Optional: Add simple visual feedback logic here if needed, 
-      // but for now relying on user action.
   };
 
   const advanceStatus = (obs: Observation) => {
