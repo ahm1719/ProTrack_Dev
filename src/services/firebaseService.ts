@@ -6,7 +6,7 @@ import { FirebaseConfig, SyncAction } from '../types';
 let db: Firestore | null = null;
 let unsubscribers: (() => void)[] = [];
 
-// Local cache to aggregate updates from multiple collections before notifying app
+// Local cache to aggregate updates
 let localCache: {
   tasks: any[];
   logs: any[];
@@ -14,6 +14,14 @@ let localCache: {
   offDays: any[];
   appConfig?: any;
 } = { tasks: [], logs: [], observations: [], offDays: [] };
+
+// Track which collections have received their first snapshot to prevent wiping local state with empty cache
+const hydrationState = {
+    tasks: false,
+    logs: false,
+    observations: false,
+    root: false
+};
 
 export const initFirebase = (config: FirebaseConfig) => {
   try {
@@ -33,7 +41,6 @@ export const initFirebase = (config: FirebaseConfig) => {
   }
 };
 
-// Helper to migrate legacy monolithic data to subcollections
 const migrateLegacyData = async (legacyData: any) => {
   if (!db) return;
   const firestore = db;
@@ -59,7 +66,6 @@ const migrateLegacyData = async (legacyData: any) => {
     });
   }
 
-  // Clean up root document (remove arrays, keep settings/offdays)
   batch.update(rootRef, {
     tasks: deleteField(),
     logs: deleteField(),
@@ -69,7 +75,7 @@ const migrateLegacyData = async (legacyData: any) => {
 
   try {
     await batch.commit();
-    console.log("Migration completed successfully.");
+    console.log("Migration completed.");
   } catch (e) {
     console.error("Migration failed:", e);
   }
@@ -81,58 +87,59 @@ export const subscribeToData = (
   if (!db) return;
   const firestore = db;
 
-  // Clear existing listeners
   unsubscribers.forEach(unsub => unsub());
   unsubscribers = [];
 
   const notify = () => {
-    callback({
-      tasks: localCache.tasks,
-      logs: localCache.logs,
-      observations: localCache.observations,
-      offDays: localCache.offDays,
-      appConfig: localCache.appConfig
-    });
+    // CRITICAL: Only notify the app if we have received at least one snapshot from every major collection
+    // This prevents "disappearing data" where an empty cache overwrites local state on startup
+    if (hydrationState.tasks && hydrationState.logs && hydrationState.observations && hydrationState.root) {
+        callback({
+          tasks: localCache.tasks,
+          logs: localCache.logs,
+          observations: localCache.observations,
+          offDays: localCache.offDays,
+          appConfig: localCache.appConfig
+        });
+    }
   };
 
   try {
-    // 1. Listen to Root Document (Settings & OffDays & Legacy Check)
     const rootUnsub = onSnapshot(doc(firestore, 'protrack', 'user_data'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        
-        // Check for Legacy Data & Migrate if needed
         if (data.tasks && Array.isArray(data.tasks)) {
            migrateLegacyData(data);
-           return; // Migration will trigger updates via collection listeners
+           return;
         }
-
         localCache.offDays = data.offDays || [];
-        // Only update config if present to avoid overwriting local defaults with undefined
         if (data.appConfig) localCache.appConfig = data.appConfig; 
-        
+        hydrationState.root = true;
+        notify();
+      } else {
+        hydrationState.root = true;
         notify();
       }
     });
     unsubscribers.push(rootUnsub);
 
-    // 2. Listen to Tasks Collection
     const tasksUnsub = onSnapshot(query(collection(firestore, 'protrack', 'user_data', 'tasks')), (snapshot) => {
       localCache.tasks = snapshot.docs.map(d => d.data());
+      hydrationState.tasks = true;
       notify();
     });
     unsubscribers.push(tasksUnsub);
 
-    // 3. Listen to Logs Collection
     const logsUnsub = onSnapshot(query(collection(firestore, 'protrack', 'user_data', 'logs')), (snapshot) => {
       localCache.logs = snapshot.docs.map(d => d.data());
+      hydrationState.logs = true;
       notify();
     });
     unsubscribers.push(logsUnsub);
 
-    // 4. Listen to Observations Collection
     const obsUnsub = onSnapshot(query(collection(firestore, 'protrack', 'user_data', 'observations')), (snapshot) => {
       localCache.observations = snapshot.docs.map(d => d.data());
+      hydrationState.observations = true;
       notify();
     });
     unsubscribers.push(obsUnsub);
@@ -144,38 +151,27 @@ export const subscribeToData = (
   return () => unsubscribers.forEach(u => u());
 };
 
-// New Granular Sync Function
 export const syncData = async (actions: SyncAction[]) => {
   if (!db) return;
   const firestore = db;
-  
   if (actions.length === 0) return;
 
-  // If actions contain 'full' overwrite (e.g. restore from backup), handle separately
   const fullOverwrite = actions.find(a => a.type === 'full');
-  if (fullOverwrite) {
-      if (fullOverwrite.data) {
-          // This is expensive, but rare (Restore Backup)
-          const data = fullOverwrite.data;
-          const batch = writeBatch(firestore);
-          
-          // We will just upsert.
-          data.tasks?.forEach((t: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'tasks', t.id), t));
-          data.logs?.forEach((l: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'logs', l.id), l));
-          data.observations?.forEach((o: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'observations', o.id), o));
-          
-          batch.set(doc(firestore, 'protrack', 'user_data'), { 
-              offDays: data.offDays || [],
-              appConfig: data.appConfig || {}
-          }, { merge: true });
-
-          await batch.commit();
-      }
+  if (fullOverwrite && fullOverwrite.data) {
+      const data = fullOverwrite.data;
+      const batch = writeBatch(firestore);
+      data.tasks?.forEach((t: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'tasks', t.id), t));
+      data.logs?.forEach((l: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'logs', l.id), l));
+      data.observations?.forEach((o: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'observations', o.id), o));
+      batch.set(doc(firestore, 'protrack', 'user_data'), { 
+          offDays: data.offDays || [],
+          appConfig: data.appConfig || {}
+      }, { merge: true });
+      await batch.commit();
       return;
   }
 
   const batch = writeBatch(firestore);
-
   actions.forEach(action => {
     let collectionName = '';
     if (action.type === 'task') collectionName = 'tasks';
@@ -201,13 +197,6 @@ export const syncData = async (actions: SyncAction[]) => {
   } catch (error) {
     console.error("Sync Error:", error);
   }
-};
-
-// Deprecated: Kept for compatibility but should not be used in granular mode
-export const saveDataToCloud = async (data: any) => {
-    // This function is effectively replaced by syncData but we keep it empty or redirecting
-    // if something calls it unexpectedly.
-    console.warn("Legacy saveDataToCloud called. Use syncData with granular actions.");
 };
 
 export const isFirebaseInitialized = () => !!db;
