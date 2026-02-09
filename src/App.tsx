@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -61,7 +60,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.3.0 - AI Summary Config";
+const BUILD_VERSION = "V4.4.1 - Granular Purge";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -668,7 +667,29 @@ const App: React.FC = () => {
       case ViewMode.OBSERVATIONS:
         return (<ObservationsLog observations={observations} columns={appConfig.observationStatuses} itemColors={appConfig.itemColors} onAddObservation={o => { setObservations(prev => { if (isSyncEnabled) syncData([{ type: 'observation', action: 'create', id: o.id, data: o }]); return [...prev, o]; }); }} onEditObservation={o => { setObservations(prev => { if (isSyncEnabled) syncData([{ type: 'observation', action: 'update', id: o.id, data: o }]); return prev.map(x => x.id === o.id ? o : x); }); }} onDeleteObservation={id => { setObservations(prev => { if (isSyncEnabled) syncData([{ type: 'observation', action: 'delete', id }]); return prev.filter(x => x.id !== id); }); }} />);
       case ViewMode.SETTINGS:
-        return (<Settings tasks={tasks} logs={logs} observations={observations} offDays={offDays} isSyncEnabled={isSyncEnabled} appConfig={appConfig} isDarkMode={isDarkMode} backupStatus={backupStatus} backupSettings={backupSettings} onImportData={(d) => { setTasks(d.tasks); setLogs(d.logs); setObservations(d.observations); setOffDays(d.offDays || []); if (isSyncEnabled) syncData([{ type: 'full', action: 'overwrite', data: d }]); }} onSyncConfigUpdate={c => setIsSyncEnabled(!!c)} onUpdateConfig={handleUpdateAppConfig} onPurgeData={(newTasks, newLogs) => { setTasks(newTasks); setLogs(newLogs); if (isSyncEnabled) syncData([{ type: 'full', action: 'overwrite', data: { tasks: newTasks, logs: newLogs, observations, offDays, appConfig } }]); }} setBackupSettings={setBackupSettings} onSetupBackupFolder={() => {}} onToggleTheme={setIsDarkMode} />);
+        return (<Settings 
+          tasks={tasks} 
+          logs={logs} 
+          observations={observations} 
+          offDays={offDays} 
+          isSyncEnabled={isSyncEnabled} 
+          appConfig={appConfig} 
+          isDarkMode={isDarkMode} 
+          backupStatus={backupStatus} 
+          backupSettings={backupSettings} 
+          onImportData={(d) => { setTasks(d.tasks); setLogs(d.logs); setObservations(d.observations); setOffDays(d.offDays || []); if (isSyncEnabled) syncData([{ type: 'full', action: 'overwrite', data: d }]); }} 
+          onSyncConfigUpdate={c => setIsSyncEnabled(!!c)} 
+          onUpdateConfig={handleUpdateAppConfig} 
+          onPurgeData={(newTasks, newLogs, newObs) => { 
+            setTasks(newTasks); 
+            setLogs(newLogs); 
+            setObservations(newObs);
+            if (isSyncEnabled) syncData([{ type: 'full', action: 'overwrite', data: { tasks: newTasks, logs: newLogs, observations: newObs, offDays, appConfig } }]); 
+          }} 
+          setBackupSettings={setBackupSettings} 
+          onSetupBackupFolder={() => {}} 
+          onToggleTheme={setIsDarkMode} 
+        />);
       case ViewMode.HELP:
         return <UserManual />;
       default:

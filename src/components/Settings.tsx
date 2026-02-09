@@ -1,7 +1,6 @@
-
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen, Save, RefreshCw, Folder, CheckCircle2, Tag, Moon, Sun, Sparkles, Clock } from 'lucide-react';
-import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, BackupSettings, HighlightOption } from '../types';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen, Save, RefreshCw, Folder, CheckCircle2, Tag, Moon, Sun, Sparkles, Clock, History, Calendar } from 'lucide-react';
+import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, ObservationStatus, BackupSettings, HighlightOption } from '../types';
 import { initFirebase } from '../services/firebaseService';
 import { saveManualBackup } from '../services/backupService';
 
@@ -15,7 +14,7 @@ interface SettingsProps {
   isSyncEnabled: boolean;
   appConfig: AppConfig;
   onUpdateConfig: (config: AppConfig) => void;
-  onPurgeData: (tasks: Task[], logs: DailyLog[]) => void;
+  onPurgeData: (tasks: Task[], logs: DailyLog[], observations: Observation[]) => void;
   
   // Backup Props
   backupSettings?: BackupSettings;
@@ -224,13 +223,63 @@ const Settings: React.FC<SettingsProps> = ({
     obs: getSizeInBytes(observations)
   };
 
-  const handlePurge = () => {
-    if (confirm("This will permanently delete ALL Done and Archived tasks and their associated logs. Continue?")) {
+  const handlePurgeArchivedTasks = () => {
+    const targetTasks = tasks.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
+    if (targetTasks.length === 0) {
+        alert("No completed or archived tasks found to purge.");
+        return;
+    }
+
+    if (confirm(`Permanently delete ${targetTasks.length} Completed and Archived tasks and all their linked logs? Active tasks will not be affected.`)) {
         const activeTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
         const activeTaskIds = new Set(activeTasks.map(t => t.id));
         const activeLogs = logs.filter(l => activeTaskIds.has(l.taskId));
-        onPurgeData(activeTasks, activeLogs);
-        alert("Resources freed.");
+        onPurgeData(activeTasks, activeLogs, observations);
+        alert("Task archive cleared.");
+    }
+  };
+
+  const handlePurgeResolvedObservations = () => {
+    const targetObs = observations.filter(o => o.status === ObservationStatus.RESOLVED);
+    if (targetObs.length === 0) {
+        alert("No resolved observations found to purge.");
+        return;
+    }
+
+    if (confirm(`Permanently delete ${targetObs.length} Resolved observations? Active feedback and notes will be kept.`)) {
+        const remainingObs = observations.filter(o => o.status !== ObservationStatus.RESOLVED);
+        onPurgeData(tasks, logs, remainingObs);
+        alert("Resolved observations purged.");
+    }
+  };
+
+  const handlePurgeOldHistory = () => {
+    const threshold = new Date();
+    threshold.setMonth(threshold.getMonth() - 2);
+    const thresholdTime = threshold.getTime();
+
+    const oldLogs = logs.filter(l => new Date(l.date).getTime() < thresholdTime);
+    // Find updates within tasks that are older than threshold
+    let updateCount = 0;
+    tasks.forEach(t => {
+        t.updates.forEach(u => {
+            if (new Date(u.timestamp).getTime() < thresholdTime) updateCount++;
+        });
+    });
+
+    if (oldLogs.length === 0 && updateCount === 0) {
+        alert("No history records older than 2 months found.");
+        return;
+    }
+
+    if (confirm(`This will permanently remove ${oldLogs.length} logs and ${updateCount} task updates older than 2 months (before ${threshold.toLocaleDateString()}). Current task statuses and task definitions will be preserved. Proceed?`)) {
+        const filteredLogs = logs.filter(l => new Date(l.date).getTime() >= thresholdTime);
+        const filteredTasks = tasks.map(t => ({
+            ...t,
+            updates: t.updates.filter(u => new Date(u.timestamp).getTime() >= thresholdTime)
+        }));
+        onPurgeData(filteredTasks, filteredLogs, observations);
+        alert("Historical records trimmed.");
     }
   };
 
@@ -282,7 +331,7 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
       </section>
 
-      {/* NEW: AI Summary Personalization Section */}
+      {/* AI Summary Personalization Section */}
       <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
           <div className="p-6 border-b dark:border-slate-700 bg-purple-50 dark:bg-purple-900/20 flex items-center gap-3">
               <Sparkles className="text-purple-600 dark:text-purple-400" />
@@ -380,25 +429,64 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
       </section>
 
+      {/* NEW: Data Hygiene & Purge Section */}
       <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
           <div className="p-6 border-b dark:border-slate-700 bg-rose-50 dark:bg-rose-900/20 flex justify-between items-center">
               <div className="flex items-center gap-3">
                   <HardDrive className="text-rose-600 dark:text-rose-400" />
                   <div>
-                      <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Resource Health</h2>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Monitoring sync limits.</p>
+                      <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">Data Hygiene & Purge</h2>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Optimize storage by removing inactive or old records.</p>
                   </div>
               </div>
           </div>
           <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                   <ResourceBar label="Tasks" current={storageStats.tasks} limit={RESOURCE_LIMIT_BYTES} />
                   <ResourceBar label="Logs" current={storageStats.logs} limit={RESOURCE_LIMIT_BYTES} />
                   <ResourceBar label="Observations" current={storageStats.obs} limit={RESOURCE_LIMIT_BYTES} />
               </div>
-              <button onClick={handlePurge} className="w-full flex items-center justify-center gap-2 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all shadow-md">
-                  <Trash2 size={14} /> Purge Inactive Data
-              </button>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 rounded-xl flex flex-col h-full">
+                      <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 font-bold text-xs uppercase tracking-wider mb-2">
+                        <CheckCircle2 size={14} /> Task Archive
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-4 flex-1">Delete all tasks marked as Done or Archived, including their linked history logs.</p>
+                      <button 
+                        onClick={handlePurgeArchivedTasks}
+                        className="w-full flex items-center justify-center gap-2 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all"
+                      >
+                         <Trash2 size={14} /> Purge Archived Tasks
+                      </button>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 rounded-xl flex flex-col h-full">
+                      <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs uppercase tracking-wider mb-2">
+                        <Key size={14} /> Resolved Feedback
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-4 flex-1">Permanently remove observation cards that have been marked as Resolved.</p>
+                      <button 
+                        onClick={handlePurgeResolvedObservations}
+                        className="w-full flex items-center justify-center gap-2 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all"
+                      >
+                         <Trash2 size={14} /> Purge Resolved Obs
+                      </button>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 rounded-xl flex flex-col h-full">
+                      <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs uppercase tracking-wider mb-2">
+                        <History size={14} /> Historical Noise
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-4 flex-1">Remove updates and logs older than 2 months to declutter the timeline view.</p>
+                      <button 
+                        onClick={handlePurgeOldHistory}
+                        className="w-full flex items-center justify-center gap-2 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-all"
+                      >
+                         <Clock size={14} /> Trim Old History
+                      </button>
+                  </div>
+              </div>
           </div>
       </section>
 
