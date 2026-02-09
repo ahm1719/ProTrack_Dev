@@ -42,6 +42,10 @@ export interface AppConfig {
   };
   updateHighlightOptions?: HighlightOption[];
   itemColors?: Record<string, string>; // { "Status Name": "#hexcode" }
+  aiReportConfig?: {
+    customInstructions?: string;
+    periodType?: 'current_week' | '7_days' | '14_days' | '30_days';
+  };
 }
 
 export interface BackupSettings {

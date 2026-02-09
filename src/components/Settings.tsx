@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen, Save, RefreshCw, Folder, CheckCircle2, Tag, Moon, Sun } from 'lucide-react';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen, Save, RefreshCw, Folder, CheckCircle2, Tag, Moon, Sun, Sparkles, Clock } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, BackupSettings, HighlightOption } from '../types';
 import { initFirebase } from '../services/firebaseService';
 import { saveManualBackup } from '../services/backupService';
@@ -239,6 +239,16 @@ const Settings: React.FC<SettingsProps> = ({
     await saveManualBackup(data);
   };
 
+  const handleUpdateAIConfig = (field: string, value: any) => {
+    onUpdateConfig({
+      ...appConfig,
+      aiReportConfig: {
+        ...(appConfig.aiReportConfig || {}),
+        [field]: value
+      }
+    });
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
       <div className="text-center space-y-2">
@@ -269,6 +279,59 @@ const Settings: React.FC<SettingsProps> = ({
                       <span className="text-xs font-bold">{isDarkMode ? 'Dark' : 'Light'}</span>
                   </button>
               )}
+          </div>
+      </section>
+
+      {/* NEW: AI Summary Personalization Section */}
+      <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <div className="p-6 border-b dark:border-slate-700 bg-purple-50 dark:bg-purple-900/20 flex items-center gap-3">
+              <Sparkles className="text-purple-600 dark:text-purple-400" />
+              <div>
+                  <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">AI Summary Personalization</h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Customize how the Dashboard weekly summary is generated.</p>
+              </div>
+          </div>
+          <div className="p-6 space-y-6">
+              <div className="grid md:grid-cols-[1fr_2fr] gap-6">
+                  <div className="space-y-4">
+                      <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                              <Clock size={12} /> Summary Period
+                          </label>
+                          <select 
+                            value={appConfig.aiReportConfig?.periodType || 'current_week'}
+                            onChange={(e) => handleUpdateAIConfig('periodType', e.target.value)}
+                            className="w-full p-2 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-purple-500 dark:text-white"
+                          >
+                              <option value="current_week">Current Week (Mon-Today)</option>
+                              <option value="7_days">Last 7 Days</option>
+                              <option value="14_days">Last 14 Days</option>
+                              <option value="30_days">Last 30 Days</option>
+                          </select>
+                          <p className="text-[10px] text-slate-400 italic mt-1">Defines the data lookback window for the AI.</p>
+                      </div>
+                  </div>
+                  <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-1">
+                          Custom Instructions (Format, Tone, Priorities)
+                      </label>
+                      <textarea 
+                        value={appConfig.aiReportConfig?.customInstructions || ''}
+                        onChange={(e) => handleUpdateAIConfig('customInstructions', e.target.value)}
+                        placeholder="e.g., Use a professional but bulleted format. Focus on blockers and finished tasks. Ignore Priority: Low items..."
+                        className="w-full h-40 p-4 text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 dark:text-white resize-none custom-scrollbar"
+                      />
+                      <div className="flex justify-between mt-1">
+                          <p className="text-[10px] text-slate-400 italic">Leave empty to use the standard professional template.</p>
+                          <button 
+                            onClick={() => handleUpdateAIConfig('customInstructions', '')}
+                            className="text-[10px] font-bold text-purple-600 dark:text-purple-400 hover:underline"
+                          >
+                              Reset to Default
+                          </button>
+                      </div>
+                  </div>
+              </div>
           </div>
       </section>
 

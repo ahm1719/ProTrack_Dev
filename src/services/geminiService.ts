@@ -10,22 +10,41 @@ const getStartOfWeek = (date: Date) => {
   return new Date(d.setDate(diff));
 };
 
+const getLookbackDate = (days: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
 /**
  * Generates a weekly summary report using Gemini 3 Flash.
  * Follows guidelines: uses process.env.API_KEY and model 'gemini-3-flash-preview'.
  */
-export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[]): Promise<string> => {
+export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[], config: AppConfig): Promise<string> => {
   try {
     // CRITICAL: Always use process.env.API_KEY as per guidelines.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    // 1. Filter data for the current week
+    // 1. Calculate lookback period
     const today = new Date();
-    const startOfWeek = getStartOfWeek(today);
-    const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
+    let startDate: Date;
+    const periodType = config.aiReportConfig?.periodType || 'current_week';
 
-    // Filter active tasks: either NOT Done OR updated recently
-    const activeTasks = tasks.filter(t => t.status !== 'Done' || t.updates.some(u => u.timestamp >= startOfWeekStr));
+    switch (periodType) {
+      case '7_days': startDate = getLookbackDate(7); break;
+      case '14_days': startDate = getLookbackDate(14); break;
+      case '30_days': startDate = getLookbackDate(30); break;
+      case 'current_week':
+      default:
+        startDate = getStartOfWeek(today);
+        break;
+    }
+
+    const startDateStr = startDate.toISOString().split('T')[0];
+
+    // Filter active tasks: either NOT Done OR updated within the period
+    const activeTasks = tasks.filter(t => t.status !== 'Done' || t.updates.some(u => u.timestamp >= startDateStr));
     
     // Format data for the prompt
     const tasksContext = activeTasks.map(t => `
@@ -34,22 +53,21 @@ export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[]): Pr
       Status: ${t.status}
       Due Date: ${t.dueDate}
       Recent Updates:
-      ${t.updates.filter(u => u.timestamp >= startOfWeekStr).map(u => `- [${u.timestamp.split('T')[0]}] ${u.content}`).join('\n')}
+      ${t.updates.filter(u => u.timestamp >= startDateStr).map(u => `- [${u.timestamp.split('T')[0]}] ${u.content}`).join('\n')}
     `).join('\n---\n');
 
     const logsContext = logs
-      .filter(l => l.date >= startOfWeekStr)
+      .filter(l => l.date >= startDateStr)
       .map(l => {
         const task = tasks.find(t => t.id === l.taskId);
         return `- [${l.date}] On task ${task?.displayId || 'Unknown'}: ${l.content}`;
       }).join('\n');
 
     // Logic for Custom Instruction
-    const customInstruction = localStorage.getItem('protrack_report_instruction');
     const defaultInstruction = `
-      Please generate a professional, concise Weekly Summary Report formatted in Markdown.
+      Please generate a professional, concise Progress Summary Report formatted in Markdown.
       Structure it as follows:
-      1. **Executive Summary**: A 2-3 sentence overview of the week's performance.
+      1. **Executive Summary**: A 2-3 sentence overview of the period's performance.
       2. **Key Achievements**: Bullet points of completed work or major progress.
       3. **Ongoing Actions**: Updates on items still in progress (cite Task IDs).
       4. **Upcoming Deadlines**: Items due soon.
@@ -58,20 +76,22 @@ export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[]): Pr
       Keep the tone professional yet direct.
     `;
     
+    const customInstruction = config.aiReportConfig?.customInstructions;
     const finalInstruction = customInstruction && customInstruction.trim() !== '' ? customInstruction : defaultInstruction;
 
     const prompt = `
-      You are an executive assistant. I need a weekly progress summary based on my task tracking data.
+      You are an executive assistant. I need a progress summary based on my task tracking data.
       
-      Current Date: ${today.toDateString()}
-      Start of Week: ${startOfWeek.toDateString()}
+      Period Being Summarized: From ${startDate.toDateString()} to ${today.toDateString()}
+      Current System Date: ${today.toDateString()}
 
-      Here are the specific Daily Logs from this week:
-      ${logsContext}
+      Here are the specific Daily Logs from this period:
+      ${logsContext || 'No specific logs found for this period.'}
 
       Here is the status of ongoing tasks:
-      ${tasksContext}
+      ${tasksContext || 'No active tasks found for this period.'}
 
+      === CUSTOM USER INSTRUCTIONS ===
       ${finalInstruction}
     `;
 

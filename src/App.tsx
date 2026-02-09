@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -60,7 +61,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.2.0 - Global Search";
+const BUILD_VERSION = "V4.3.0 - AI Summary Config";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -76,7 +77,11 @@ const DEFAULT_CONFIG: AppConfig = {
     { id: 'success', color: '#10b981', label: 'Success' },
     { id: 'note', color: '#8b5cf6', label: 'Note' },
   ],
-  itemColors: {}
+  itemColors: {},
+  aiReportConfig: {
+    customInstructions: '',
+    periodType: 'current_week'
+  }
 };
 
 const getWeekNumber = (d: Date): number => {
@@ -618,9 +623,9 @@ const App: React.FC = () => {
                     </div>
                     <button onClick={async () => {
                         setIsGeneratingReport(true); setShowReportModal(true);
-                        try { const r = await generateWeeklySummary(tasks, logs); setGeneratedReport(r); } 
+                        try { const r = await generateWeeklySummary(tasks, logs, appConfig); setGeneratedReport(r); } 
                         catch (e: any) { setGeneratedReport(e.message); } finally { setIsGeneratingReport(false); }
-                    }} className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-6 py-2.5 rounded-xl transition-all text-sm font-bold border border-white/10 shadow-lg backdrop-blur-sm"><Sparkles size={18} /> Weekly Report</button>
+                    }} className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-6 py-2.5 rounded-xl transition-all text-sm font-bold border border-white/10 shadow-lg backdrop-blur-sm"><Sparkles size={18} /> Generate Progress Report</button>
                 </div>
              </div>
              <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
