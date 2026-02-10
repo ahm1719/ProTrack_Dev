@@ -60,7 +60,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.4.1 - Granular Purge";
+const BUILD_VERSION = "V4.4.2 - Search Dates";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -163,11 +163,13 @@ const App: React.FC = () => {
       t.displayId.toLowerCase().includes(q) ||
       t.projectId.toLowerCase().includes(q) ||
       t.description.toLowerCase().includes(q) ||
+      (t.dueDate && t.dueDate.includes(q)) ||
       t.updates.some(u => u.content.toLowerCase().includes(q))
     ).slice(0, 10);
 
     const matchedLogs = logs.filter(l => 
-      l.content.toLowerCase().includes(q)
+      l.content.toLowerCase().includes(q) ||
+      l.date.includes(q)
     ).slice(0, 10);
 
     const matchedObs = observations.filter(o => 
@@ -573,7 +575,12 @@ const App: React.FC = () => {
 
   const filteredTasks = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    const base = tasks.filter(t => t.description.toLowerCase().includes(q) || t.displayId.toLowerCase().includes(q) || t.updates.some(u => u.content.toLowerCase().includes(q)));
+    const base = tasks.filter(t => 
+        t.description.toLowerCase().includes(q) || 
+        t.displayId.toLowerCase().includes(q) || 
+        (t.dueDate && t.dueDate.includes(q)) || 
+        t.updates.some(u => u.content.toLowerCase().includes(q))
+    );
     if (activeTaskTab === 'completed') return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
     const activeBase = base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
     const endOfWeek = getEndOfWeek(new Date());
