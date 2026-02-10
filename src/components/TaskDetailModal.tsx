@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, RecurrenceConfig } from '../types';
 import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical, ChevronDown } from 'lucide-react';
@@ -126,6 +127,9 @@ const WorkloadDatePicker: React.FC<{
         return new Date(dateStr).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
     };
 
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
     return (
         <div className="relative" ref={wrapperRef}>
             <button 
@@ -153,19 +157,29 @@ const WorkloadDatePicker: React.FC<{
                             const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                             const workload = getWorkload(dateStr);
                             const isSelected = dateStr === selectedDate;
+                            const isToday = dateStr === todayStr;
                             
                             let workloadColor = 'bg-emerald-500';
                             if (workload >= 3) workloadColor = 'bg-amber-500';
                             if (workload >= 5) workloadColor = 'bg-red-500';
 
+                            let btnClasses = "relative h-9 rounded-lg text-sm font-bold transition-all flex items-center justify-center border-2 ";
+                            if (isSelected) {
+                                btnClasses += "border-indigo-600 bg-indigo-600 text-white shadow-md scale-105 z-10";
+                            } else if (isToday) {
+                                btnClasses += "border-indigo-500 text-indigo-700 dark:text-indigo-400";
+                            } else {
+                                btnClasses += "border-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300";
+                            }
+
                             return (
                                 <button 
                                     key={idx} 
                                     onClick={() => handleDateClick(day)}
-                                    className={`relative h-9 rounded-lg text-sm font-bold transition-all flex items-center justify-center ${isSelected ? 'bg-indigo-600 text-white shadow-md scale-105 z-10' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'}`}
+                                    className={btnClasses}
                                 >
                                     {day}
-                                    {workload > 0 && !isSelected && (
+                                    {workload > 0 && (
                                         <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 text-[10px] font-bold flex items-center justify-center rounded-full text-white ${workloadColor} border-2 border-white dark:border-slate-800 shadow-md z-20`}>
                                             {workload}
                                         </div>
