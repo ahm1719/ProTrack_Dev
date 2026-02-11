@@ -60,7 +60,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.4.4 - Dashboard Action";
+const BUILD_VERSION = "V4.4.5 - Fix Build";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -918,7 +918,6 @@ const App: React.FC = () => {
                                     onUpdateStatus={updateTaskStatus} 
                                     onOpenTask={() => setActiveTaskId(t.id)}
                                     onDelete={deleteTask}
-                                    onAddUpdate={addUpdateToTask}
                                     availableStatuses={appConfig.taskStatuses} 
                                     availablePriorities={appConfig.taskPriorities} 
                                     statusColors={appConfig.itemColors} 
