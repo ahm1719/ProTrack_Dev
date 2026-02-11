@@ -34,13 +34,9 @@ const AutoResizeTextarea = ({ value, onChange, className, placeholder, onKeyDown
     }, [value]);
 
     useEffect(() => {
-        // Re-adjust on window resize to handle wrapping changes
         const handleResize = () => adjustHeight();
         window.addEventListener('resize', handleResize);
-        
-        // Safety check: layout shifts slightly after mount due to animations or flexbox settling
         const timer = setTimeout(adjustHeight, 50);
-        
         return () => {
             window.removeEventListener('resize', handleResize);
             clearTimeout(timer);
@@ -241,7 +237,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [recurrenceType, setRecurrenceType] = useState<string>(task.recurrence?.type || 'none');
   const [recurrenceInterval, setRecurrenceInterval] = useState<number>(task.recurrence?.interval || 1);
 
-  // Add Escape key listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !editingUpdateId) {
@@ -272,10 +267,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
             borderColor: custom
         };
     }
-    if (s === Status.DONE) return { backgroundColor: '#d1fae5', color: '#065f46', borderColor: '#34d399' }; // emerald-100, emerald-800, emerald-400
-    if (s === Status.IN_PROGRESS) return { backgroundColor: '#dbeafe', color: '#1e40af', borderColor: '#60a5fa' }; // blue-100, blue-800, blue-400
-    if (s === Status.WAITING) return { backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' }; // amber-100, amber-800, amber-300
-    if (s === Status.ARCHIVED) return { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' }; // slate-100, slate-600, slate-300
+    if (s === Status.DONE) return { backgroundColor: '#d1fae5', color: '#065f46', borderColor: '#34d399' };
+    if (s === Status.IN_PROGRESS) return { backgroundColor: '#dbeafe', color: '#1e40af', borderColor: '#60a5fa' };
+    if (s === Status.WAITING) return { backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' };
+    if (s === Status.ARCHIVED) return { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' };
     return { backgroundColor: '#f1f5f9', color: '#475569', borderColor: '#e2e8f0' }; 
   };
 
@@ -402,15 +397,13 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       onUpdateTask(task.id, { subtasks: updatedSubtasks });
   };
 
-  // Subtask Drag & Drop Handlers
   const handleSubtaskDragStart = (e: React.DragEvent, id: string) => {
     setDraggedSubtaskId(id);
     e.dataTransfer.effectAllowed = "move";
-    // Set transparent drag image or default
   };
 
   const handleSubtaskDragOver = (e: React.DragEvent) => {
-    e.preventDefault(); // Necessary to allow dropping
+    e.preventDefault();
   };
 
   const handleSubtaskDrop = (e: React.DragEvent, targetId: string) => {
@@ -431,7 +424,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     setDraggedSubtaskId(null);
   };
 
-  // Update Editing Handlers
   const startEditingUpdate = (update: { id: string, content: string, timestamp: string, highlightColor?: string }) => {
     setEditingUpdateId(update.id);
     setEditUpdateContent(update.content);
