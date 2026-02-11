@@ -60,7 +60,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.4.5 - Fix Build";
+const BUILD_VERSION = "V4.4.6 - Search Shortcut";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -143,6 +143,7 @@ const App: React.FC = () => {
   const [dashboardStatusFilter, setDashboardStatusFilter] = useState<string | null>(null);
 
   const searchRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // --- Add Missing States ---
   const [newTaskForm, setNewTaskForm] = useState({
@@ -254,6 +255,18 @@ const App: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [expandedDay, showReportModal, showNewTaskModal, activeTaskId, showSearchResults, dashboardStatusFilter]);
+
+  // Global Keyboard Shortcuts (Ctrl+F)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -737,6 +750,7 @@ const App: React.FC = () => {
            <div ref={searchRef} className="relative max-w-md w-full">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input 
+                ref={searchInputRef}
                 type="text" 
                 placeholder="Global Search (Tasks, Logs, Observations)..." 
                 value={searchQuery} 
