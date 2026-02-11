@@ -60,7 +60,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.4.3 - Search UX";
+const BUILD_VERSION = "V4.4.4 - Dashboard Action";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -140,6 +140,7 @@ const App: React.FC = () => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [dashboardStatusFilter, setDashboardStatusFilter] = useState<string | null>(null);
 
   const searchRef = useRef<HTMLDivElement>(null);
 
@@ -234,6 +235,7 @@ const App: React.FC = () => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (showSearchResults) setShowSearchResults(false);
+        else if (dashboardStatusFilter) setDashboardStatusFilter(null);
         else if (expandedDay) setExpandedDay(null);
         else if (showReportModal) setShowReportModal(false);
         else if (showNewTaskModal) setShowNewTaskModal(false);
@@ -251,7 +253,7 @@ const App: React.FC = () => {
       window.removeEventListener('keydown', handleEsc);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [expandedDay, showReportModal, showNewTaskModal, activeTaskId, showSearchResults]);
+  }, [expandedDay, showReportModal, showNewTaskModal, activeTaskId, showSearchResults, dashboardStatusFilter]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
@@ -661,7 +663,7 @@ const App: React.FC = () => {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                     {statusSummary.map(s => {
                         const isZero = s.count === 0, percentage = tasks.length > 0 ? Math.round((s.count / tasks.length) * 100) : 0;
-                        return (<div key={s.label} className={`p-4 rounded-xl border transition-all flex flex-col justify-between h-24 ${isZero ? 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md'}`}><div className="flex items-center justify-between mb-2"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: getStatusColorHex(s.label) }}></div>{!isZero && <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{percentage}%</span>}</div><div><span className={`text-2xl font-black block leading-none mb-1 ${isZero ? 'text-slate-300 dark:text-slate-600' : 'text-slate-800 dark:text-slate-200'}`}>{s.count}</span><span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate block">{s.label}</span></div></div>);
+                        return (<div onClick={() => setDashboardStatusFilter(s.label)} key={s.label} className={`p-4 rounded-xl border transition-all flex flex-col justify-between h-24 cursor-pointer ${isZero ? 'bg-slate-50 dark:bg-slate-900 border-slate-100 dark:border-slate-800 opacity-60' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-500 hover:shadow-md'}`}><div className="flex items-center justify-between mb-2"><div className="w-2 h-2 rounded-full" style={{ backgroundColor: getStatusColorHex(s.label) }}></div>{!isZero && <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">{percentage}%</span>}</div><div><span className={`text-2xl font-black block leading-none mb-1 ${isZero ? 'text-slate-300 dark:text-slate-600' : 'text-slate-800 dark:text-slate-200'}`}>{s.count}</span><span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate block">{s.label}</span></div></div>);
                     })}
                 </div>
              </div>
@@ -886,6 +888,52 @@ const App: React.FC = () => {
                 </div>
              </div>
           </div>
+        )}
+
+        {/* Dashboard Status Drill-down Modal */}
+        {dashboardStatusFilter && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-40 flex items-center justify-center p-4" onClick={() => setDashboardStatusFilter(null)}>
+                <div className="bg-white dark:bg-slate-900 w-full max-w-6xl h-[85vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-fade-in" onClick={e => e.stopPropagation()}>
+                    <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center shrink-0" style={{ backgroundColor: (getStatusColorHex(dashboardStatusFilter) || '#6366f1') + '20' }}>
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg" style={{ backgroundColor: getStatusColorHex(dashboardStatusFilter) || '#6366f1', color: '#fff' }}>
+                                <Layers size={24} />
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{dashboardStatusFilter}</h2>
+                                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">{tasks.filter(t => t.status === dashboardStatusFilter).length} Tasks</p>
+                            </div>
+                        </div>
+                        <button onClick={() => setDashboardStatusFilter(null)} className="p-2 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors text-slate-500 dark:text-slate-400">
+                            <X size={28} />
+                        </button>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-8 bg-slate-50 dark:bg-slate-950 custom-scrollbar">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {tasks.filter(t => t.status === dashboardStatusFilter).map(t => (
+                                <TaskCard 
+                                    key={t.id} 
+                                    task={t} 
+                                    onUpdateStatus={updateTaskStatus} 
+                                    onOpenTask={() => setActiveTaskId(t.id)}
+                                    onDelete={deleteTask}
+                                    onAddUpdate={addUpdateToTask}
+                                    availableStatuses={appConfig.taskStatuses} 
+                                    availablePriorities={appConfig.taskPriorities} 
+                                    statusColors={appConfig.itemColors} 
+                                />
+                            ))}
+                        </div>
+                        {tasks.filter(t => t.status === dashboardStatusFilter).length === 0 && (
+                            <div className="h-full flex flex-col items-center justify-center opacity-50">
+                                <ListTodo size={64} className="text-slate-300 dark:text-slate-600 mb-4"/>
+                                <p className="text-slate-500 dark:text-slate-400 font-bold">No tasks in this status</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
         )}
       </main>
       <AIChat tasks={tasks} logs={logs} observations={observations} appConfig={appConfig} onOpenSettings={() => setView(ViewMode.SETTINGS)} />
