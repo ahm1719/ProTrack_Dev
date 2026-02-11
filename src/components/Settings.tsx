@@ -3,6 +3,7 @@ import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cl
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, ObservationStatus, BackupSettings, HighlightOption } from '../types';
 import { initFirebase } from '../services/firebaseService';
 import { saveManualBackup } from '../services/backupService';
+import { v4 as uuidv4 } from 'uuid';
 
 interface SettingsProps {
   tasks: Task[];
@@ -175,6 +176,103 @@ const ListEditor = ({
             </div>
             <div className="flex gap-2">
                 <input type="text" value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAdd()} placeholder={placeholder} className="flex-1 px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:border-indigo-500 bg-white dark:bg-slate-700 dark:text-white dark:placeholder-slate-400" />
+                <button onClick={handleAdd} className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-700"><Plus size={14} /></button>
+            </div>
+        </div>
+    );
+};
+
+const TagEditor = ({
+    title,
+    tags,
+    onUpdate
+}: {
+    title: string,
+    tags: HighlightOption[],
+    onUpdate: (tags: HighlightOption[]) => void
+}) => {
+    const [newLabel, setNewLabel] = useState('');
+    const [newColor, setNewColor] = useState('#6366f1');
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editLabel, setEditLabel] = useState('');
+
+    const handleAdd = () => {
+        if (newLabel.trim()) {
+            onUpdate([...tags, { id: uuidv4(), label: newLabel.trim(), color: newColor }]);
+            setNewLabel('');
+        }
+    };
+
+    const handleUpdateTag = (id: string, updates: Partial<HighlightOption>) => {
+        onUpdate(tags.map(t => t.id === id ? { ...t, ...updates } : t));
+    };
+
+    const handleDelete = (id: string) => {
+        onUpdate(tags.filter(t => t.id !== id));
+    };
+
+    return (
+        <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 h-full flex flex-col">
+            <h4 className="font-bold text-slate-700 dark:text-slate-300 text-[10px] uppercase tracking-widest mb-3">{title}</h4>
+            <div className="flex-1 space-y-2 overflow-y-auto custom-scrollbar min-h-[100px] mb-3">
+                {tags.map(tag => (
+                    <div key={tag.id} className="flex items-center gap-2 bg-white dark:bg-slate-700 p-2 rounded-lg border border-slate-200 dark:border-slate-600 shadow-sm group">
+                        <div className="relative w-4 h-4 shrink-0 rounded-full overflow-hidden cursor-pointer hover:scale-110 transition-transform">
+                             <input
+                                type="color"
+                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] p-0 border-0 opacity-0 cursor-pointer"
+                                value={tag.color}
+                                onChange={(e) => handleUpdateTag(tag.id, { color: e.target.value })}
+                            />
+                            <div className="w-full h-full pointer-events-none" style={{ backgroundColor: tag.color }} />
+                        </div>
+                        
+                        {editingId === tag.id ? (
+                             <input
+                                autoFocus
+                                className="flex-1 bg-transparent border-none outline-none text-xs text-indigo-600 dark:text-indigo-400 font-bold"
+                                value={editLabel}
+                                onChange={e => setEditLabel(e.target.value)}
+                                onBlur={() => {
+                                    if(editLabel.trim()) handleUpdateTag(tag.id, { label: editLabel.trim() });
+                                    setEditingId(null);
+                                }}
+                                onKeyDown={e => e.key === 'Enter' && (editLabel.trim() ? (handleUpdateTag(tag.id, { label: editLabel.trim() }), setEditingId(null)) : setEditingId(null))}
+                            />
+                        ) : (
+                            <span 
+                                className="flex-1 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
+                                onDoubleClick={() => { setEditingId(tag.id); setEditLabel(tag.label); }}
+                            >
+                                {tag.label}
+                            </span>
+                        )}
+
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <button onClick={() => { setEditingId(tag.id); setEditLabel(tag.label); }} className="text-slate-400 hover:text-indigo-500"><Edit2 size={12}/></button>
+                             <button onClick={() => handleDelete(tag.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={12}/></button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <div className="flex gap-2 items-center">
+                <div className="relative w-6 h-6 shrink-0 rounded-full overflow-hidden border border-slate-300 dark:border-slate-500 cursor-pointer">
+                     <input
+                        type="color"
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] p-0 border-0 opacity-0 cursor-pointer"
+                        value={newColor}
+                        onChange={(e) => setNewColor(e.target.value)}
+                    />
+                    <div className="w-full h-full pointer-events-none" style={{ backgroundColor: newColor }} />
+                </div>
+                <input 
+                    type="text" 
+                    value={newLabel} 
+                    onChange={(e) => setNewLabel(e.target.value)} 
+                    onKeyDown={(e) => e.key === 'Enter' && handleAdd()} 
+                    placeholder="New tag..." 
+                    className="flex-1 px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:border-indigo-500 bg-white dark:bg-slate-700 dark:text-white dark:placeholder-slate-400" 
+                />
                 <button onClick={handleAdd} className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-700"><Plus size={14} /></button>
             </div>
         </div>
@@ -392,7 +490,7 @@ const Settings: React.FC<SettingsProps> = ({
                   <p className="text-xs text-slate-500 dark:text-slate-400">Rename or customize lists.</p>
               </div>
           </div>
-          <div className="p-6 grid md:grid-cols-3 gap-6">
+          <div className="p-6 grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               <ListEditor 
                 title={appConfig.groupLabels?.statuses || "Statuses"} 
                 color={appConfig.groupColors?.statuses}
@@ -425,6 +523,11 @@ const Settings: React.FC<SettingsProps> = ({
                 placeholder="Add..."
                 itemColors={appConfig.itemColors}
                 onItemColorChange={(item, color) => onUpdateConfig({...appConfig, itemColors: { ...(appConfig.itemColors || {}), [item]: color }})}
+              />
+              <TagEditor
+                title="Update Tags"
+                tags={appConfig.updateHighlightOptions || []}
+                onUpdate={tags => onUpdateConfig({...appConfig, updateHighlightOptions: tags})}
               />
           </div>
       </section>

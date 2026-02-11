@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, RecurrenceConfig } from '../types';
 import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical, ChevronDown } from 'lucide-react';
@@ -234,6 +233,9 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const [editUpdateDate, setEditUpdateDate] = useState('');
   const [editUpdateColor, setEditUpdateColor] = useState<string | null>(null);
   const [showEditColorPicker, setShowEditColorPicker] = useState(false);
+
+  // Direct Color Change State
+  const [activeColorPickerUpdateId, setActiveColorPickerUpdateId] = useState<string | null>(null);
 
   // Recurrence State
   const [recurrenceType, setRecurrenceType] = useState<string>(task.recurrence?.type || 'none');
@@ -683,10 +685,39 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     <div className="space-y-6 relative pl-4 border-l-2 border-slate-100 dark:border-slate-700 ml-2">
                         {task.updates.slice().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(update => (
                             <div key={update.id} className="relative pl-6 group">
-                                <div 
-                                    className="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full border-2 border-white dark:border-slate-800 shadow-sm"
-                                    style={{ backgroundColor: update.highlightColor || '#cbd5e1' }}
-                                />
+                                <div className="absolute -left-[9px] top-1.5 z-10">
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); setActiveColorPickerUpdateId(activeColorPickerUpdateId === update.id ? null : update.id); }}
+                                        className="w-4 h-4 rounded-full border-2 border-white dark:border-slate-800 shadow-sm hover:scale-110 transition-transform"
+                                        style={{ backgroundColor: update.highlightColor || '#cbd5e1' }}
+                                        title="Change Color Tag"
+                                    />
+                                    {activeColorPickerUpdateId === update.id && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setActiveColorPickerUpdateId(null)} />
+                                            <div className="absolute top-5 left-0 z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 shadow-xl rounded-lg p-2 w-32 flex flex-col gap-1 animate-fade-in">
+                                                <button 
+                                                    onClick={() => { onEditUpdate?.(task.id, update.id, update.content, update.timestamp, null); setActiveColorPickerUpdateId(null); }}
+                                                    className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700 rounded text-xs text-slate-600 dark:text-slate-300"
+                                                >
+                                                    <div className="w-3 h-3 rounded-full border border-slate-300 bg-slate-200" />
+                                                    None
+                                                </button>
+                                                {updateTags.map(tag => (
+                                                    <button 
+                                                        key={tag.id} 
+                                                        onClick={() => { onEditUpdate?.(task.id, update.id, update.content, update.timestamp, tag.color); setActiveColorPickerUpdateId(null); }}
+                                                        className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-700 rounded text-xs text-slate-600 dark:text-slate-300"
+                                                    >
+                                                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: tag.color }} />
+                                                        <span className="truncate">{tag.label}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                                
                                 <div className="flex items-baseline justify-between mb-1">
                                     <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 font-mono">
                                         {new Date(update.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
