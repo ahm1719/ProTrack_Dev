@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen, Save, RefreshCw, Folder, Moon, Sun, Sparkles, Clock, History, Calendar } from 'lucide-react';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen, Save, RefreshCw, Folder, Moon, Sun, Sparkles, Clock, History, Calendar, CheckCircle2 } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, ObservationStatus, BackupSettings, HighlightOption } from '../types';
 import { initFirebase } from '../services/firebaseService';
 import { saveManualBackup } from '../services/backupService';
