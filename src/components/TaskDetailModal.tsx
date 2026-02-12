@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, RecurrenceConfig } from '../types';
-import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical, ChevronDown, Type } from 'lucide-react';
+import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical, ChevronDown, Type, Bold, Highlighter } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TaskDetailModalProps {
@@ -19,12 +19,46 @@ interface TaskDetailModalProps {
   statusColors?: Record<string, string>;
 }
 
+/**
+ * Helper function to calculate ISO week number
+ */
+// Fix: Added missing getWeekNumber function to support the WorkloadDatePicker calendar display
 const getWeekNumber = (d: Date): number => {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const dayNum = date.getUTCDay() || 7;
   date.setUTCDate(date.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
   return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
+
+/**
+ * Renders text with support for:
+ * **text** -> bold
+ * ==text== -> highlight
+ */
+const FormattedContent = ({ content }: { content: string }) => {
+    if (!content) return null;
+
+    // Split content into parts based on bold and highlight markers
+    const parts = content.split(/(\*\*.*?\*\*|==.*?==)/g);
+
+    return (
+        <span className="whitespace-pre-wrap">
+            {parts.map((part, i) => {
+                if (part.startsWith('**') && part.endsWith('**')) {
+                    return <strong key={i} className="font-black text-slate-900 dark:text-white">{part.slice(2, -2)}</strong>;
+                }
+                if (part.startsWith('==') && part.endsWith('==')) {
+                    return (
+                        <mark key={i} className="bg-amber-100 dark:bg-indigo-500/30 text-amber-900 dark:text-indigo-100 px-1 rounded font-bold border-b-2 border-amber-200 dark:border-indigo-400/50">
+                            {part.slice(2, -2)}
+                        </mark>
+                    );
+                }
+                return part;
+            })}
+        </span>
+    );
 };
 
 const AutoResizeTextarea = ({ value, onChange, className, placeholder, onKeyDown, autoFocus }: any) => {
@@ -257,6 +291,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const taskFileInputRef = useRef<HTMLInputElement>(null);
+  const updateTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const editUpdateTextareaRef = useRef<HTMLTextAreaElement>(null);
   const isMouseDownOnBackdrop = useRef(false);
 
   // Subtask Drag State
@@ -295,6 +331,26 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       onClose();
     }
     isMouseDownOnBackdrop.current = false;
+  };
+
+  const applyFormatting = (textarea: HTMLTextAreaElement | null, tag: string, setter: (val: string) => void) => {
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selectedText = text.substring(start, end);
+    const before = text.substring(0, start);
+    const after = text.substring(end);
+    
+    // Check if already wrapped
+    if (selectedText.startsWith(tag) && selectedText.endsWith(tag)) {
+        setter(before + selectedText.slice(tag.length, -tag.length) + after);
+    } else {
+        setter(before + tag + selectedText + tag + after);
+    }
+    
+    // Refocus
+    setTimeout(() => textarea.focus(), 0);
   };
 
   const getContrastYIQ = (hexcolor: string) => {
@@ -684,6 +740,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                     {/* New Update Input */}
                     <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 mb-10 shadow-sm">
                         <textarea
+                            ref={updateTextareaRef}
                             placeholder="Write a progress update..."
                             value={newUpdate}
                             onChange={(e) => setNewUpdate(e.target.value)}
@@ -712,6 +769,25 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                 <button onClick={() => fileInputRef.current?.click()} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-xl transition-all" title="Attach file">
                                     <Paperclip size={20} />
                                 </button>
+                                
+                                {/* Formatting Tools */}
+                                <div className="flex items-center border-l border-slate-200 dark:border-slate-700 ml-1 pl-3 gap-1">
+                                    <button 
+                                        onClick={() => applyFormatting(updateTextareaRef.current, '**', setNewUpdate)}
+                                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 rounded-lg transition-all"
+                                        title="Bold (Selection)"
+                                    >
+                                        <Bold size={18} />
+                                    </button>
+                                    <button 
+                                        onClick={() => applyFormatting(updateTextareaRef.current, '==', setNewUpdate)}
+                                        className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-slate-800 rounded-lg transition-all"
+                                        title="Highlight (Selection)"
+                                    >
+                                        <Highlighter size={18} />
+                                    </button>
+                                </div>
+
                                 <div className="relative">
                                     <button onClick={() => setShowColorPicker(!showColorPicker)} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 border border-transparent hover:border-slate-300 dark:hover:border-slate-600">
                                         <div className="w-4 h-4 rounded-full shadow-sm border border-slate-300 dark:border-slate-600" style={{ backgroundColor: newUpdateColor }} />
@@ -792,13 +868,29 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                                 {editingUpdateId === update.id ? (
                                     <div className="bg-white dark:bg-slate-900 border-2 border-indigo-100 dark:border-indigo-900 p-5 rounded-2xl shadow-xl space-y-4">
-                                        <div className="flex gap-3 mb-2">
+                                        <div className="flex items-center gap-3 mb-2 flex-wrap">
                                             <input 
                                                 type="date"
                                                 value={editUpdateDate}
                                                 onChange={(e) => setEditUpdateDate(e.target.value)}
                                                 className="text-xs font-bold p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
                                             />
+                                            <div className="flex items-center bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-1 gap-1">
+                                                <button 
+                                                    onClick={() => applyFormatting(editUpdateTextareaRef.current, '**', setEditUpdateContent)}
+                                                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all"
+                                                    title="Bold (Selection)"
+                                                >
+                                                    <Bold size={16} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => applyFormatting(editUpdateTextareaRef.current, '==', setEditUpdateContent)}
+                                                    className="p-1.5 text-slate-400 hover:text-amber-500 hover:bg-white dark:hover:bg-slate-700 rounded-lg transition-all"
+                                                    title="Highlight (Selection)"
+                                                >
+                                                    <Highlighter size={16} />
+                                                </button>
+                                            </div>
                                             <div className="relative">
                                                 <button onClick={() => setShowEditColorPicker(!showEditColorPicker)} className="p-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 hover:bg-white transition-colors"><div className="w-5 h-5 rounded-full shadow-sm" style={{backgroundColor: editUpdateColor || '#cbd5e1'}}/></button>
                                                 {showEditColorPicker && (
@@ -816,6 +908,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                             </div>
                                         </div>
                                         <textarea 
+                                            ref={editUpdateTextareaRef}
                                             value={editUpdateContent}
                                             onChange={e => setEditUpdateContent(e.target.value)}
                                             className="w-full text-base border border-slate-200 dark:border-slate-700 rounded-2xl p-4 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none bg-white dark:bg-slate-800 dark:text-white min-h-[120px] font-medium"
@@ -831,8 +924,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="text-base text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap font-medium">
-                                        {update.content}
+                                    <div className="text-base text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                                        <FormattedContent content={update.content} />
                                     </div>
                                 )}
 

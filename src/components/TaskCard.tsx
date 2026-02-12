@@ -33,6 +33,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
     return [...task.updates].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
   }, [task.updates]);
 
+  /**
+   * Helper to strip formatting tags for snippet display
+   */
+  const getCleanContent = (content: string) => {
+    if (!content) return '';
+    return content.replace(/\*\*/g, '').replace(/==/g, '');
+  };
+
   const getPriorityColor = (p: string) => {
     if (p === Priority.HIGH) return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800';
     if (p === Priority.MEDIUM) return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800';
@@ -149,7 +157,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         <span className="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">LATEST</span>
                         <span className="text-[9px] font-mono text-slate-400 dark:text-slate-500">{formatDate(latestUpdate.timestamp)}</span>
                     </div>
-                    <p className="truncate font-medium text-slate-700 dark:text-slate-300">{latestUpdate.content}</p>
+                    <p className="truncate font-medium text-slate-700 dark:text-slate-300">
+                        {getCleanContent(latestUpdate.content)}
+                    </p>
                 </div>
             </div>
         )}
