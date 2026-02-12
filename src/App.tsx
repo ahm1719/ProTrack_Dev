@@ -61,7 +61,7 @@ import {
   getStoredDirectoryHandle, 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.6.1 - UI Polish";
+const BUILD_VERSION = "V4.7.0 - UI Layout Optimization";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -719,118 +719,22 @@ const App: React.FC = () => {
         );
 
       case ViewMode.TASKS:
-        const todayTasks = weekTasks[todayStr] || [];
-        const poolTasks = todayTasks.filter(t => t.processedDate !== todayStr);
-        const processedTasks = todayTasks.filter(t => t.processedDate === todayStr);
-
         return (
           <div className="h-full flex flex-col space-y-6 animate-fade-in">
              <div className="flex justify-between items-center"><h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Daily Workspace</h1><div className="flex gap-3"><button onClick={() => setShowNewTaskModal(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-all shadow-lg font-bold"><Plus size={20} /> New Task</button></div></div>
              
-             {/* TODAY'S WORKSPACE - SPLIT VIEW */}
-             <div className="bg-slate-100 dark:bg-slate-900/50 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-inner">
-                <div className="flex items-center gap-3 mb-6">
-                    <Calendar className="text-indigo-600 dark:text-indigo-400" size={24} />
-                    <div>
-                        <h2 className="text-xl font-black text-slate-800 dark:text-slate-200 leading-tight">Today's Focus</h2>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{new Date(todayStr).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</p>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-h-[300px]">
-                    {/* TASK POOL */}
-                    <div 
-                        className="flex flex-col bg-white dark:bg-slate-800/40 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 transition-colors"
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => handleDrop(e, null, todayStr, 'pool')}
-                    >
-                        <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/80 rounded-t-2xl">
-                            <h3 className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2"><ArrowDownToLine size={14} /> Task Pool</h3>
-                            <span className="text-[10px] font-black bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">{poolTasks.length}</span>
-                        </div>
-                        <div className="flex-1 p-3 space-y-2 overflow-y-auto max-h-[400px] custom-scrollbar">
-                            {poolTasks.length === 0 ? (
-                                <div className="h-32 flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 italic text-xs">Drop tasks here to pending</div>
-                            ) : (
-                                poolTasks.map(t => (
-                                    <div 
-                                        key={t.id} 
-                                        draggable="true" 
-                                        onDragStart={(e) => handleDragStart(e, t.id)}
-                                        onDragOver={(e) => e.preventDefault()} 
-                                        onDrop={(e) => { e.stopPropagation(); handleDrop(e, t.id, todayStr, 'pool'); }}
-                                        onClick={() => setActiveTaskId(t.id)} 
-                                        className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md hover:border-indigo-300 cursor-pointer transition-all group flex items-start gap-2"
-                                    >
-                                        <div className="mt-0.5 text-slate-300 dark:text-slate-600 group-hover:text-indigo-400"><GripVertical size={14} /></div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex justify-between items-center mb-0.5">
-                                                <span className="text-[10px] font-mono font-black text-indigo-600 dark:text-indigo-400">{t.displayId}</span>
-                                                <div className={`w-1.5 h-1.5 rounded-full ${t.priority === Priority.HIGH ? 'bg-red-500' : t.priority === Priority.MEDIUM ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                                            </div>
-                                            <p className={`text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1 ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-50' : ''}`}>{t.title || t.description}</p>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-
-                    {/* PROCESSED */}
-                    <div 
-                        className="flex flex-col bg-emerald-50/30 dark:bg-emerald-900/5 rounded-2xl border-2 border-dashed border-emerald-100 dark:border-emerald-900/30 transition-colors"
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => handleDrop(e, null, todayStr, 'processed')}
-                    >
-                        <div className="p-4 border-b border-emerald-100 dark:border-emerald-900/30 flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded-t-2xl">
-                            <h3 className="text-xs font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2"><CheckCircle size={14} /> Processed Tasks</h3>
-                            <span className="text-[10px] font-black bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full">{processedTasks.length}</span>
-                        </div>
-                        <div className="flex-1 p-3 space-y-2 overflow-y-auto max-h-[400px] custom-scrollbar">
-                            {processedTasks.length === 0 ? (
-                                <div className="h-32 flex flex-col items-center justify-center text-emerald-200 dark:text-emerald-900/30 italic text-xs">Move here to process today</div>
-                            ) : (
-                                processedTasks.map(t => (
-                                    <div 
-                                        key={t.id} 
-                                        draggable="true" 
-                                        onDragStart={(e) => handleDragStart(e, t.id)}
-                                        onDragOver={(e) => e.preventDefault()} 
-                                        onDrop={(e) => { e.stopPropagation(); handleDrop(e, t.id, todayStr, 'processed'); }}
-                                        onClick={() => setActiveTaskId(t.id)} 
-                                        className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md hover:border-emerald-400 cursor-pointer transition-all group flex items-start gap-2"
-                                    >
-                                        <div className="mt-0.5 text-emerald-100 dark:text-emerald-900 group-hover:text-emerald-400"><GripVertical size={14} /></div>
-                                        <div className="flex-1 min-w-0 opacity-70 group-hover:opacity-100">
-                                            <div className="flex justify-between items-center mb-0.5">
-                                                <span className="text-[10px] font-mono font-black text-emerald-600 dark:text-emerald-400">{t.displayId}</span>
-                                                {t.status === Status.DONE ? <CheckCircle2 size={12} className="text-emerald-500" /> : <div className="w-2 h-2 rounded-full border border-emerald-200 dark:border-emerald-700" />}
-                                            </div>
-                                            {/* Fix: Stripped line-through and conditional cross-out logic */}
-                                            <p className={`text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1 ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through decoration-emerald-200 opacity-50' : ''}`}>
-                                                {t.title || t.description}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                </div>
-             </div>
-
-             {/* UPCOMING WEEK SCROLL (Starts from Tomorrow) */}
+             {/* WEEKLY TIMELINE SCROLL */}
              <div className="space-y-4">
                 <div className="flex items-center justify-between px-2">
-                    <h3 className="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">Upcoming Deadlines</h3>
+                    <h3 className="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">Weekly Timeline</h3>
                 </div>
                 <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-56 px-1">
-                    {weekDays.slice(1).map(d => {
+                    {weekDays.map(d => {
                         const dayTasks = weekTasks[d] || [], activeCount = dayTasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED).length;
                         return (
                             <div 
                                 key={d} 
-                                className="min-w-[280px] w-[280px] p-4 rounded-2xl border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm flex flex-col transition-all"
+                                className={`min-w-[280px] w-[280px] p-4 rounded-2xl border ${d === todayStr ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100 shadow-md scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'} flex flex-col transition-all`}
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => handleDrop(e, null, d)}
                             >
@@ -841,6 +745,7 @@ const App: React.FC = () => {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {activeCount > 0 && <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded-full">{activeCount}</span>}
+                                        {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
                                         <button onClick={(e) => { e.stopPropagation(); setExpandedDay(d); }} className="hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 p-1 rounded transition-colors" title="Expand Day"><Maximize2 size={14} /></button>
                                     </div>
                                 </div>
@@ -1039,35 +944,131 @@ const App: React.FC = () => {
                         <Calendar size={24} />
                         {new Date(expandedDay).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
                       </h2>
-                      <p className="text-indigo-100 text-xs font-bold uppercase tracking-widest mt-1 opacity-80">Focused view for this day</p>
+                      <p className="text-indigo-100 text-xs font-bold uppercase tracking-widest mt-1 opacity-80">{expandedDay === todayStr ? "Today's Execution & Workflow" : "Focused view for this day"}</p>
                    </div>
                    <button onClick={() => setExpandedDay(null)} className="p-2 hover:bg-white/10 rounded-full transition-all hover:rotate-90">
                       <X size={28} />
                    </button>
                 </div>
+                
+                {/* MODAL CONTENT AREA */}
                 <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-slate-50 dark:bg-slate-950">
-                   {(weekTasks[expandedDay] || []).length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {(weekTasks[expandedDay] || []).map(t => (
-                           <TaskCard 
-                              key={t.id} 
-                              task={t} 
-                              onUpdateStatus={updateTaskStatus} 
-                              onOpenTask={() => { setActiveTaskId(t.id); setExpandedDay(null); }} 
-                              availableStatuses={appConfig.taskStatuses} 
-                              availablePriorities={appConfig.taskPriorities} 
-                              statusColors={appConfig.itemColors} 
-                           />
-                        ))}
+                   {/* SPECIAL VIEW FOR TODAY: POOL vs PROCESSED */}
+                   {expandedDay === todayStr ? (
+                      <div className="h-full flex flex-col md:flex-row gap-6">
+                          {(() => {
+                              const dayTasks = weekTasks[todayStr] || [];
+                              const pool = dayTasks.filter(t => t.processedDate !== todayStr);
+                              const processed = dayTasks.filter(t => t.processedDate === todayStr);
+                              
+                              return (
+                                <>
+                                    {/* TASK POOL */}
+                                    <div 
+                                        className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-800 transition-colors"
+                                        onDragOver={(e) => e.preventDefault()}
+                                        onDrop={(e) => handleDrop(e, null, todayStr, 'pool')}
+                                    >
+                                        <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/80 rounded-t-2xl">
+                                            <h3 className="text-sm font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2"><ArrowDownToLine size={16} /> Task Pool</h3>
+                                            <span className="text-[10px] font-black bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full">{pool.length}</span>
+                                        </div>
+                                        <div className="flex-1 p-3 space-y-3 overflow-y-auto custom-scrollbar">
+                                            {pool.length === 0 ? (
+                                                <div className="h-40 flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 italic text-xs">Drop tasks here to pending</div>
+                                            ) : (
+                                                pool.map(t => (
+                                                    <div 
+                                                        key={t.id} 
+                                                        draggable="true" 
+                                                        onDragStart={(e) => handleDragStart(e, t.id)}
+                                                        onDragOver={(e) => e.preventDefault()} 
+                                                        onDrop={(e) => { e.stopPropagation(); handleDrop(e, t.id, todayStr, 'pool'); }}
+                                                        onClick={() => setActiveTaskId(t.id)} 
+                                                        className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md hover:border-indigo-300 cursor-pointer transition-all group flex items-start gap-3"
+                                                    >
+                                                        <div className="mt-1 text-slate-300 dark:text-slate-600 group-hover:text-indigo-400"><GripVertical size={16} /></div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex justify-between items-center mb-1">
+                                                                <span className="text-[10px] font-mono font-black text-indigo-600 dark:text-indigo-400">{t.displayId}</span>
+                                                                <div className={`w-2 h-2 rounded-full ${t.priority === Priority.HIGH ? 'bg-red-500' : t.priority === Priority.MEDIUM ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                                            </div>
+                                                            <p className={`text-sm font-bold text-slate-700 dark:text-slate-300 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-50' : ''}`}>{t.title || t.description}</p>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* PROCESSED */}
+                                    <div 
+                                        className="flex-1 flex flex-col bg-emerald-50/30 dark:bg-emerald-900/10 rounded-2xl border-2 border-dashed border-emerald-100 dark:border-emerald-900/30 transition-colors"
+                                        onDragOver={(e) => e.preventDefault()}
+                                        onDrop={(e) => handleDrop(e, null, todayStr, 'processed')}
+                                    >
+                                        <div className="p-4 border-b border-emerald-100 dark:border-emerald-900/30 flex justify-between items-center bg-emerald-50 dark:bg-emerald-900/20 rounded-t-2xl">
+                                            <h3 className="text-sm font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-2"><CheckCircle size={16} /> Processed Tasks</h3>
+                                            <span className="text-[10px] font-black bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded-full">{processed.length}</span>
+                                        </div>
+                                        <div className="flex-1 p-3 space-y-3 overflow-y-auto custom-scrollbar">
+                                            {processed.length === 0 ? (
+                                                <div className="h-40 flex flex-col items-center justify-center text-emerald-200 dark:text-emerald-900/30 italic text-xs">Move here to process today</div>
+                                            ) : (
+                                                processed.map(t => (
+                                                    <div 
+                                                        key={t.id} 
+                                                        draggable="true" 
+                                                        onDragStart={(e) => handleDragStart(e, t.id)}
+                                                        onDragOver={(e) => e.preventDefault()} 
+                                                        onDrop={(e) => { e.stopPropagation(); handleDrop(e, t.id, todayStr, 'processed'); }}
+                                                        onClick={() => setActiveTaskId(t.id)} 
+                                                        className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md hover:border-emerald-400 cursor-pointer transition-all group flex items-start gap-3"
+                                                    >
+                                                        <div className="mt-1 text-emerald-100 dark:text-emerald-900 group-hover:text-emerald-400"><GripVertical size={16} /></div>
+                                                        <div className="flex-1 min-w-0 opacity-70 group-hover:opacity-100">
+                                                            <div className="flex justify-between items-center mb-1">
+                                                                <span className="text-[10px] font-mono font-black text-emerald-600 dark:text-emerald-400">{t.displayId}</span>
+                                                                {t.status === Status.DONE ? <CheckCircle2 size={14} className="text-emerald-500" /> : <div className="w-2.5 h-2.5 rounded-full border border-emerald-200 dark:border-emerald-700" />}
+                                                            </div>
+                                                            <p className={`text-sm font-bold text-slate-700 dark:text-slate-300 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through decoration-emerald-200 opacity-50' : ''}`}>
+                                                                {t.title || t.description}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                              );
+                          })()}
                       </div>
                    ) : (
-                      <div className="h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 opacity-50 py-20">
-                         <ListTodo size={80} strokeWidth={1} className="mb-6" />
-                         <p className="text-2xl font-bold">No tasks due on this day</p>
-                         <button onClick={() => { setExpandedDay(null); setShowNewTaskModal(true); }} className="mt-6 text-indigo-600 dark:text-indigo-400 font-bold hover:underline">
-                            Click here to create one
-                         </button>
-                      </div>
+                      // STANDARD VIEW FOR OTHER DAYS
+                      (weekTasks[expandedDay] || []).length > 0 ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {(weekTasks[expandedDay] || []).map(t => (
+                              <TaskCard 
+                                  key={t.id} 
+                                  task={t} 
+                                  onUpdateStatus={updateTaskStatus} 
+                                  onOpenTask={() => { setActiveTaskId(t.id); setExpandedDay(null); }} 
+                                  availableStatuses={appConfig.taskStatuses} 
+                                  availablePriorities={appConfig.taskPriorities} 
+                                  statusColors={appConfig.itemColors} 
+                              />
+                            ))}
+                          </div>
+                      ) : (
+                          <div className="h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-700 opacity-50 py-20">
+                            <ListTodo size={80} strokeWidth={1} className="mb-6" />
+                            <p className="text-2xl font-bold">No tasks due on this day</p>
+                            <button onClick={() => { setExpandedDay(null); setShowNewTaskModal(true); }} className="mt-6 text-indigo-600 dark:text-indigo-400 font-bold hover:underline">
+                                Click here to create one
+                            </button>
+                          </div>
+                      )
                    )}
                 </div>
                 <div className="p-4 border-t dark:border-slate-800 bg-white dark:bg-slate-900 flex justify-end shrink-0">
