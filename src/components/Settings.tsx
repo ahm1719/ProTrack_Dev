@@ -310,6 +310,14 @@ const Settings: React.FC<SettingsProps> = ({
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [customRetentionDays, setCustomRetentionDays] = useState<string>(appConfig.retentionPeriodDays?.toString() || '60');
+  
+  // Logic for custom retention window
+  const standardRetentions = [30, 60, 90, 180, 365];
+  const currentRetention = appConfig.retentionPeriodDays || 60;
+  const isStandardValue = standardRetentions.includes(currentRetention);
+  const [forceCustomMode, setForceCustomMode] = useState(false);
+  const isCustomMode = !isStandardValue || forceCustomMode;
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -410,6 +418,9 @@ const Settings: React.FC<SettingsProps> = ({
   const handleRetentionChange = (days: number) => {
     onUpdateConfig({ ...appConfig, retentionPeriodDays: days });
     setCustomRetentionDays(days.toString());
+    if (standardRetentions.includes(days)) {
+        setForceCustomMode(false);
+    }
   };
 
   return (
@@ -633,10 +644,15 @@ const Settings: React.FC<SettingsProps> = ({
                       <div className="mb-4">
                           <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-1">Retention Window</label>
                           <select 
-                            value={appConfig.retentionPeriodDays || 60}
+                            value={isCustomMode ? -1 : currentRetention}
                             onChange={(e) => {
                                 const val = parseInt(e.target.value);
-                                if (val !== -1) handleRetentionChange(val);
+                                if (val === -1) {
+                                    setForceCustomMode(true);
+                                    setCustomRetentionDays(currentRetention.toString());
+                                } else {
+                                    handleRetentionChange(val);
+                                }
                             }}
                             className="w-full p-2 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded outline-none focus:ring-1 focus:ring-amber-500 dark:text-white"
                           >
@@ -647,7 +663,7 @@ const Settings: React.FC<SettingsProps> = ({
                               <option value={365}>1 Year (365 days)</option>
                               <option value={-1}>Custom...</option>
                           </select>
-                          {(appConfig.retentionPeriodDays !== 30 && appConfig.retentionPeriodDays !== 60 && appConfig.retentionPeriodDays !== 90 && appConfig.retentionPeriodDays !== 180 && appConfig.retentionPeriodDays !== 365) || customRetentionDays === '-1' ? (
+                          {isCustomMode ? (
                               <div className="mt-2 flex items-center gap-2">
                                   <input 
                                     type="number"
