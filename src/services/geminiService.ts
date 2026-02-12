@@ -17,14 +17,33 @@ const getLookbackDate = (days: number) => {
   return d;
 };
 
+// Helper to retrieve API Key securely from local storage or environment
+const getApiKey = (): string => {
+  // Primary: User setting from the UI (LocalStorage)
+  const localKey = localStorage.getItem('protrack_gemini_key');
+  if (localKey && localKey.trim() !== '') return localKey.trim();
+
+  // Fallback: Environment variable (if configured at build time/server)
+  // We check for process presence to avoid reference errors in some browser envs if not polyfilled
+  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+    return process.env.API_KEY;
+  }
+
+  return '';
+};
+
 /**
  * Generates a weekly summary report using Gemini 3 Flash.
- * Follows guidelines: uses process.env.API_KEY and model 'gemini-3-flash-preview'.
  */
 export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[], config: AppConfig): Promise<string> => {
   try {
-    // CRITICAL: Always use process.env.API_KEY as per guidelines.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getApiKey();
+    
+    if (!apiKey) {
+      throw new Error("API Key is missing. Please go to Settings and save your Gemini API Key.");
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
 
     // 1. Calculate lookback period
     const today = new Date();
@@ -103,18 +122,20 @@ export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[], con
       }
     });
 
-    // CRITICAL: Extract text using .text property, not a method.
     return response.text || "Could not generate summary.";
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
+    // Propagate a clean error message
+    if (error.message.includes("API Key is missing") || error.message.includes("API Key")) {
+      return `Configuration Error: ${error.message}`;
+    }
     throw new Error("AI Service Error: " + (error.message || "Unknown error"));
   }
 };
 
 /**
  * Chat with ProTrack AI about project data.
- * Follows guidelines: uses process.env.API_KEY and model 'gemini-3-flash-preview'.
  */
 export const chatWithAI = async (
   history: ChatMessage[], 
@@ -126,8 +147,12 @@ export const chatWithAI = async (
   image?: string // Base64 data URL of the image
 ): Promise<string> => {
   try {
-    // CRITICAL: Always use process.env.API_KEY as per guidelines.
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      throw new Error("API Key is missing. Please set it in Settings.");
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
 
     // Build a comprehensive context of the current state
     const taskContext = tasks.map(t => 
@@ -236,11 +261,11 @@ export const chatWithAI = async (
       }
     });
 
-    // CRITICAL: Extract text using .text property, not a method.
     return response.text || "I didn't get a response.";
 
   } catch (error: any) {
     console.error("Chat Error:", error);
+    if (error.message.includes("API Key")) throw error;
     throw new Error("Failed to chat: " + (error.message || "Unknown error"));
   }
 };
