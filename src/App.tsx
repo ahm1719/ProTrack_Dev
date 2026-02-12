@@ -61,7 +61,7 @@ import {
   getStoredDirectoryHandle, 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.6.0 - Today Workspace";
+const BUILD_VERSION = "V4.6.1 - UI Polish";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -768,7 +768,7 @@ const App: React.FC = () => {
                                                 <span className="text-[10px] font-mono font-black text-indigo-600 dark:text-indigo-400">{t.displayId}</span>
                                                 <div className={`w-1.5 h-1.5 rounded-full ${t.priority === Priority.HIGH ? 'bg-red-500' : t.priority === Priority.MEDIUM ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                                             </div>
-                                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1">{t.title || t.description}</p>
+                                            <p className={`text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1 ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-50' : ''}`}>{t.title || t.description}</p>
                                         </div>
                                     </div>
                                 ))
@@ -804,9 +804,12 @@ const App: React.FC = () => {
                                         <div className="flex-1 min-w-0 opacity-70 group-hover:opacity-100">
                                             <div className="flex justify-between items-center mb-0.5">
                                                 <span className="text-[10px] font-mono font-black text-emerald-600 dark:text-emerald-400">{t.displayId}</span>
-                                                <CheckCircle2 size={12} className="text-emerald-500" />
+                                                {t.status === Status.DONE ? <CheckCircle2 size={12} className="text-emerald-500" /> : <div className="w-2 h-2 rounded-full border border-emerald-200 dark:border-emerald-700" />}
                                             </div>
-                                            <p className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1 line-through decoration-emerald-200">{t.title || t.description}</p>
+                                            {/* Fix: Stripped line-through and conditional cross-out logic */}
+                                            <p className={`text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-1 ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through decoration-emerald-200 opacity-50' : ''}`}>
+                                                {t.title || t.description}
+                                            </p>
                                         </div>
                                     </div>
                                 ))
@@ -855,7 +858,7 @@ const App: React.FC = () => {
                                             <div className="flex justify-between items-center mb-1">
                                                 <span className="font-mono font-bold flex items-center gap-1">{t.displayId} {t.recurrence && <Repeat size={10} className="text-indigo-400" />}</span>
                                             </div>
-                                            <p className="line-clamp-2 leading-tight font-bold mb-1">{t.title || t.description}</p>
+                                            <p className={`line-clamp-2 leading-tight font-bold mb-1 ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-50' : ''}`}>{t.title || t.description}</p>
                                         </div>
                                     ))}
                                 </div>
@@ -867,7 +870,7 @@ const App: React.FC = () => {
 
              <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-3 gap-8">
                 <div className="xl:col-span-2 flex flex-col bg-slate-100/50 dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-inner"><div className="bg-white dark:bg-slate-800 p-5 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4"><div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-xl"><button onClick={() => setActiveTaskTab('current')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'current' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-400' : 'text-slate-500'}`}>Active</button><button onClick={() => setActiveTaskTab('future')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'future' ? 'bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-400' : 'text-slate-500'}`}>Upcoming</button><button onClick={() => setActiveTaskTab('completed')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'completed' ? 'bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}`}>Archive</button></div></div><div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6 custom-scrollbar">{filteredTasks.map(t => (<div key={t.id} id={`task-card-${t.id}`}><TaskCard task={t} onUpdateStatus={updateTaskStatus} onOpenTask={() => setActiveTaskId(t.id)} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} statusColors={appConfig.itemColors} /></div>))}</div></div>
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden flex flex-col h-full"><div className="flex-1 overflow-y-auto p-6 custom-scrollbar"><DailyJournal tasks={tasks} logs={logs} offDays={offDays} searchQuery={searchQuery} onAddLog={(l) => { const newLog = { ...l, id: uuidv4() }; setLogs(prev => { if (isSyncEnabled) syncData([{ type: 'log', action: 'create', id: newLog.id, data: newLog }]); return [...prev, newLog]; }); }} onUpdateTask={updateTaskFields} onToggleOffDay={(d) => { const next = offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d]; setOffDays(next); if (isSyncEnabled) syncData([{ type: 'offDays', action: 'update', data: next }]); }} onEditLog={handleEditLog} onDeleteLog={handleDeleteLog} /></div></div>
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden flex flex-col h-full"><div className="flex-1 overflow-y-auto p-6 custom-scrollbar"><DailyJournal tasks={tasks} logs={logs} offDays={offDays} searchQuery={searchQuery} onAddLog={(l) => { const newLog = { ...l, id: uuidv4() }; setLogs(prev => { if (isSyncEnabled) syncData([{ type: 'log', action: 'create', id: newLog.id, data: newLog }]); return [...prev, newLog]; }); }} onUpdateTask={updateTaskFields} onToggleOffDay={(d) => { const next = offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d]; setOffDays(next); if (isSyncEnabled) syncData([{ type: 'offDays', action: 'update', data: next }]); }} onEditLog={handleEditLog} onUpdateTaskInLog={updateTaskFields} onDeleteLog={handleDeleteLog} /></div></div>
              </div>
           </div>
         );
@@ -992,7 +995,7 @@ const App: React.FC = () => {
                         {globalSearchResults.observations.length > 0 && (
                           <div className="space-y-1">
                             <h4 className="px-3 py-1 text-[9px] font-black text-purple-500 dark:text-purple-400 uppercase tracking-tighter flex items-center gap-2">
-                                <StickyNote size={12}/> Observations
+                                <MessageSquare size={12}/> Observations
                             </h4>
                             {globalSearchResults.observations.map(o => (
                               <button key={o.id} onClick={() => handleSearchResultClick('obs', o.id)} className="w-full text-left p-3 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded-xl transition-all group flex gap-3 items-start">
