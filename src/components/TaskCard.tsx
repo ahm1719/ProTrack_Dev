@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { Task, Status, Priority, HighlightOption } from '../types';
 import { Clock, Calendar, CheckCircle2, Archive, Hourglass, ArrowRight, ListChecks, Repeat } from 'lucide-react';
@@ -120,8 +119,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
         {/* Content */}
         <div className="mb-4">
-            <h3 className={`text-base font-semibold text-slate-800 dark:text-slate-100 mb-2 leading-tight line-clamp-2 ${isCompleted ? 'line-through text-slate-500 dark:text-slate-500' : ''}`}>
-              {task.description}
+            <h3 className={`text-base font-bold text-slate-800 dark:text-slate-100 mb-2 leading-tight line-clamp-2 ${isCompleted ? 'line-through text-slate-500 dark:text-slate-500' : ''}`}>
+              {task.title || task.description}
             </h3>
             
             {/* Subtask Progress Bar if existing */}

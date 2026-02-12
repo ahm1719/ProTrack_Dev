@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, RecurrenceConfig } from '../types';
-import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical, ChevronDown } from 'lucide-react';
+import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical, ChevronDown, Type } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TaskDetailModalProps {
@@ -519,15 +519,27 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col md:flex-row">
             {/* Main Content Column */}
             <div className="flex-1 p-8 md:pr-12 space-y-8 min-w-0">
-                {/* Description */}
-                <div className="group">
-                    <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Description</label>
-                    <AutoResizeTextarea 
-                        value={task.description}
-                        onChange={(e: any) => onUpdateTask(task.id, { description: e.target.value })}
-                        className="w-full text-xl font-medium text-slate-800 dark:text-slate-200 bg-transparent border-none outline-none resize-none placeholder-slate-300 focus:ring-0 p-0 leading-relaxed overflow-hidden"
-                        placeholder="Task description..."
-                    />
+                {/* Title and Description */}
+                <div className="space-y-6">
+                    <div className="group">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Task Title</label>
+                        <AutoResizeTextarea 
+                            value={task.title || ''}
+                            onChange={(e: any) => onUpdateTask(task.id, { title: e.target.value })}
+                            className="w-full text-2xl font-bold text-slate-900 dark:text-slate-100 bg-transparent border-none outline-none resize-none placeholder-slate-300 focus:ring-0 p-0 leading-tight overflow-hidden"
+                            placeholder="Add a short title summary..."
+                        />
+                    </div>
+
+                    <div className="group">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 block">Description</label>
+                        <AutoResizeTextarea 
+                            value={task.description}
+                            onChange={(e: any) => onUpdateTask(task.id, { description: e.target.value })}
+                            className="w-full text-lg font-medium text-slate-600 dark:text-slate-300 bg-transparent border-none outline-none resize-none placeholder-slate-300 focus:ring-0 p-0 leading-relaxed overflow-hidden"
+                            placeholder="Detailed task explanation..."
+                        />
+                    </div>
                 </div>
 
                 {/* Subtasks */}

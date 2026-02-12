@@ -1,4 +1,3 @@
-
 export enum Priority {
   HIGH = 'High',
   MEDIUM = 'Medium',
@@ -85,6 +84,7 @@ export interface RecurrenceConfig {
 export interface Task {
   id: string; // Internal UUID
   displayId: string; // User facing ID like P1130-28
+  title?: string; // Short summary for the task card
   source: string; // CW02, CW49
   projectId: string; // New Project ID field
   description: string;
