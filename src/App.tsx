@@ -60,7 +60,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.5.0 - Task Titles";
+const BUILD_VERSION = "V4.5.1 - UX Fixes";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -103,10 +103,7 @@ const getEndOfWeek = (date: Date) => {
 // Helper for fuzzy date matching (Supports YYYY-MM-DD and DD/MM)
 const checkDateMatch = (dateStr: string | undefined, query: string) => {
   if (!dateStr) return false;
-  // 1. Direct Match (ISO format)
   if (dateStr.includes(query)) return true;
-  
-  // 2. DD/MM Format Match
   const parts = dateStr.split('-');
   if (parts.length === 3) {
       const [y, m, d] = parts;
@@ -144,6 +141,7 @@ const App: React.FC = () => {
 
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const isMouseDownOnBackdrop = useRef(false);
 
   // --- Add Missing States ---
   const [newTaskForm, setNewTaskForm] = useState({
@@ -202,7 +200,18 @@ const App: React.FC = () => {
     return { tasks: matchedTasks, logs: matchedLogs, observations: matchedObs };
   }, [searchQuery, tasks, logs, observations]);
 
-  // --- Add Missing Helper Functions ---
+  // --- Helpers for backdrop click handling ---
+  const handleBackdropMouseDown = (e: React.MouseEvent) => {
+    isMouseDownOnBackdrop.current = e.target === e.currentTarget;
+  };
+
+  const createBackdropClickHandler = (onClose: () => void) => (e: React.MouseEvent) => {
+    if (isMouseDownOnBackdrop.current && e.target === e.currentTarget) {
+      onClose();
+    }
+    isMouseDownOnBackdrop.current = false;
+  };
+
   const activeProjects = useMemo(() => {
     const projects = tasks
       .filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED)
@@ -639,7 +648,6 @@ const App: React.FC = () => {
       setActiveTaskId(id);
     } else if (type === 'obs') {
       setView(ViewMode.OBSERVATIONS);
-      // Logic to highlight specific obs could be added here if needed
     } else if (type === 'log') {
       const log = logs.find(l => l.id === id);
       if (log && log.taskId) {
@@ -854,15 +862,15 @@ const App: React.FC = () => {
         {activeTask && (<TaskDetailModal task={activeTask} allTasks={tasks} onClose={() => setActiveTaskId(null)} onUpdateStatus={updateTaskStatus} onUpdateTask={updateTaskFields} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} onDeleteTask={deleteTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} updateTags={appConfig.updateHighlightOptions || []} statusColors={appConfig.itemColors} />)}
         
         {/* New Task Modal */}
-        {showNewTaskModal && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"><form onSubmit={handleCreateTask} className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in"><div className="p-5 border-b dark:border-slate-700 flex justify-between items-center bg-indigo-600 text-white"><h2 className="font-bold flex items-center gap-2"><Plus size={20}/> Create New Task</h2><button type="button" onClick={() => setShowNewTaskModal(false)}><X size={20}/></button></div><div className="p-6 space-y-4">{modalError && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-xs font-bold"><AlertTriangle size={16} /> {modalError}</div>}<div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Source (CW)</label><input required value={newTaskForm.source} onChange={e => setNewTaskForm({...newTaskForm, source: e.target.value})} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Project ID</label><input required autoFocus list="active-projects" value={newTaskForm.projectId} onChange={e => { const pid = e.target.value; setNewTaskForm({...newTaskForm, projectId: pid, displayId: suggestNextId(pid)}); }} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /><datalist id="active-projects">{activeProjects.map(p => <option key={p} value={p} />)}</datalist></div></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Display ID</label><input required value={newTaskForm.displayId} onChange={e => setNewTaskForm({...newTaskForm, displayId: e.target.value})} className="w-full px-3 py-2 text-sm font-mono bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Task Title</label><input required value={newTaskForm.title} onChange={e => setNewTaskForm({...newTaskForm, title: e.target.value})} placeholder="Short summary for the card..." className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Description</label><textarea required value={newTaskForm.description} onChange={e => setNewTaskForm({...newTaskForm, description: e.target.value})} rows={3} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /></div></div><div className="p-4 border-t dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex justify-end gap-3"><button type="button" onClick={() => setShowNewTaskModal(false)} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded-lg">Cancel</button><button type="submit" className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-xl">Create Task</button></div></form></div>)}
+        {showNewTaskModal && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onMouseDown={handleBackdropMouseDown} onClick={createBackdropClickHandler(() => setShowNewTaskModal(false))}><form onSubmit={handleCreateTask} onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in"><div className="p-5 border-b dark:border-slate-700 flex justify-between items-center bg-indigo-600 text-white"><h2 className="font-bold flex items-center gap-2"><Plus size={20}/> Create New Task</h2><button type="button" onClick={() => setShowNewTaskModal(false)}><X size={20}/></button></div><div className="p-6 space-y-4">{modalError && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-xs font-bold"><AlertTriangle size={16} /> {modalError}</div>}<div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Source (CW)</label><input required value={newTaskForm.source} onChange={e => setNewTaskForm({...newTaskForm, source: e.target.value})} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Project ID</label><input required autoFocus list="active-projects" value={newTaskForm.projectId} onChange={e => { const pid = e.target.value; setNewTaskForm({...newTaskForm, projectId: pid, displayId: suggestNextId(pid)}); }} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /><datalist id="active-projects">{activeProjects.map(p => <option key={p} value={p} />)}</datalist></div></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Display ID</label><input required value={newTaskForm.displayId} onChange={e => setNewTaskForm({...newTaskForm, displayId: e.target.value})} className="w-full px-3 py-2 text-sm font-mono bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Task Title</label><input required value={newTaskForm.title} onChange={e => setNewTaskForm({...newTaskForm, title: e.target.value})} placeholder="Short summary for the card..." className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Description</label><textarea required value={newTaskForm.description} onChange={e => setNewTaskForm({...newTaskForm, description: e.target.value})} rows={3} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /></div></div><div className="p-4 border-t dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex justify-end gap-3"><button type="button" onClick={() => setShowNewTaskModal(false)} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded-lg">Cancel</button><button type="submit" className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-xl">Create Task</button></div></form></div>)}
         
         {/* Weekly Report Modal */}
-        {showReportModal && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"><div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-indigo-600 text-white"><h2 className="font-bold flex items-center gap-2"><Sparkles size={18}/> Weekly AI Report</h2><button onClick={() => setShowReportModal(false)}><X size={20}/></button></div><div className="flex-1 overflow-y-auto p-6 dark:text-slate-200">{isGeneratingReport ? <div className="flex flex-col items-center justify-center py-12 gap-4"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div><p>Analyzing...</p></div> : <div className="prose prose-sm max-w-none dark:prose-invert">{generatedReport.split('\n').map((line, i) => <p key={i}>{line}</p>)}</div>}</div><div className="p-4 border-t dark:border-slate-700 flex justify-end gap-2 bg-slate-50 dark:bg-slate-800"><button onClick={() => { navigator.clipboard.writeText(generatedReport); alert('Copied!'); }} className="px-4 py-2 text-slate-600 font-bold rounded-lg hover:bg-slate-200">Copy</button><button onClick={() => setShowReportModal(false)} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700">Close</button></div></div></div>)}
+        {showReportModal && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onMouseDown={handleBackdropMouseDown} onClick={createBackdropClickHandler(() => setShowReportModal(false))}><div onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"><div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-indigo-600 text-white"><h2 className="font-bold flex items-center gap-2"><Sparkles size={18}/> Weekly AI Report</h2><button onClick={() => setShowReportModal(false)}><X size={20}/></button></div><div className="flex-1 overflow-y-auto p-6 dark:text-slate-200">{isGeneratingReport ? <div className="flex flex-col items-center justify-center py-12 gap-4"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div><p>Analyzing...</p></div> : <div className="prose prose-sm max-w-none dark:prose-invert">{generatedReport.split('\n').map((line, i) => <p key={i}>{line}</p>)}</div>}</div><div className="p-4 border-t dark:border-slate-700 flex justify-end gap-2 bg-slate-50 dark:bg-slate-800"><button onClick={() => { navigator.clipboard.writeText(generatedReport); alert('Copied!'); }} className="px-4 py-2 text-slate-600 font-bold rounded-lg hover:bg-slate-200">Copy</button><button onClick={() => setShowReportModal(false)} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700">Close</button></div></div></div>)}
 
         {/* Expanded Day Modal */}
         {expandedDay && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60] flex items-center justify-center p-4" onClick={() => setExpandedDay(null)}>
-             <div className="bg-white dark:bg-slate-900 w-full max-w-5xl h-[85vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-fade-in" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60] flex items-center justify-center p-4" onMouseDown={handleBackdropMouseDown} onClick={createBackdropClickHandler(() => setExpandedDay(null))}>
+             <div className="bg-white dark:bg-slate-900 w-full max-w-5xl h-[85vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-fade-in" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center bg-indigo-600 text-white shrink-0">
                    <div>
                       <h2 className="text-2xl font-bold flex items-center gap-3">
@@ -909,8 +917,8 @@ const App: React.FC = () => {
 
         {/* Dashboard Status Drill-down Modal */}
         {dashboardStatusFilter && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-40 flex items-center justify-center p-4" onClick={() => setDashboardStatusFilter(null)}>
-                <div className="bg-white dark:bg-slate-900 w-full max-w-6xl h-[85vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-fade-in" onClick={e => e.stopPropagation()}>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-40 flex items-center justify-center p-4" onMouseDown={handleBackdropMouseDown} onClick={createBackdropClickHandler(() => setDashboardStatusFilter(null))}>
+                <div className="bg-white dark:bg-slate-900 w-full max-w-6xl h-[85vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-fade-in" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
                     <div className="p-6 border-b dark:border-slate-800 flex justify-between items-center shrink-0" style={{ backgroundColor: (getStatusColorHex(dashboardStatusFilter) || '#6366f1') + '20' }}>
                         <div className="flex items-center gap-3">
                             <div className="p-2 rounded-lg" style={{ backgroundColor: getStatusColorHex(dashboardStatusFilter) || '#6366f1', color: '#fff' }}>

@@ -219,6 +219,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const taskFileInputRef = useRef<HTMLInputElement>(null);
+  const isMouseDownOnBackdrop = useRef(false);
 
   // Subtask Drag State
   const [draggedSubtaskId, setDraggedSubtaskId] = useState<string | null>(null);
@@ -246,6 +247,17 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose, editingUpdateId]);
+
+  const handleBackdropMouseDown = (e: React.MouseEvent) => {
+    isMouseDownOnBackdrop.current = e.target === e.currentTarget;
+  };
+
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (isMouseDownOnBackdrop.current && e.target === e.currentTarget) {
+      onClose();
+    }
+    isMouseDownOnBackdrop.current = false;
+  };
 
   const getContrastYIQ = (hexcolor: string) => {
     if (!hexcolor) return '#ffffff';
@@ -459,10 +471,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   const statusStyle = getStatusStyle(task.status);
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 animate-fade-in" onClick={onClose}>
+    <div 
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 animate-fade-in" 
+        onMouseDown={handleBackdropMouseDown}
+        onClick={handleBackdropClick}
+    >
       <div 
         className="bg-white dark:bg-slate-800 w-full max-w-6xl h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col relative"
         onClick={e => e.stopPropagation()}
+        onMouseDown={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 sticky top-0 z-10">
