@@ -519,7 +519,6 @@ const App: React.FC = () => {
   };
 
   const deleteTask = (id: string) => {
-    if (!confirm('Delete task?')) return;
     setTasks(prev => {
         if (isSyncEnabled) syncData([{ type: 'task', action: 'delete', id }]);
         return prev.filter(t => t.id !== id);
