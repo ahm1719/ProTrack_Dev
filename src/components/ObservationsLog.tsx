@@ -116,8 +116,44 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
     setStatus(columns[0] || ObservationStatus.NEW);
   };
 
-  const handleCopyText = (text: string) => {
-      navigator.clipboard.writeText(text);
+  /**
+   * Copies the full observation including text and images to the clipboard.
+   * Uses HTML format to allow rich-pasting (text + images) into target apps.
+   */
+  const handleCopyObservation = async (obs: Observation) => {
+    const hasImages = obs.images && obs.images.length > 0;
+    const plainText = obs.content + (hasImages ? '\n\n[Contains Image Attachments]' : '');
+    
+    try {
+        // Construct HTML version to support embedded images on paste
+        let htmlContent = `<div><p style="white-space: pre-wrap; font-family: sans-serif;">${obs.content.replace(/\n/g, '<br>')}</p>`;
+        if (hasImages) {
+            obs.images?.forEach(img => {
+                htmlContent += `<div style="margin-top: 12px;"><img src="${img}" style="max-width: 100%; border-radius: 8px; border: 1px solid #e2e8f0;" /></div>`;
+            });
+        }
+        htmlContent += `</div>`;
+
+        // Check if ClipboardItem is supported (modern browsers)
+        if (typeof ClipboardItem !== 'undefined') {
+            const data = [
+                new ClipboardItem({
+                    'text/plain': new Blob([plainText], { type: 'text/plain' }),
+                    'text/html': new Blob([htmlContent], { type: 'text/html' }),
+                })
+            ];
+            await navigator.clipboard.write(data);
+        } else {
+            // Fallback for older browsers
+            await navigator.clipboard.writeText(plainText);
+        }
+        
+        // Brief feedback could be added here if a toast system exists
+    } catch (err) {
+        console.error('Copy failed:', err);
+        // Last resort fallback
+        await navigator.clipboard.writeText(plainText);
+    }
   };
 
   const advanceStatus = (obs: Observation) => {
@@ -298,9 +334,9 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                                         <span className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">{new Date(obs.timestamp).toLocaleDateString()}</span>
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button 
-                                              onClick={() => handleCopyText(obs.content)} 
+                                              onClick={() => handleCopyObservation(obs)} 
                                               className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-400 dark:text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" 
-                                              title="Copy Text"
+                                              title="Copy content (with images)"
                                             >
                                               <Copy size={12} />
                                             </button>
