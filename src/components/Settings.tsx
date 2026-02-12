@@ -307,12 +307,17 @@ const Settings: React.FC<SettingsProps> = ({
     isDarkMode = false, onToggleTheme
 }) => {
   const [configJson, setConfigJson] = useState('');
+  const [geminiKey, setGeminiKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
   const [customRetentionDays, setCustomRetentionDays] = useState<string>(appConfig.retentionPeriodDays?.toString() || '60');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const savedConfig = localStorage.getItem('protrack_firebase_config');
     if (savedConfig) setConfigJson(JSON.stringify(JSON.parse(savedConfig), null, 2));
+    
+    const savedKey = localStorage.getItem('protrack_gemini_key');
+    if (savedKey) setGeminiKey(savedKey);
   }, []);
 
   const storageStats = { 
@@ -397,6 +402,11 @@ const Settings: React.FC<SettingsProps> = ({
     });
   };
 
+  const handleSaveGeminiKey = () => {
+    localStorage.setItem('protrack_gemini_key', geminiKey.trim());
+    alert('AI API Key saved successfully.');
+  };
+
   const handleRetentionChange = (days: number) => {
     onUpdateConfig({ ...appConfig, retentionPeriodDays: days });
     setCustomRetentionDays(days.toString());
@@ -439,11 +449,46 @@ const Settings: React.FC<SettingsProps> = ({
           <div className="p-6 border-b dark:border-slate-700 bg-purple-50 dark:bg-purple-900/20 flex items-center gap-3">
               <Sparkles className="text-purple-600 dark:text-purple-400" />
               <div>
-                  <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">AI Summary Personalization</h2>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Customize how the Dashboard weekly summary is generated.</p>
+                  <h2 className="text-lg font-bold text-slate-800 dark:text-slate-200">AI Settings</h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Configure your Gemini API key and reporting preferences.</p>
               </div>
           </div>
-          <div className="p-6 space-y-6">
+          <div className="p-6 space-y-8">
+              {/* API Key Sub-section */}
+              <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                      <Key size={12} /> Gemini API Credentials
+                  </div>
+                  <div className="flex gap-2">
+                      <div className="relative flex-1">
+                          <input 
+                              type={showKey ? "text" : "password"} 
+                              value={geminiKey} 
+                              onChange={e => setGeminiKey(e.target.value)} 
+                              placeholder="Enter Gemini API Key..." 
+                              className="w-full pl-4 pr-10 py-2.5 text-sm bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-900 dark:text-white" 
+                          />
+                          <button 
+                              type="button" 
+                              onClick={() => setShowKey(!showKey)} 
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                              {showKey ? <EyeOff size={16}/> : <Eye size={16}/>}
+                          </button>
+                      </div>
+                      <button 
+                          onClick={handleSaveGeminiKey} 
+                          className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-sm font-bold shadow-md transition-all whitespace-nowrap"
+                      >
+                          Save Key
+                      </button>
+                  </div>
+                  <p className="text-[10px] text-slate-400 italic">Key is stored locally in your browser and used for summarization and chat features.</p>
+              </div>
+
+              <div className="h-[1px] bg-slate-100 dark:bg-slate-700" />
+
+              {/* Personalization Sub-section */}
               <div className="grid md:grid-cols-[1fr_2fr] gap-6">
                   <div className="space-y-4">
                       <div className="space-y-1">
@@ -460,7 +505,6 @@ const Settings: React.FC<SettingsProps> = ({
                               <option value="14_days">Last 14 Days</option>
                               <option value="30_days">Last 30 Days</option>
                           </select>
-                          <p className="text-[10px] text-slate-400 italic mt-1">Defines the data lookback window for the AI.</p>
                       </div>
                   </div>
                   <div className="space-y-1">
@@ -474,7 +518,7 @@ const Settings: React.FC<SettingsProps> = ({
                         className="w-full h-40 p-4 text-xs bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 dark:text-white resize-none custom-scrollbar"
                       />
                       <div className="flex justify-between mt-1">
-                          <p className="text-[10px] text-slate-400 italic">Leave empty to use the standard professional template.</p>
+                          <p className="text-[10px] text-slate-400 italic">Leave empty for standard professional template.</p>
                           <button 
                             onClick={() => handleUpdateAIConfig('customInstructions', '')}
                             className="text-[10px] font-bold text-purple-600 dark:text-purple-400 hover:underline"
