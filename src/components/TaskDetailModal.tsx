@@ -19,6 +19,14 @@ interface TaskDetailModalProps {
   statusColors?: Record<string, string>;
 }
 
+const getWeekNumber = (d: Date): number => {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
+
 const AutoResizeTextarea = ({ value, onChange, className, placeholder, onKeyDown, autoFocus }: any) => {
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -125,6 +133,12 @@ const WorkloadDatePicker: React.FC<{
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
+    const days = generateDays();
+    const dayChunks = [];
+    for (let i = 0; i < days.length; i += 7) {
+        dayChunks.push(days.slice(i, i + 7));
+    }
+
     return (
         <div className="relative" ref={wrapperRef}>
             <button 
@@ -136,50 +150,76 @@ const WorkloadDatePicker: React.FC<{
             </button>
 
             {isOpen && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-3 w-[17rem] animate-fade-in">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 p-3 w-[18rem] animate-fade-in">
                     <div className="flex justify-between items-center mb-4">
                         <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 dark:text-slate-400 transition-colors"><ChevronLeft size={18} /></button>
                         <span className="text-sm font-bold text-slate-800 dark:text-slate-200">{viewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</span>
                         <button onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-slate-500 dark:text-slate-400 transition-colors"><ChevronRight size={18} /></button>
                     </div>
-                    <div className="grid grid-cols-7 gap-1 mb-2">
-                        {['M','T','W','T','F','S','S'].map(d => <div key={d} className="text-center text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{d}</div>)}
+                    <div className="grid grid-cols-[2rem_1fr] gap-1 mb-2 items-center">
+                        <div className="text-center text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-tighter">CW</div>
+                        <div className="grid grid-cols-7 gap-1">
+                            {['M','T','W','T','F','S','S'].map(d => <div key={d} className="text-center text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{d}</div>)}
+                        </div>
                     </div>
-                    <div className="grid grid-cols-7 gap-1">
-                        {generateDays().map((day, idx) => {
-                            if (!day) return <div key={idx} />;
-                            const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
-                            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                            const workload = getWorkload(dateStr);
-                            const isSelected = dateStr === selectedDate;
-                            const isToday = dateStr === todayStr;
-                            
-                            let workloadColor = 'bg-emerald-500';
-                            if (workload >= 3) workloadColor = 'bg-amber-500';
-                            if (workload >= 5) workloadColor = 'bg-red-500';
-
-                            let btnClasses = "relative h-9 rounded-lg text-sm font-bold transition-all flex items-center justify-center border-2 ";
-                            if (isSelected) {
-                                btnClasses += "border-indigo-600 bg-indigo-600 text-white shadow-md scale-105 z-10";
-                            } else if (isToday) {
-                                btnClasses += "border-indigo-500 text-indigo-700 dark:text-indigo-400";
-                            } else {
-                                btnClasses += "border-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300";
+                    <div className="space-y-1">
+                        {dayChunks.map((chunk, chunkIdx) => {
+                            // Calculate week number based on the first non-null day in the chunk
+                            const firstDayNum = chunk.find(d => d !== null);
+                            let cwDisplay = '';
+                            if (firstDayNum !== undefined) {
+                                const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), firstDayNum);
+                                cwDisplay = getWeekNumber(d).toString();
+                            } else if (chunkIdx === 0) {
+                                // If the first chunk is all nulls (unlikely with this logic, but for safety)
+                                const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+                                cwDisplay = getWeekNumber(d).toString();
                             }
 
                             return (
-                                <button 
-                                    key={idx} 
-                                    onClick={() => handleDateClick(day)}
-                                    className={btnClasses}
-                                >
-                                    {day}
-                                    {workload > 0 && (
-                                        <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 text-[10px] font-bold flex items-center justify-center rounded-full text-white ${workloadColor} border-2 border-white dark:border-slate-800 shadow-md z-20`}>
-                                            {workload}
-                                        </div>
-                                    )}
-                                </button>
+                                <div key={chunkIdx} className="grid grid-cols-[2rem_1fr] gap-1 items-center">
+                                    <div className="text-[9px] font-mono font-bold text-slate-400 dark:text-slate-600 text-center py-1 bg-slate-50 dark:bg-slate-900/30 rounded">
+                                        {cwDisplay}
+                                    </div>
+                                    <div className="grid grid-cols-7 gap-1">
+                                        {chunk.map((day, idx) => {
+                                            if (day === null) return <div key={idx} />;
+                                            const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+                                            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                            const workload = getWorkload(dateStr);
+                                            const isSelected = dateStr === selectedDate;
+                                            const isToday = dateStr === todayStr;
+                                            
+                                            let workloadColor = 'bg-emerald-500';
+                                            if (workload >= 3) workloadColor = 'bg-amber-500';
+                                            if (workload >= 5) workloadColor = 'bg-red-500';
+
+                                            let btnClasses = "relative h-8 rounded-lg text-[13px] font-bold transition-all flex items-center justify-center border-2 ";
+                                            if (isSelected) {
+                                                btnClasses += "border-indigo-600 bg-indigo-600 text-white shadow-md scale-105 z-10";
+                                            } else if (isToday) {
+                                                btnClasses += "border-indigo-500 text-indigo-700 dark:text-indigo-400";
+                                            } else {
+                                                btnClasses += "border-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300";
+                                            }
+
+                                            return (
+                                                <button 
+                                                    key={idx} 
+                                                    onClick={() => handleDateClick(day)}
+                                                    className={btnClasses}
+                                                >
+                                                    {day}
+                                                    {workload > 0 && (
+                                                        <div className={`absolute -top-1.5 -right-1.5 w-4.5 h-4.5 text-[9px] font-bold flex items-center justify-center rounded-full text-white ${workloadColor} border border-white dark:border-slate-800 shadow-md z-20`}>
+                                                            {workload}
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
                             );
                         })}
                     </div>
