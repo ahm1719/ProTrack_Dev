@@ -460,10 +460,15 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   const handleSubtaskDrop = (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
-    if (!draggedSubtaskId || draggedSubtaskId === targetId) return;
+    const sourceId = draggedSubtaskId;
+    
+    // Always clear dragged state after drop attempts
+    setDraggedSubtaskId(null);
+
+    if (!sourceId || sourceId === targetId) return;
 
     const currentSubtasks = task.subtasks || [];
-    const fromIndex = currentSubtasks.findIndex(s => s.id === draggedSubtaskId);
+    const fromIndex = currentSubtasks.findIndex(s => s.id === sourceId);
     const toIndex = currentSubtasks.findIndex(s => s.id === targetId);
 
     if (fromIndex === -1 || toIndex === -1) return;
@@ -473,7 +478,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     newSubtasks.splice(toIndex, 0, movedSubtask);
 
     onUpdateTask(task.id, { subtasks: newSubtasks });
-    setDraggedSubtaskId(null);
   };
 
   const startEditingUpdate = (update: { id: string, content: string, timestamp: string, highlightColor?: string }) => {
@@ -619,9 +623,10 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                 draggable="true"
                                 onDragStart={(e) => handleSubtaskDragStart(e, st.id)}
                                 onDragOver={handleSubtaskDragOver}
+                                onDragEnd={() => setDraggedSubtaskId(null)}
                                 onDrop={(e) => handleSubtaskDrop(e, st.id)}
                                 className={`flex items-start gap-3 p-2 rounded-lg group transition-all ${
-                                    draggedSubtaskId === st.id ? 'opacity-30 border-2 border-dashed border-indigo-400' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                                    draggedSubtaskId === st.id ? 'opacity-30 border-2 border-dashed border-indigo-400 bg-indigo-50 dark:bg-indigo-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
                                 }`}
                             >
                                 <div className="mt-1.5 cursor-grab active:cursor-grabbing text-slate-300 dark:text-slate-600 hover:text-indigo-500 dark:hover:text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity">
