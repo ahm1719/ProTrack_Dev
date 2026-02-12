@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, RecurrenceConfig } from '../types';
 import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical, ChevronDown, Type, Bold, Highlighter } from 'lucide-react';
@@ -569,7 +570,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
   return (
     <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 animate-fade-in" 
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex justify-center items-center p-4 animate-fade-in" 
         onMouseDown={handleBackdropMouseDown}
         onClick={handleBackdropClick}
     >
