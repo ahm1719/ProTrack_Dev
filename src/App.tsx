@@ -80,7 +80,8 @@ const DEFAULT_CONFIG: AppConfig = {
   aiReportConfig: {
     customInstructions: '',
     periodType: 'current_week'
-  }
+  },
+  retentionPeriodDays: 60
 };
 
 const getWeekNumber = (d: Date): number => {

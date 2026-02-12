@@ -45,6 +45,7 @@ export interface AppConfig {
     customInstructions?: string;
     periodType?: 'current_week' | '7_days' | '14_days' | '30_days';
   };
+  retentionPeriodDays?: number;
 }
 
 export interface BackupSettings {

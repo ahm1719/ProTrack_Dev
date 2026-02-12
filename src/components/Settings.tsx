@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen, Save, RefreshCw, Folder, CheckCircle2, Tag, Moon, Sun, Sparkles, Clock, History, Calendar } from 'lucide-react';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen, Save, RefreshCw, Folder, Moon, Sun, Sparkles, Clock, History, Calendar } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, ObservationStatus, BackupSettings, HighlightOption } from '../types';
 import { initFirebase } from '../services/firebaseService';
 import { saveManualBackup } from '../services/backupService';
@@ -307,6 +307,7 @@ const Settings: React.FC<SettingsProps> = ({
     isDarkMode = false, onToggleTheme
 }) => {
   const [configJson, setConfigJson] = useState('');
+  const [customRetentionDays, setCustomRetentionDays] = useState<string>(appConfig.retentionPeriodDays?.toString() || '60');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -352,12 +353,12 @@ const Settings: React.FC<SettingsProps> = ({
   };
 
   const handlePurgeOldHistory = () => {
+    const retentionDays = appConfig.retentionPeriodDays || 60;
     const threshold = new Date();
-    threshold.setMonth(threshold.getMonth() - 2);
+    threshold.setDate(threshold.getDate() - retentionDays);
     const thresholdTime = threshold.getTime();
 
     const oldLogs = logs.filter(l => new Date(l.date).getTime() < thresholdTime);
-    // Find updates within tasks that are older than threshold
     let updateCount = 0;
     tasks.forEach(t => {
         t.updates.forEach(u => {
@@ -366,11 +367,11 @@ const Settings: React.FC<SettingsProps> = ({
     });
 
     if (oldLogs.length === 0 && updateCount === 0) {
-        alert("No history records older than 2 months found.");
+        alert(`No history records older than ${retentionDays} days found.`);
         return;
     }
 
-    if (confirm(`This will permanently remove ${oldLogs.length} logs and ${updateCount} task updates older than 2 months (before ${threshold.toLocaleDateString()}). Current task statuses and task definitions will be preserved. Proceed?`)) {
+    if (confirm(`This will permanently remove ${oldLogs.length} logs and ${updateCount} task updates older than ${retentionDays} days (before ${threshold.toLocaleDateString()}). Current task statuses and task definitions will be preserved. Proceed?`)) {
         const filteredLogs = logs.filter(l => new Date(l.date).getTime() >= thresholdTime);
         const filteredTasks = tasks.map(t => ({
             ...t,
@@ -394,6 +395,11 @@ const Settings: React.FC<SettingsProps> = ({
         [field]: value
       }
     });
+  };
+
+  const handleRetentionChange = (days: number) => {
+    onUpdateConfig({ ...appConfig, retentionPeriodDays: days });
+    setCustomRetentionDays(days.toString());
   };
 
   return (
@@ -429,7 +435,6 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
       </section>
 
-      {/* AI Summary Personalization Section */}
       <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
           <div className="p-6 border-b dark:border-slate-700 bg-purple-50 dark:bg-purple-900/20 flex items-center gap-3">
               <Sparkles className="text-purple-600 dark:text-purple-400" />
@@ -532,7 +537,6 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
       </section>
 
-      {/* NEW: Data Hygiene & Purge Section */}
       <section className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
           <div className="p-6 border-b dark:border-slate-700 bg-rose-50 dark:bg-rose-900/20 flex justify-between items-center">
               <div className="flex items-center gap-3">
@@ -566,7 +570,7 @@ const Settings: React.FC<SettingsProps> = ({
 
                   <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700 rounded-xl flex flex-col h-full">
                       <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs uppercase tracking-wider mb-2">
-                        <Key size={14} /> Resolved Feedback
+                        <FolderOpen size={14} /> Resolved Feedback
                       </div>
                       <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-4 flex-1">Permanently remove observation cards that have been marked as Resolved.</p>
                       <button 
@@ -581,7 +585,47 @@ const Settings: React.FC<SettingsProps> = ({
                       <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs uppercase tracking-wider mb-2">
                         <History size={14} /> Historical Noise
                       </div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-4 flex-1">Remove updates and logs older than 2 months to declutter the timeline view.</p>
+                      
+                      <div className="mb-4">
+                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest block mb-1">Retention Window</label>
+                          <select 
+                            value={appConfig.retentionPeriodDays || 60}
+                            onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                if (val !== -1) handleRetentionChange(val);
+                            }}
+                            className="w-full p-2 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded outline-none focus:ring-1 focus:ring-amber-500 dark:text-white"
+                          >
+                              <option value={30}>1 Month (30 days)</option>
+                              <option value={60}>2 Months (60 days)</option>
+                              <option value={90}>3 Months (90 days)</option>
+                              <option value={180}>6 Months (180 days)</option>
+                              <option value={365}>1 Year (365 days)</option>
+                              <option value={-1}>Custom...</option>
+                          </select>
+                          {(appConfig.retentionPeriodDays !== 30 && appConfig.retentionPeriodDays !== 60 && appConfig.retentionPeriodDays !== 90 && appConfig.retentionPeriodDays !== 180 && appConfig.retentionPeriodDays !== 365) || customRetentionDays === '-1' ? (
+                              <div className="mt-2 flex items-center gap-2">
+                                  <input 
+                                    type="number"
+                                    min="1"
+                                    value={customRetentionDays === '-1' ? '' : customRetentionDays}
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        setCustomRetentionDays(val);
+                                        const num = parseInt(val);
+                                        if (!isNaN(num) && num > 0) onUpdateConfig({ ...appConfig, retentionPeriodDays: num });
+                                    }}
+                                    placeholder="Enter days..."
+                                    className="w-full p-2 text-xs bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded outline-none dark:text-white"
+                                  />
+                                  <span className="text-[10px] text-slate-400 font-bold">DAYS</span>
+                              </div>
+                          ) : null}
+                      </div>
+
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mb-4 flex-1">
+                        Removes updates and logs older than {appConfig.retentionPeriodDays} days to declutter the timeline view.
+                      </p>
                       <button 
                         onClick={handlePurgeOldHistory}
                         className="w-full flex items-center justify-center gap-2 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-all"
