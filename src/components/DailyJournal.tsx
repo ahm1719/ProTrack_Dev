@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Task, DailyLog, Status } from '../types';
-import { Filter, RotateCcw, ChevronLeft, ChevronRight, Ban, Calendar as CalendarIcon, PlusCircle, Edit2, Trash2, X, Save, History } from 'lucide-react';
+import { Filter, RotateCcw, ChevronLeft, ChevronRight, Ban, Calendar as CalendarIcon, PlusCircle, Edit2, Trash2, X, Save, History, Umbrella, Trash } from 'lucide-react';
 
 interface DailyJournalProps {
   tasks: Task[];
@@ -11,6 +11,8 @@ interface DailyJournalProps {
   initialTaskId?: string;
   offDays?: string[];
   onToggleOffDay?: (date: string) => void;
+  onToggleOffDayRange?: (dates: string[]) => void;
+  onClearOffDays?: (dates: string[]) => void;
   searchQuery?: string;
   onEditLog: (logId: string, taskId: string, content: string, date: string) => void;
   onDeleteLog: (logId: string) => void;
@@ -40,14 +42,35 @@ const getWeekNumber = (d: Date): number => {
   return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 };
 
+const formatDateToISO = (date: Date) => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+};
+
+const getDatesInRange = (startDate: string, endDate: string) => {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const dates = [];
+    const curr = new Date(start < end ? start : end);
+    const stop = new Date(start < end ? end : start);
+    
+    while (curr <= stop) {
+        dates.push(formatDateToISO(new Date(curr)));
+        curr.setDate(curr.getDate() + 1);
+    }
+    return dates;
+};
+
 interface MiniCalendarProps {
   selectedDate: string;
   onSelectDate: (date: string) => void;
   offDays: string[];
   tasks: Task[];
+  rangeStart: string | null;
+  onSelectRangeStart: (date: string | null) => void;
+  selectedRange: string[];
 }
 
-const MiniCalendar = ({ selectedDate, onSelectDate, offDays, tasks }: MiniCalendarProps) => {
+const MiniCalendar = ({ selectedDate, onSelectDate, offDays, tasks, rangeStart, onSelectRangeStart, selectedRange }: MiniCalendarProps) => {
   const [sYear, sMonth, sDay] = selectedDate.split('-').map(Number);
   const [viewDate, setViewDate] = useState(new Date(sYear, sMonth - 1, 1));
 
@@ -57,7 +80,7 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays, tasks }: MiniCalend
   const startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
 
   const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const todayStr = formatDateToISO(today);
 
   const prevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
   const nextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
@@ -68,6 +91,20 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays, tasks }: MiniCalend
         t.status !== Status.DONE && 
         t.status !== Status.ARCHIVED
     ).length;
+  };
+
+  const handleDayClick = (dateStr: string, event: React.MouseEvent) => {
+      if (event.shiftKey) {
+          if (!rangeStart) {
+              onSelectRangeStart(dateStr);
+          } else {
+              // Finish range selection by triggering onSelectDate to highlight clicked, 
+              // and parent logic handles the actual range display/action
+          }
+      } else {
+          onSelectRangeStart(null);
+      }
+      onSelectDate(dateStr);
   };
 
   const generateWeeks = () => {
@@ -86,19 +123,34 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays, tasks }: MiniCalend
         }
         if (dayNum > 0 && dayNum <= daysInMonth) {
             const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), dayNum);
-            const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const dateStr = formatDateToISO(d);
             const isSelected = dateStr === selectedDate;
             const isToday = dateStr === todayStr;
+            const isRangeSelected = selectedRange.includes(dateStr);
+            const isRangeBoundary = rangeStart === dateStr || (selectedRange.length > 0 && (selectedRange[0] === dateStr || selectedRange[selectedRange.length-1] === dateStr));
+            
             const dayOfWeek = d.getDay();
             const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
             const isOffDay = offDays.includes(dateStr);
             const taskCount = getTaskCount(dateStr);
 
             let bgClass = 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300';
-            if (isOffDay) bgClass = 'bg-red-50 dark:bg-red-900/20 text-red-400 line-through decoration-red-300';
-            else if (isWeekend) bgClass = 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500';
-            if (isSelected) bgClass = 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none scale-110 font-bold';
-            else if (!isSelected && isToday) bgClass = 'border-2 border-indigo-500 text-indigo-700 dark:text-indigo-400 font-bold';
+            
+            if (isRangeSelected) {
+                bgClass = 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 ring-1 ring-inset ring-indigo-300 dark:ring-indigo-700';
+            }
+            
+            if (isOffDay) {
+                bgClass = 'bg-rose-50 dark:bg-rose-900/20 text-rose-500 dark:text-rose-400 font-medium';
+            } else if (isWeekend) {
+                bgClass = 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500';
+            }
+
+            if (isSelected) {
+                bgClass = 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none scale-110 font-bold z-10';
+            } else if (!isSelected && isToday) {
+                bgClass = `${bgClass} border-2 border-indigo-500 text-indigo-700 dark:text-indigo-400 font-bold`;
+            }
             
             let badgeColorClass = 'bg-emerald-500 text-white';
             if (taskCount >= 3) badgeColorClass = 'bg-amber-500 text-white';
@@ -107,11 +159,15 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays, tasks }: MiniCalend
             currentWeek.days.push(
                 <button
                     key={dateStr}
-                    onClick={() => onSelectDate(dateStr)}
+                    onClick={(e) => handleDayClick(dateStr, e)}
                     className={`relative h-8 w-8 rounded-full flex items-center justify-center text-xs transition-all duration-200 ${bgClass}`}
+                    title={isOffDay ? 'Off-day' : ''}
                 >
                     {dayNum}
-                    {taskCount > 0 && (
+                    {isOffDay && (
+                        <Umbrella size={8} className="absolute bottom-0.5 right-0.5 text-rose-400 dark:text-rose-600" />
+                    )}
+                    {taskCount > 0 && !isSelected && (
                         <div className={`absolute -top-1.5 -right-1.5 w-4 h-4 text-[9px] font-bold rounded-full flex items-center justify-center border border-white dark:border-slate-800 z-10 ${badgeColorClass} shadow-sm`}>
                             {taskCount}
                         </div>
@@ -154,24 +210,31 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays, tasks }: MiniCalend
                  </div>
              ))}
           </div>
-          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 flex justify-center">
-                <div className="flex items-center gap-3 text-[9px] text-slate-400 font-medium">
+          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 flex flex-col gap-2">
+                <div className="flex justify-center items-center gap-3 text-[9px] text-slate-400 font-medium">
                     <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-emerald-500"></div> Light</span>
                     <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-amber-500"></div> Med</span>
                     <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> Heavy</span>
+                    <span className="flex items-center gap-1"><Umbrella size={8} className="text-rose-400" /> Off-day</span>
                 </div>
+                <p className="text-[9px] text-slate-400 italic text-center">Shift + Click to select a range</p>
           </div>
       </div>
     </div>
   );
 };
 
-const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUpdateTask, offDays = [], onToggleOffDay, searchQuery = '', onEditLog, onDeleteLog }) => {
+const DailyJournal: React.FC<DailyJournalProps> = ({ 
+    tasks, logs, onAddLog, onUpdateTask, offDays = [], 
+    onToggleOffDay, onToggleOffDayRange, onClearOffDays, 
+    searchQuery = '', onEditLog, onDeleteLog 
+}) => {
   const [entryDate, setEntryDate] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [logContent, setLogContent] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
   
-  // Driving the timeline view based on the selected calendar date
+  const [rangeStart, setRangeStart] = useState<string | null>(null);
+
   const [viewRange, setViewRange] = useState({
     start: getStartOfWeek(new Date(entryDate)),
     end: getEndOfWeek(new Date(entryDate))
@@ -182,7 +245,6 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
   const [editTaskId, setEditTaskId] = useState('');
   const [editDate, setEditDate] = useState('');
 
-  // Update the timeline range whenever the user clicks a new date in the calendar
   useEffect(() => {
     const dateObj = new Date(entryDate);
     setViewRange({
@@ -190,6 +252,11 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
       end: getEndOfWeek(dateObj)
     });
   }, [entryDate]);
+
+  const selectedRange = useMemo(() => {
+      if (!rangeStart) return [];
+      return getDatesInRange(rangeStart, entryDate);
+  }, [rangeStart, entryDate]);
 
   const handleAddEntry = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
@@ -227,7 +294,10 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
 
   const handleResetToToday = () => {
     setEntryDate(new Date().toLocaleDateString('en-CA'));
+    setRangeStart(null);
   };
+
+  const isCurrentOff = offDays.includes(entryDate);
 
   return (
     <div className="space-y-6 h-full flex flex-col">
@@ -248,8 +318,63 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
       </div>
 
       <div className="space-y-4">
-        <MiniCalendar selectedDate={entryDate} onSelectDate={setEntryDate} offDays={offDays} tasks={tasks} />
+        <MiniCalendar 
+            selectedDate={entryDate} 
+            onSelectDate={setEntryDate} 
+            offDays={offDays} 
+            tasks={tasks} 
+            rangeStart={rangeStart} 
+            onSelectRangeStart={setRangeStart} 
+            selectedRange={selectedRange}
+        />
         
+        {/* Range Actions or Single Day Actions */}
+        <div className="flex flex-col gap-2">
+            {selectedRange.length > 1 ? (
+                <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-xl border border-amber-100 dark:border-amber-900/30 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                            <Umbrella size={14} /> Selected Range ({selectedRange.length} days)
+                        </span>
+                        <button onClick={() => setRangeStart(null)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+                    </div>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={() => { onToggleOffDayRange?.(selectedRange); setRangeStart(null); }}
+                            className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Umbrella size={12} /> Set as OFF
+                        </button>
+                        <button 
+                            onClick={() => { onClearOffDays?.(selectedRange); setRangeStart(null); }}
+                            className="flex-1 bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-800 text-amber-600 dark:text-amber-400 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Trash size={12} /> Clear OFF
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className={`p-3 rounded-xl border transition-all flex items-center justify-between ${isCurrentOff ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-900/30' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700'}`}>
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Day Status</span>
+                        <span className={`text-xs font-bold ${isCurrentOff ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'}`}>
+                            {isCurrentOff ? 'OFF DAY' : 'Working Day'}
+                        </span>
+                    </div>
+                    <button 
+                        onClick={() => onToggleOffDay?.(entryDate)}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                            isCurrentOff 
+                            ? 'bg-rose-600 text-white shadow-md' 
+                            : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-600 hover:border-rose-400 hover:text-rose-500'
+                        }`}
+                    >
+                        {isCurrentOff ? 'Make Working' : 'Mark as OFF'}
+                    </button>
+                </div>
+            )}
+        </div>
+
         <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/30 shadow-sm space-y-3">
             <h4 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-2">
                 <PlusCircle size={14}/> Add Entry for {entryDate}
@@ -299,13 +424,17 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
             {sortedDates.map(date => {
                const [y, m, d] = date.split('-').map(Number);
                const localDate = new Date(y, m - 1, d);
+               const dateIsOff = offDays.includes(date);
                return (
                   <div key={date}>
                     <h3 className="font-bold text-slate-800 dark:text-slate-200 pl-1 mb-2 text-xs uppercase tracking-wide sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md py-1 z-10 flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${date === entryDate ? 'bg-indigo-500 scale-125 ring-2 ring-indigo-200 dark:ring-indigo-900' : 'bg-slate-300 dark:bg-slate-600'}`}></span>
-                        {localDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric'})}
+                        <span className={`w-2 h-2 rounded-full ${date === entryDate ? 'bg-indigo-500 scale-125 ring-2 ring-indigo-200 dark:ring-indigo-900' : dateIsOff ? 'bg-rose-400' : 'bg-slate-300 dark:bg-slate-600'}`}></span>
+                        <div className="flex-1 flex justify-between items-center pr-2">
+                            <span>{localDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric'})}</span>
+                            {dateIsOff && <span className="text-[8px] font-black text-rose-500 dark:text-rose-400 border border-rose-200 dark:border-rose-900 px-1 py-0.5 rounded leading-none">OFF</span>}
+                        </div>
                     </h3>
-                    <div className="relative border-l-2 border-indigo-100 dark:border-indigo-900/50 ml-3 space-y-4 py-1 pb-4">
+                    <div className={`relative border-l-2 ml-3 space-y-4 py-1 pb-4 ${dateIsOff ? 'border-rose-100 dark:border-rose-900/30' : 'border-indigo-100 dark:border-indigo-900/50'}`}>
                         {logsByDate[date].slice().reverse().map((log) => {
                         const isEditing = editingLogId === log.id;
                         const task = tasks.find(t => t.id === (isEditing ? editTaskId : log.taskId));
@@ -313,7 +442,7 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
 
                         return (
                             <div key={log.id} className="relative pl-6 group">
-                            <div className={`absolute -left-[7px] top-3 w-3 h-3 rounded-full bg-white dark:bg-slate-900 border-2 transition-colors ${isStatusChange ? 'border-indigo-400' : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-500'}`}></div>
+                            <div className={`absolute -left-[7px] top-3 w-3 h-3 rounded-full bg-white dark:bg-slate-900 border-2 transition-colors ${isStatusChange ? 'border-indigo-400' : dateIsOff ? 'border-rose-300' : 'border-slate-300 dark:border-slate-600 group-hover:border-indigo-500'}`}></div>
                             
                             {isEditing ? (
                                 <div className="bg-white dark:bg-slate-800 p-3 rounded-lg border-2 border-indigo-400 shadow-md space-y-2">
@@ -352,10 +481,10 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
                                     </div>
                                 </div>
                             ) : (
-                                <div className={`bg-white dark:bg-slate-800 p-3 rounded-lg border shadow-sm hover:shadow-md transition-all relative ${isStatusChange ? 'border-indigo-100 dark:border-indigo-900 bg-indigo-50/20' : 'border-slate-200 dark:border-slate-700'}`}>
+                                <div className={`bg-white dark:bg-slate-800 p-3 rounded-lg border shadow-sm hover:shadow-md transition-all relative ${isStatusChange ? 'border-indigo-100 dark:border-indigo-900 bg-indigo-50/20' : dateIsOff ? 'border-rose-100 dark:border-rose-900/20 opacity-80' : 'border-slate-200 dark:border-slate-700'}`}>
                                     <div className="flex justify-between items-start">
                                         <div className="flex flex-wrap gap-1.5 items-center mb-1">
-                                            {task && <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">{task.displayId}</span>}
+                                            {task && <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${dateIsOff ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'}`}>{task.displayId}</span>}
                                             {isStatusChange && <span className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-900 flex items-center gap-1"><History size={8}/> System Event</span>}
                                         </div>
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

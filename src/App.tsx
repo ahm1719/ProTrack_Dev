@@ -61,7 +61,7 @@ import {
   getStoredDirectoryHandle, 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.7.1 - UI Fix";
+const BUILD_VERSION = "V4.8.0 - Off-days Update";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -541,11 +541,32 @@ const App: React.FC = () => {
     e.dataTransfer.effectAllowed = "move";
   };
 
-  /**
-   * Enhanced Drop Handler supporting:
-   * 1. Reordering within any day list
-   * 2. Moving between Pool and Processed columns for Today
-   */
+  const handleToggleOffDay = (date: string) => {
+    setOffDays(prev => {
+        const next = prev.includes(date) ? prev.filter(d => d !== date) : [...prev, date];
+        if (isSyncEnabled) syncData([{ type: 'offDays', action: 'update', data: next }]);
+        return next;
+    });
+  };
+
+  const handleToggleOffDayRange = (dates: string[]) => {
+    setOffDays(prev => {
+        // Simple logic: if any in the range are ALREADY off, treat as clearing?
+        // Let's go with additive logic: make them all off.
+        const next = Array.from(new Set([...prev, ...dates]));
+        if (isSyncEnabled) syncData([{ type: 'offDays', action: 'update', data: next }]);
+        return next;
+    });
+  };
+
+  const handleClearOffDays = (dates: string[]) => {
+    setOffDays(prev => {
+        const next = prev.filter(d => !dates.includes(d));
+        if (isSyncEnabled) syncData([{ type: 'offDays', action: 'update', data: next }]);
+        return next;
+    });
+  };
+
   const handleDrop = (e: React.DragEvent, targetTaskId: string | null, dateStr: string, zone?: 'pool' | 'processed') => {
     e.preventDefault();
     const draggedId = e.dataTransfer.getData("text/plain") || draggedTaskId;
@@ -731,19 +752,21 @@ const App: React.FC = () => {
                 <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-56 px-1">
                     {weekDays.map(d => {
                         const dayTasks = weekTasks[d] || [], activeCount = dayTasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED).length;
+                        const isOffDay = offDays.includes(d);
                         return (
                             <div 
                                 key={d} 
-                                className={`min-w-[280px] w-[280px] p-4 rounded-2xl border ${d === todayStr ? 'bg-indigo-50 dark:bg-indigo-950 border-indigo-200 dark:border-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-500/30 shadow-md scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'} flex flex-col transition-all`}
+                                className={`min-w-[280px] w-[280px] p-4 rounded-2xl border ${d === todayStr ? 'bg-indigo-50 dark:bg-indigo-950 border-indigo-200 dark:border-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-500/30 shadow-md scale-105 z-10' : isOffDay ? 'bg-rose-50/30 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/30 grayscale-[0.5]' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'} flex flex-col transition-all`}
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => handleDrop(e, null, d)}
                             >
                                 <div className="flex justify-between items-start mb-3 border-b pb-2 border-slate-100 dark:border-slate-700">
                                     <div>
                                         <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
-                                        <span className="text-lg font-bold text-slate-800 dark:text-slate-100">{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                                        <span className={`text-lg font-bold ${isOffDay ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-100'}`}>{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
+                                        {isOffDay && <span className="bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 text-[9px] px-2 py-0.5 rounded-full font-black tracking-widest border border-rose-200 dark:border-rose-800">OFF</span>}
                                         {activeCount > 0 && <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded-full">{activeCount}</span>}
                                         {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
                                         <button onClick={(e) => { e.stopPropagation(); setExpandedDay(d); }} className="hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 p-1 rounded transition-colors" title="Expand Day"><Maximize2 size={14} /></button>
@@ -775,7 +798,7 @@ const App: React.FC = () => {
 
              <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-3 gap-8">
                 <div className="xl:col-span-2 flex flex-col bg-slate-100/50 dark:bg-slate-800/30 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-inner"><div className="bg-white dark:bg-slate-800 p-5 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4"><div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-xl"><button onClick={() => setActiveTaskTab('current')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'current' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-400' : 'text-slate-500'}`}>Active</button><button onClick={() => setActiveTaskTab('future')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'future' ? 'bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-400' : 'text-slate-500'}`}>Upcoming</button><button onClick={() => setActiveTaskTab('completed')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'completed' ? 'bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}`}>Archive</button></div></div><div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6 custom-scrollbar">{filteredTasks.map(t => (<div key={t.id} id={`task-card-${t.id}`}><TaskCard task={t} onUpdateStatus={updateTaskStatus} onOpenTask={() => setActiveTaskId(t.id)} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} statusColors={appConfig.itemColors} /></div>))}</div></div>
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden flex flex-col h-full"><div className="flex-1 overflow-y-auto p-6 custom-scrollbar"><DailyJournal tasks={tasks} logs={logs} offDays={offDays} searchQuery={searchQuery} onAddLog={(l) => { const newLog = { ...l, id: uuidv4() }; setLogs(prev => { if (isSyncEnabled) syncData([{ type: 'log', action: 'create', id: newLog.id, data: newLog }]); return [...prev, newLog]; }); }} onUpdateTask={updateTaskFields} onToggleOffDay={(d) => { const next = offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d]; setOffDays(next); if (isSyncEnabled) syncData([{ type: 'offDays', action: 'update', data: next }]); }} onEditLog={handleEditLog} onDeleteLog={handleDeleteLog} /></div></div>
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden flex flex-col h-full"><div className="flex-1 overflow-y-auto p-6 custom-scrollbar"><DailyJournal tasks={tasks} logs={logs} offDays={offDays} searchQuery={searchQuery} onAddLog={(l) => { const newLog = { ...l, id: uuidv4() }; setLogs(prev => { if (isSyncEnabled) syncData([{ type: 'log', action: 'create', id: newLog.id, data: newLog }]); return [...prev, newLog]; }); }} onUpdateTask={updateTaskFields} onToggleOffDay={handleToggleOffDay} onToggleOffDayRange={handleToggleOffDayRange} onClearOffDays={handleClearOffDays} onEditLog={handleEditLog} onDeleteLog={handleDeleteLog} /></div></div>
              </div>
           </div>
         );
@@ -926,7 +949,7 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-auto p-6 bg-slate-50 dark:bg-slate-950 custom-scrollbar relative transition-colors duration-300">{renderContent()}</div>
         
         {/* Task Detail Modal */}
-        {activeTask && (<TaskDetailModal task={activeTask} allTasks={tasks} onClose={() => setActiveTaskId(null)} onUpdateStatus={updateTaskStatus} onUpdateTask={updateTaskFields} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} onDeleteTask={deleteTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} updateTags={appConfig.updateHighlightOptions || []} statusColors={appConfig.itemColors} />)}
+        {activeTask && (<TaskDetailModal task={activeTask} allTasks={tasks} onClose={() => setActiveTaskId(null)} onUpdateStatus={updateTaskStatus} onUpdateTask={updateTaskFields} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} onDeleteTask={deleteTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} updateTags={appConfig.updateHighlightOptions || []} statusColors={appConfig.itemColors} offDays={offDays} />)}
         
         {/* New Task Modal */}
         {showNewTaskModal && (<div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onMouseDown={handleBackdropMouseDown} onClick={createBackdropClickHandler(() => setShowNewTaskModal(false))}><form onSubmit={handleCreateTask} onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in"><div className="p-5 border-b dark:border-slate-700 flex justify-between items-center bg-indigo-600 text-white"><h2 className="font-bold flex items-center gap-2"><Plus size={20}/> Create New Task</h2><button type="button" onClick={() => setShowNewTaskModal(false)}><X size={20}/></button></div><div className="p-6 space-y-4">{modalError && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-xs font-bold"><AlertTriangle size={16} /> {modalError}</div>}<div className="grid grid-cols-2 gap-4"><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Source (CW)</label><input required value={newTaskForm.source} onChange={e => setNewTaskForm({...newTaskForm, source: e.target.value})} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Project ID</label><input required autoFocus list="active-projects" value={newTaskForm.projectId} onChange={e => { const pid = e.target.value; setNewTaskForm({...newTaskForm, projectId: pid, displayId: suggestNextId(pid)}); }} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /><datalist id="active-projects">{activeProjects.map(p => <option key={p} value={p} />)}</datalist></div></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Display ID</label><input required value={newTaskForm.displayId} onChange={e => setNewTaskForm({...newTaskForm, displayId: e.target.value})} className="w-full px-3 py-2 text-sm font-mono bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Task Title</label><input required value={newTaskForm.title} onChange={e => setNewTaskForm({...newTaskForm, title: e.target.value})} placeholder="Short summary for the card..." className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase">Description</label><textarea required value={newTaskForm.description} onChange={e => setNewTaskForm({...newTaskForm, description: e.target.value})} rows={3} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-700 border dark:border-slate-600 rounded-xl outline-none" /></div></div><div className="p-4 border-t dark:border-slate-700 bg-slate-50 dark:bg-slate-800 flex justify-end gap-3"><button type="button" onClick={() => setShowNewTaskModal(false)} className="px-4 py-2 text-slate-600 font-bold hover:bg-slate-200 rounded-lg">Cancel</button><button type="submit" className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-xl">Create Task</button></div></form></div>)}

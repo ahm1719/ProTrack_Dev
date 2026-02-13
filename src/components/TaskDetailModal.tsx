@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, RecurrenceConfig } from '../types';
-import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical, ChevronDown, Type, Bold, Highlighter } from 'lucide-react';
+import { X, Calendar, Clock, Paperclip, File, Download as DownloadIcon, CheckCircle2, Circle, Plus, Trash2, Save, Edit2, AlertCircle, Archive, Hourglass, Repeat, ChevronLeft, ChevronRight, GripVertical, ChevronDown, Type, Bold, Highlighter, Umbrella } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TaskDetailModalProps {
@@ -18,12 +18,12 @@ interface TaskDetailModalProps {
   updateTags: HighlightOption[];
   onDeleteTask: (id: string) => void;
   statusColors?: Record<string, string>;
+  offDays?: string[];
 }
 
 /**
  * Helper function to calculate ISO week number
  */
-// Fix: Added missing getWeekNumber function to support the WorkloadDatePicker calendar display
 const getWeekNumber = (d: Date): number => {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const dayNum = date.getUTCDay() || 7;
@@ -40,7 +40,6 @@ const getWeekNumber = (d: Date): number => {
 const FormattedContent = ({ content }: { content: string }) => {
     if (!content) return null;
 
-    // Split content into parts based on bold and highlight markers
     const parts = content.split(/(\*\*.*?\*\*|==.*?==)/g);
 
     return (
@@ -107,8 +106,9 @@ const WorkloadDatePicker: React.FC<{
     selectedDate: string; 
     onChange: (d: string) => void; 
     allTasks: Task[]; 
-    currentTaskId: string 
-}> = ({ selectedDate, onChange, allTasks, currentTaskId }) => {
+    currentTaskId: string;
+    offDays?: string[];
+}> = ({ selectedDate, onChange, allTasks, currentTaskId, offDays = [] }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [viewDate, setViewDate] = useState(() => {
         const d = new Date(selectedDate);
@@ -180,7 +180,10 @@ const WorkloadDatePicker: React.FC<{
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2.5 text-sm font-bold focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none dark:text-white text-left flex justify-between items-center shadow-sm hover:border-slate-300 dark:hover:border-slate-500 transition-colors"
             >
-                {formatDateDisplay(selectedDate)}
+                <div className="flex items-center gap-2">
+                    {offDays.includes(selectedDate) && <Umbrella size={14} className="text-rose-500" />}
+                    {formatDateDisplay(selectedDate)}
+                </div>
                 <Calendar size={18} className="text-indigo-500" />
             </button>
 
@@ -222,6 +225,7 @@ const WorkloadDatePicker: React.FC<{
                                             const workload = getWorkload(dateStr);
                                             const isSelected = dateStr === selectedDate;
                                             const isToday = dateStr === todayStr;
+                                            const isOff = offDays.includes(dateStr);
                                             
                                             let workloadColor = 'bg-emerald-500';
                                             if (workload >= 3) workloadColor = 'bg-amber-500';
@@ -232,6 +236,8 @@ const WorkloadDatePicker: React.FC<{
                                                 btnClasses += "border-indigo-600 bg-indigo-600 text-white shadow-lg scale-105 z-10 ring-2 ring-indigo-100 dark:ring-indigo-900/50";
                                             } else if (isToday) {
                                                 btnClasses += "border-indigo-500 text-indigo-700 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20";
+                                            } else if (isOff) {
+                                                btnClasses += "bg-rose-50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-900/30 text-rose-500 dark:text-rose-400";
                                             } else {
                                                 btnClasses += "border-transparent hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300";
                                             }
@@ -243,7 +249,10 @@ const WorkloadDatePicker: React.FC<{
                                                     className={btnClasses}
                                                 >
                                                     {day}
-                                                    {workload > 0 && (
+                                                    {isOff && (
+                                                        <Umbrella size={10} className="absolute bottom-0.5 right-0.5 text-rose-400 dark:text-rose-600" />
+                                                    )}
+                                                    {workload > 0 && !isSelected && (
                                                         <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 text-[10px] font-black flex items-center justify-center rounded-full text-white ${workloadColor} border-2 border-white dark:border-slate-800 shadow-sm z-20`}>
                                                             {workload}
                                                         </div>
@@ -256,12 +265,11 @@ const WorkloadDatePicker: React.FC<{
                             );
                         })}
                     </div>
-                    <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-center">
-                        <div className="flex items-center gap-4 text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">
-                            <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm"></div> Light</span>
-                            <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm"></div> Med</span>
-                            <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm"></div> Heavy</span>
-                        </div>
+                    <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-700 flex flex-wrap justify-center gap-4 text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">
+                        <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm"></div> Light</span>
+                        <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-sm"></div> Med</span>
+                        <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm"></div> Heavy</span>
+                        <span className="flex items-center gap-1.5"><Umbrella size={10} className="text-rose-400" /> Off-day</span>
                     </div>
                 </div>
             )}
@@ -282,7 +290,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
   availablePriorities,
   updateTags,
   onDeleteTask,
-  statusColors = {}
+  statusColors = {},
+  offDays = []
 }) => {
   const [newUpdate, setNewUpdate] = useState('');
   const [pendingAttachments, setPendingAttachments] = useState<TaskAttachment[]>([]);
@@ -343,14 +352,12 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     const before = text.substring(0, start);
     const after = text.substring(end);
     
-    // Check if already wrapped
     if (selectedText.startsWith(tag) && selectedText.endsWith(tag)) {
         setter(before + selectedText.slice(tag.length, -tag.length) + after);
     } else {
         setter(before + tag + selectedText + tag + after);
     }
     
-    // Refocus
     setTimeout(() => textarea.focus(), 0);
   };
 
@@ -464,7 +471,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     }
   };
 
-  // Subtask Handlers
   const handleAddSubtask = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     if (!newSubtaskTitle.trim()) return;
@@ -771,7 +777,6 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                     <Paperclip size={20} />
                                 </button>
                                 
-                                {/* Formatting Tools */}
                                 <div className="flex items-center border-l border-slate-200 dark:border-slate-700 ml-1 pl-3 gap-1">
                                     <button 
                                         onClick={() => applyFormatting(updateTextareaRef.current, '**', setNewUpdate)}
@@ -950,7 +955,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
             </div>
 
-            {/* Sidebar Column - Increased width for calendar visibility */}
+            {/* Sidebar Column */}
             <div className="w-full md:w-[26rem] bg-slate-50/50 dark:bg-slate-900/50 border-l border-slate-100 dark:border-slate-700 p-8 space-y-10 flex-shrink-0">
                 <div className="space-y-8">
                     <div className="space-y-2">
@@ -969,6 +974,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             onChange={(d) => onUpdateTask(task.id, { dueDate: d })} 
                             allTasks={allTasks}
                             currentTaskId={task.id}
+                            offDays={offDays}
                         />
                     </div>
 
