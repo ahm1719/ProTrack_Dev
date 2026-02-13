@@ -114,6 +114,17 @@ const checkDateMatch = (dateStr: string | undefined, query: string) => {
   return false;
 };
 
+const getContrastYIQ = (hexcolor: string) => {
+  if (!hexcolor) return '#ffffff';
+  const hex = hexcolor.replace('#', '');
+  if (hex.length !== 6) return '#ffffff';
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+  return (yiq >= 128) ? '#1e293b' : '#ffffff';
+};
+
 const App: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [logs, setLogs] = useState<DailyLog[]>([]);
@@ -184,14 +195,14 @@ const App: React.FC = () => {
       checkDateMatch(l.date, q)
     ).slice(0, 10);
 
-    const matchedObs = observations.filter(o => 
+    const matchedObservations = observations.filter(o => 
       o.content.toLowerCase().includes(q)
     ).slice(0, 10);
 
-    const total = matchedTasks.length + matchedLogs.length + matchedObs.length;
+    const total = matchedTasks.length + matchedLogs.length + matchedObservations.length;
     if (total === 0) return null;
 
-    return { tasks: matchedTasks, logs: matchedLogs, observations: matchedObs };
+    return { tasks: matchedTasks, logs: matchedLogs, observations: matchedObservations };
   }, [searchQuery, tasks, logs, observations]);
 
   const handleBackdropMouseDown = (e: React.MouseEvent) => {
@@ -628,6 +639,16 @@ const App: React.FC = () => {
 
   const todayStr = new Date().toLocaleDateString('en-CA');
   const weeklyFocusCount = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED).length, [tasks]);
+  
+  const getStatusColorHex = (s: string) => {
+      if (appConfig.itemColors && appConfig.itemColors[s]) return appConfig.itemColors[s];
+      if (s === Status.DONE) return '#10b981';
+      if (s === Status.IN_PROGRESS) return '#3b82f6';
+      if (s === Status.WAITING) return '#f59e0b';
+      if (s === Status.ARCHIVED) return '#64748b';
+      return '#cbd5e1'; 
+  };
+
   const statusSummary = useMemo(() => appConfig.taskStatuses.map(s => ({ label: s, count: tasks.filter(t => t.status === s).length })), [tasks, appConfig.taskStatuses]);
   const overdueTasks = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate && t.dueDate < todayStr), [tasks, todayStr]);
   const highPriorityDueToday = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.priority === Priority.HIGH && t.dueDate === todayStr), [tasks, todayStr]);
@@ -673,15 +694,6 @@ const App: React.FC = () => {
     if (activeTaskTab === 'future') return activeBase.filter(t => t.dueDate && t.dueDate > endOfWeek);
     return activeBase.filter(t => !t.dueDate || t.dueDate <= endOfWeek);
   }, [tasks, searchQuery, activeTaskTab]);
-
-  const getStatusColorHex = (s: string) => {
-      if (appConfig.itemColors && appConfig.itemColors[s]) return appConfig.itemColors[s];
-      if (s === Status.DONE) return '#10b981';
-      if (s === Status.IN_PROGRESS) return '#3b82f6';
-      if (s === Status.WAITING) return '#f59e0b';
-      if (s === Status.ARCHIVED) return '#64748b';
-      return '#cbd5e1'; 
-  };
 
   const handleSearchResultClick = (type: 'task' | 'obs' | 'log', id: string) => {
     setShowSearchResults(false);
@@ -1017,15 +1029,28 @@ const App: React.FC = () => {
                                                         onDragOver={(e) => e.preventDefault()} 
                                                         onDrop={(e) => { e.stopPropagation(); handleDrop(e, t.id, todayStr, 'pool'); }}
                                                         onClick={() => setActiveTaskId(t.id)} 
-                                                        className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md hover:border-indigo-300 cursor-pointer transition-all group flex items-start gap-3"
+                                                        className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md hover:border-indigo-300 cursor-pointer transition-all group flex flex-col gap-3"
                                                     >
-                                                        <div className="mt-1 text-slate-300 dark:text-slate-600 group-hover:text-indigo-400"><GripVertical size={16} /></div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex justify-between items-center mb-1">
-                                                                <span className="text-[10px] font-mono font-black text-indigo-600 dark:text-indigo-400">{t.displayId}</span>
-                                                                <div className={`w-2 h-2 rounded-full ${t.priority === Priority.HIGH ? 'bg-red-500' : t.priority === Priority.MEDIUM ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                                                            </div>
-                                                            <p className={`text-sm font-bold text-slate-700 dark:text-slate-300 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-50' : ''}`}>{t.title || t.description}</p>
+                                                        <div className="flex items-start gap-3">
+                                                          <div className="mt-1 text-slate-300 dark:text-slate-600 group-hover:text-indigo-400"><GripVertical size={16} /></div>
+                                                          <div className="flex-1 min-w-0">
+                                                              <div className="flex justify-between items-center mb-1">
+                                                                  <span className="text-[10px] font-mono font-black text-indigo-600 dark:text-indigo-400">{t.displayId}</span>
+                                                                  <div className={`w-2 h-2 rounded-full ${t.priority === Priority.HIGH ? 'bg-red-500' : t.priority === Priority.MEDIUM ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                                                              </div>
+                                                              <p className={`text-sm font-bold text-slate-700 dark:text-slate-300 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-50' : ''}`}>{t.title || t.description}</p>
+                                                          </div>
+                                                        </div>
+                                                        <div className="flex justify-end">
+                                                            <span 
+                                                                className="text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border border-transparent shadow-xs"
+                                                                style={{ 
+                                                                    backgroundColor: getStatusColorHex(t.status),
+                                                                    color: getContrastYIQ(getStatusColorHex(t.status))
+                                                                }}
+                                                            >
+                                                                {t.status}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 ))
@@ -1051,21 +1076,34 @@ const App: React.FC = () => {
                                                     <div 
                                                         key={t.id} 
                                                         draggable="true" 
-                                                        onDragStart={(e) => handleDragStart(e, t.id)}
+                                                        onDragStart={(e) => handleDragStart(e, t.id)} 
                                                         onDragOver={(e) => e.preventDefault()} 
                                                         onDrop={(e) => { e.stopPropagation(); handleDrop(e, t.id, todayStr, 'processed'); }}
                                                         onClick={() => setActiveTaskId(t.id)} 
-                                                        className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md hover:border-emerald-400 cursor-pointer transition-all group flex items-start gap-3"
+                                                        className="p-4 rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-800 shadow-sm hover:shadow-md hover:border-emerald-400 cursor-pointer transition-all group flex flex-col gap-3"
                                                     >
-                                                        <div className="mt-1 text-emerald-100 dark:text-emerald-900 group-hover:text-emerald-400"><GripVertical size={16} /></div>
-                                                        <div className="flex-1 min-w-0 opacity-70 group-hover:opacity-100">
-                                                            <div className="flex justify-between items-center mb-1">
-                                                                <span className="text-[10px] font-mono font-black text-emerald-600 dark:text-emerald-400">{t.displayId}</span>
-                                                                {t.status === Status.DONE ? <CheckCircle2 size={14} className="text-emerald-500" /> : <div className="w-2.5 h-2.5 rounded-full border border-emerald-200 dark:border-emerald-700" />}
-                                                            </div>
-                                                            <p className={`text-sm font-bold text-slate-700 dark:text-slate-300 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through decoration-emerald-200 opacity-50' : ''}`}>
-                                                                {t.title || t.description}
-                                                            </p>
+                                                        <div className="flex items-start gap-3">
+                                                          <div className="mt-1 text-emerald-100 dark:text-emerald-900 group-hover:text-emerald-400"><GripVertical size={16} /></div>
+                                                          <div className="flex-1 min-w-0 opacity-70 group-hover:opacity-100">
+                                                              <div className="flex justify-between items-center mb-1">
+                                                                  <span className="text-[10px] font-mono font-black text-emerald-600 dark:text-emerald-400">{t.displayId}</span>
+                                                                  {t.status === Status.DONE ? <CheckCircle2 size={14} className="text-emerald-500" /> : <div className="w-2.5 h-2.5 rounded-full border border-emerald-200 dark:border-emerald-700" />}
+                                                              </div>
+                                                              <p className={`text-sm font-bold text-slate-700 dark:text-slate-300 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through decoration-emerald-200 opacity-50' : ''}`}>
+                                                                  {t.title || t.description}
+                                                              </p>
+                                                          </div>
+                                                        </div>
+                                                        <div className="flex justify-end">
+                                                            <span 
+                                                                className="text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider border border-transparent shadow-xs"
+                                                                style={{ 
+                                                                    backgroundColor: getStatusColorHex(t.status),
+                                                                    color: getContrastYIQ(getStatusColorHex(t.status))
+                                                                }}
+                                                            >
+                                                                {t.status}
+                                                            </span>
                                                         </div>
                                                     </div>
                                                 ))
