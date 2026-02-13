@@ -17,33 +17,16 @@ const getLookbackDate = (days: number) => {
   return d;
 };
 
-// Helper to retrieve API Key securely from local storage or environment
-const getApiKey = (): string => {
-  // Primary: User setting from the UI (LocalStorage)
-  const localKey = localStorage.getItem('protrack_gemini_key');
-  if (localKey && localKey.trim() !== '') return localKey.trim();
-
-  // Fallback: Environment variable (if configured at build time/server)
-  // We check for process presence to avoid reference errors in some browser envs if not polyfilled
-  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-    return process.env.API_KEY;
-  }
-
-  return '';
-};
-
 /**
  * Generates a weekly summary report using Gemini 3 Flash.
  */
 export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[], config: AppConfig): Promise<string> => {
   try {
-    const apiKey = getApiKey();
-    
-    if (!apiKey) {
-      throw new Error("API Key is missing. Please go to Settings and save your Gemini API Key.");
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
+    /* 
+     * Corrected Initialization: As per guidelines, the API key MUST be obtained exclusively 
+     * from the environment variable process.env.API_KEY.
+     */
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     // 1. Calculate lookback period
     const today = new Date();
@@ -114,22 +97,22 @@ export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[], con
       ${finalInstruction}
     `;
 
+    /* 
+     * Corrected Content Generation: Using 'gemini-3-flash-preview' as recommended for basic summarization tasks.
+     */
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
-        thinkingConfig: { thinkingBudget: 0 } // disable thinking for low latency summarization
+        thinkingConfig: { thinkingBudget: 0 } // Speed over deep reasoning for simple summarization
       }
     });
 
+    /* Accessing .text property directly as per guidelines (not a method call) */
     return response.text || "Could not generate summary.";
 
   } catch (error: any) {
     console.error("Gemini API Error:", error);
-    // Propagate a clean error message
-    if (error.message.includes("API Key is missing") || error.message.includes("API Key")) {
-      return `Configuration Error: ${error.message}`;
-    }
     throw new Error("AI Service Error: " + (error.message || "Unknown error"));
   }
 };
@@ -147,12 +130,10 @@ export const chatWithAI = async (
   image?: string // Base64 data URL of the image
 ): Promise<string> => {
   try {
-    const apiKey = getApiKey();
-    if (!apiKey) {
-      throw new Error("API Key is missing. Please set it in Settings.");
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
+    /* 
+     * Corrected Initialization: Exclusively using process.env.API_KEY.
+     */
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     // Build a comprehensive context of the current state
     const taskContext = tasks.map(t => 
@@ -252,6 +233,7 @@ export const chatWithAI = async (
       parts: currentParts
     });
 
+    /* Using generateContent with correct model name and config structure */
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: contents,
@@ -261,11 +243,11 @@ export const chatWithAI = async (
       }
     });
 
+    /* Accessing .text property directly as per guidelines */
     return response.text || "I didn't get a response.";
 
   } catch (error: any) {
     console.error("Chat Error:", error);
-    if (error.message.includes("API Key")) throw error;
     throw new Error("Failed to chat: " + (error.message || "Unknown error"));
   }
 };

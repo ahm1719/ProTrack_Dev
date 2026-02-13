@@ -1,6 +1,8 @@
+
 import React, { useMemo } from 'react';
 import { Task, Status, Priority, HighlightOption } from '../types';
-import { Clock, Calendar, CheckCircle2, Archive, Hourglass, ArrowRight, ListChecks, Repeat } from 'lucide-react';
+/* Added ChevronDown to imported components from lucide-react to fix compilation error */
+import { Clock, Calendar, CheckCircle2, Archive, Hourglass, ArrowRight, ListChecks, Repeat, AlertTriangle, ChevronDown } from 'lucide-react';
 
 interface TaskCardProps {
   task: Task;
@@ -15,6 +17,7 @@ interface TaskCardProps {
   updateTags?: HighlightOption[];
   statusColors?: Record<string, string>;
   onDelete?: (id: string) => void;
+  todayStr?: string;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ 
@@ -26,12 +29,20 @@ const TaskCard: React.FC<TaskCardProps> = ({
   availableStatuses = Object.values(Status),
   availablePriorities = Object.values(Priority),
   updateTags = [],
-  statusColors = {}
+  statusColors = {},
+  todayStr = new Date().toLocaleDateString('en-CA')
 }) => {
   const latestUpdate = useMemo(() => {
     if (!task.updates || task.updates.length === 0) return null;
     return [...task.updates].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
   }, [task.updates]);
+
+  const isOverdue = useMemo(() => {
+    return task.dueDate && 
+           task.dueDate < todayStr && 
+           task.status !== Status.DONE && 
+           task.status !== Status.ARCHIVED;
+  }, [task.dueDate, task.status, todayStr]);
 
   /**
    * Helper to strip formatting tags for snippet display
@@ -69,11 +80,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
         };
     }
     // Default Fallbacks
-    if (s === Status.DONE) return { backgroundColor: '#10b981', color: '#ffffff', borderColor: '#10b981' }; // emerald-500
-    if (s === Status.IN_PROGRESS) return { backgroundColor: '#3b82f6', color: '#ffffff', borderColor: '#3b82f6' }; // blue-500
-    if (s === Status.WAITING) return { backgroundColor: '#fbbf24', color: '#ffffff', borderColor: '#fbbf24' }; // amber-400
-    if (s === Status.ARCHIVED) return { backgroundColor: '#64748b', color: '#ffffff', borderColor: '#64748b' }; // slate-500
-    return { backgroundColor: '#e2e8f0', color: '#475569', borderColor: '#e2e8f0' }; // slate-200, slate-600
+    if (s === Status.DONE) return { backgroundColor: '#10b981', color: '#ffffff', borderColor: '#10b981' }; 
+    if (s === Status.IN_PROGRESS) return { backgroundColor: '#3b82f6', color: '#ffffff', borderColor: '#3b82f6' }; 
+    if (s === Status.WAITING) return { backgroundColor: '#fbbf24', color: '#ffffff', borderColor: '#fbbf24' }; 
+    if (s === Status.ARCHIVED) return { backgroundColor: '#64748b', color: '#ffffff', borderColor: '#64748b' }; 
+    return { backgroundColor: '#e2e8f0', color: '#475569', borderColor: '#e2e8f0' }; 
   };
 
   const formatDate = (dateStr: string) => {
@@ -103,8 +114,20 @@ const TaskCard: React.FC<TaskCardProps> = ({
   return (
     <div 
         onClick={onOpenTask}
-        className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 transition-all duration-300 hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-700 cursor-pointer flex flex-col group relative overflow-hidden ${isCompleted ? 'opacity-60 bg-slate-50 dark:bg-slate-800/50' : ''}`}
+        className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm transition-all duration-300 hover:shadow-md cursor-pointer flex flex-col group relative overflow-hidden border ${
+          isCompleted ? 'opacity-60 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700' : 
+          isOverdue ? 'border-red-400 dark:border-red-600 bg-red-50/20 dark:bg-red-900/10 ring-1 ring-red-100 dark:ring-red-900/30' :
+          'border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-700'
+        }`}
     >
+      {isOverdue && (
+        <div className="absolute top-0 right-0">
+          <div className="bg-red-600 text-white text-[8px] font-black px-2 py-0.5 rounded-bl-lg shadow-sm animate-pulse tracking-tighter uppercase">
+            Overdue
+          </div>
+        </div>
+      )}
+      
       <div className="p-5 flex-1 flex flex-col h-full">
         {/* Header */}
         <div className="flex justify-between items-start mb-3">
@@ -127,7 +150,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
         {/* Content */}
         <div className="mb-4">
-            <h3 className={`text-base font-bold text-slate-800 dark:text-slate-100 mb-2 leading-tight line-clamp-2 ${isCompleted ? 'line-through text-slate-500 dark:text-slate-500' : ''}`}>
+            <h3 className={`text-base font-bold mb-2 leading-tight line-clamp-2 ${
+                isCompleted ? 'line-through text-slate-500 dark:text-slate-500' : 
+                isOverdue ? 'text-red-900 dark:text-red-200' : 
+                'text-slate-800 dark:text-slate-100'
+            }`}>
               {task.title || task.description}
             </h3>
             
@@ -166,12 +193,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
         {/* Footer */}
         <div className="mt-auto flex items-center justify-between gap-2 pt-3 border-t border-slate-50 dark:border-slate-700">
-          <div className="flex items-center gap-3 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+          <div className="flex items-center gap-3 text-[11px] font-medium">
             <div className="flex items-center gap-1.5">
-              <Calendar size={12} className={task.dueDate ? 'text-indigo-500 dark:text-indigo-400' : 'text-slate-300 dark:text-slate-600'} />
-              <span>{task.dueDate ? formatDate(task.dueDate) : 'No Date'}</span>
+              <Calendar size={12} className={isOverdue ? 'text-red-500 dark:text-red-400' : task.dueDate ? 'text-indigo-500 dark:text-indigo-400' : 'text-slate-300 dark:text-slate-600'} />
+              <span className={isOverdue ? 'text-red-600 dark:text-red-400 font-bold' : 'text-slate-500 dark:text-slate-400'}>
+                {task.dueDate ? formatDate(task.dueDate) : 'No Date'}
+              </span>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
                <Clock size={12} className="text-slate-300 dark:text-slate-600" />
                <span>{task.updates.length}</span>
             </div>
@@ -186,18 +215,26 @@ const TaskCard: React.FC<TaskCardProps> = ({
                  {task.status}
                </span>
             ) : (
-              <select
-                value={task.status}
-                onChange={(e) => onUpdateStatus(task.id, e.target.value)}
-                className="text-[10px] font-bold px-3 py-1.5 rounded-full cursor-pointer border outline-none ring-0 shadow-sm hover:brightness-105 transition-all uppercase tracking-wide m-0 appearance-none min-w-[80px] text-center dark:border-transparent"
-                style={getStatusStyle(task.status)}
-              >
-                {availableStatuses.map((s) => (
-                  <option key={s} value={s} className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
-                    {s}
-                  </option>
-                ))}
-              </select>
+              <div className="relative group">
+                  <select
+                    value={task.status}
+                    onChange={(e) => onUpdateStatus(task.id, e.target.value)}
+                    className="text-[10px] font-bold pl-3 pr-6 py-1.5 rounded-full cursor-pointer border outline-none appearance-none shadow-sm hover:brightness-105 transition-all uppercase tracking-wide m-0 min-w-[80px] text-center dark:border-transparent"
+                    style={getStatusStyle(task.status)}
+                  >
+                    {availableStatuses.map((s) => (
+                      <option key={s} value={s} className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  {/* ChevronDown component from lucide-react */}
+                  <ChevronDown 
+                    size={10} 
+                    className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-60"
+                    style={{ color: getStatusStyle(task.status).color }}
+                  />
+              </div>
             )}
           </div>
         </div>
