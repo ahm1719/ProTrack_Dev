@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen, Save, RefreshCw, Folder, Moon, Sun, Sparkles, Clock, History, Calendar, CheckCircle2 } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, ObservationStatus, BackupSettings, HighlightOption } from '../types';
@@ -213,11 +214,15 @@ const TagEditor = ({
 
     return (
         <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 h-full flex flex-col">
-            <h4 className="font-bold text-slate-700 dark:text-slate-300 text-[10px] uppercase tracking-widest mb-3 shrink-0">{title}</h4>
-            <div className="flex-1 space-y-2 overflow-y-auto custom-scrollbar min-h-[100px] mb-3">
+            <div className="mb-3 flex items-center justify-between shrink-0">
+                <h4 className="font-bold text-slate-700 dark:text-slate-300 text-[10px] uppercase tracking-widest">
+                    {title}
+                </h4>
+            </div>
+            <div className="flex-1 flex flex-wrap content-start gap-2 mb-4 min-h-[40px]">
                 {tags.map(tag => (
-                    <div key={tag.id} className="flex items-center gap-2 bg-white dark:bg-slate-700 p-2 rounded-lg border border-slate-200 dark:border-slate-600 shadow-sm group">
-                        <div className="relative w-4 h-4 shrink-0 rounded-full overflow-hidden cursor-pointer hover:scale-110 transition-transform">
+                    <div key={tag.id} className="flex items-center gap-1 bg-white dark:bg-slate-700 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-600 text-[10px] font-bold text-slate-600 dark:text-slate-300 shadow-sm group h-fit">
+                        <div className="relative w-3 h-3 shrink-0 rounded-full border border-slate-200 dark:border-slate-500 overflow-hidden cursor-pointer hover:scale-110 transition-transform mr-1">
                              <input
                                 type="color"
                                 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] p-0 border-0 opacity-0 cursor-pointer"
@@ -230,7 +235,7 @@ const TagEditor = ({
                         {editingId === tag.id ? (
                              <input
                                 autoFocus
-                                className="flex-1 bg-transparent border-none outline-none text-xs text-indigo-600 dark:text-indigo-400 font-bold"
+                                className="bg-transparent border-none outline-none w-20 text-indigo-600 dark:text-indigo-400 font-bold"
                                 value={editLabel}
                                 onChange={e => setEditLabel(e.target.value)}
                                 onBlur={() => {
@@ -240,23 +245,21 @@ const TagEditor = ({
                                 onKeyDown={e => e.key === 'Enter' && (editLabel.trim() ? (handleUpdateTag(tag.id, { label: editLabel.trim() }), setEditingId(null)) : setEditingId(null))}
                             />
                         ) : (
-                            <span 
-                                className="flex-1 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
-                                onDoubleClick={() => { setEditingId(tag.id); setEditLabel(tag.label); }}
-                            >
-                                {tag.label}
-                            </span>
+                            <>
+                                <span onDoubleClick={() => { setEditingId(tag.id); setEditLabel(tag.label); }}>{tag.label}</span>
+                                <button onClick={() => { setEditingId(tag.id); setEditLabel(tag.label); }} className="text-slate-300 hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Edit2 size={10} />
+                                </button>
+                                <button onClick={() => handleDelete(tag.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <X size={10} />
+                                </button>
+                            </>
                         )}
-
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                             <button onClick={() => { setEditingId(tag.id); setEditLabel(tag.label); }} className="text-slate-400 hover:text-indigo-500"><Edit2 size={12}/></button>
-                             <button onClick={() => handleDelete(tag.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={12}/></button>
-                        </div>
                     </div>
                 ))}
             </div>
-            <div className="flex gap-2 items-center shrink-0">
-                <div className="relative w-6 h-6 shrink-0 rounded-full overflow-hidden border border-slate-300 dark:border-slate-500 cursor-pointer">
+            <div className="flex gap-2 shrink-0">
+                <div className="relative w-7 h-7 shrink-0 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-600 cursor-pointer shadow-sm">
                      <input
                         type="color"
                         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] p-0 border-0 opacity-0 cursor-pointer"
@@ -270,10 +273,12 @@ const TagEditor = ({
                     value={newLabel} 
                     onChange={(e) => setNewLabel(e.target.value)} 
                     onKeyDown={(e) => e.key === 'Enter' && handleAdd()} 
-                    placeholder="New tag..." 
+                    placeholder="Add..." 
                     className="flex-1 px-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 rounded-lg outline-none focus:border-indigo-500 bg-white dark:bg-slate-700 dark:text-white dark:placeholder-slate-400" 
                 />
-                <button onClick={handleAdd} className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-700"><Plus size={14} /></button>
+                <button onClick={handleAdd} className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-700">
+                    <Plus size={14} />
+                </button>
             </div>
         </div>
     );
