@@ -61,7 +61,7 @@ import {
   getStoredDirectoryHandle, 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.7.0 - UI Layout Optimization";
+const BUILD_VERSION = "V4.7.1 - UI Fix";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -734,7 +734,7 @@ const App: React.FC = () => {
                         return (
                             <div 
                                 key={d} 
-                                className={`min-w-[280px] w-[280px] p-4 rounded-2xl border ${d === todayStr ? 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-100 shadow-md scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'} flex flex-col transition-all`}
+                                className={`min-w-[280px] w-[280px] p-4 rounded-2xl border ${d === todayStr ? 'bg-indigo-50 dark:bg-indigo-950 border-indigo-200 dark:border-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-500/30 shadow-md scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'} flex flex-col transition-all`}
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => handleDrop(e, null, d)}
                             >
