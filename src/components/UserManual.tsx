@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, ListTodo, BookOpen, Sparkles, Download, Save, Server, Globe, Database, GitBranch, Smartphone, Wifi, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, ListTodo, BookOpen, Sparkles, Download, Save, Server, Globe, Database, GitBranch, Smartphone, Wifi, AlertTriangle, CheckCircle2, XCircle, FileJson, HardDrive, ShieldAlert, History, Trash2 } from 'lucide-react';
 
 const UserManual: React.FC = () => {
   return (
@@ -168,23 +168,173 @@ const UserManual: React.FC = () => {
           </div>
         </div>
 
-        {/* Section 5: Data Safety */}
-        <section className="bg-slate-50 dark:bg-slate-700/30 p-6 rounded-xl border border-slate-200 dark:border-slate-700">
-          <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-2">
-            <Download size={20} className="text-slate-600 dark:text-slate-400"/> Data Backup
-          </h3>
-          <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-            Since data is stored in your browser, clearing your cache will delete your tasks. 
-            <strong> We highly recommend performing a weekly backup.</strong>
-          </p>
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-600 text-sm dark:text-slate-300">
-            <strong>How to Backup:</strong> Click the "Backup Data (JSON)" button in the Settings page. This downloads a file to your computer.
-            <br/><br/>
-            <strong>How to Restore:</strong> Use the "Restore Backup" button in Settings to load a previously saved JSON file.
+        {/* Section 5: Data Backup Detail */}
+        <section className="bg-white dark:bg-slate-800 p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          <div className="border-b border-slate-100 dark:border-slate-700 pb-6 mb-6">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-2 flex items-center gap-2">
+                <FileJson className="text-indigo-600 dark:text-indigo-400" />
+                Data Backup & Recovery
+            </h2>
+            <p className="text-slate-600 dark:text-slate-400 text-sm">
+                Since data is stored locally in your browser, performing regular backups is critical to prevent data loss if you clear your cache or change browsers.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+                <h3 className="text-sm font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded-lg border border-emerald-100 dark:border-emerald-800">
+                    <CheckCircle2 size={16} /> What is Backed Up
+                </h3>
+                <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800 dark:text-slate-200">All Tasks:</strong>
+                            <p className="text-xs text-slate-500 dark:text-slate-500">Every active, done, and archived task including IDs, descriptions, and deadlines.</p>
+                        </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800 dark:text-slate-200">Task History:</strong>
+                            <p className="text-xs text-slate-500 dark:text-slate-500">The complete timeline of comments, progress updates, and attachments linked to tasks.</p>
+                        </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800 dark:text-slate-200">Daily Journal:</strong>
+                            <p className="text-xs text-slate-500 dark:text-slate-500">All text entries made in the History & Calendar view.</p>
+                        </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800 dark:text-slate-200">Observations:</strong>
+                            <p className="text-xs text-slate-500 dark:text-slate-500">Kanban cards and their embedded images/screenshots.</p>
+                        </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800 dark:text-slate-200">App Settings:</strong>
+                            <p className="text-xs text-slate-500 dark:text-slate-500">Custom Status/Priority lists, custom colors, and Tags.</p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
+            <div className="space-y-4">
+                <h3 className="text-sm font-black text-rose-700 dark:text-rose-400 uppercase tracking-widest flex items-center gap-2 bg-rose-50 dark:bg-rose-900/20 p-2 rounded-lg border border-rose-100 dark:border-rose-800">
+                    <XCircle size={16} /> What is NOT Backed Up
+                </h3>
+                <ul className="space-y-3 text-sm text-slate-600 dark:text-slate-400">
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800 dark:text-slate-200">API Keys:</strong>
+                            <p className="text-xs text-slate-500 dark:text-slate-500">Your Google Gemini and Firebase keys are excluded for security reasons.</p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+          </div>
+          
+          <div className="mt-8 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700 text-sm flex items-start gap-3">
+            <Download className="shrink-0 text-indigo-500 mt-0.5" size={18} />
+            <div>
+                <strong className="text-indigo-900 dark:text-indigo-300 block mb-1">To Perform a Backup:</strong>
+                <span className="text-slate-600 dark:text-slate-400">Go to <strong>Settings</strong> and scroll to the bottom. Click "Download Full System Backup (JSON)". Store this file in a secure location (e.g., Google Drive). To restore, simply upload this file using the "Restore" button next to it.</span>
+            </div>
           </div>
         </section>
 
-        {/* Section 6: System Architecture */}
+        {/* Section 6: Resource Health */}
+        <section className="bg-white dark:bg-slate-800 p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 border-l-rose-500">
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
+            <HardDrive className="text-rose-500" />
+            Resource Health & Storage Limits
+          </h2>
+          <div className="space-y-4 text-slate-600 dark:text-slate-400 leading-relaxed text-sm">
+            <p>
+              To ensure fast and free cloud synchronization, ProTrack AI operates within specific data limits. 
+              The <strong>Resource Health</strong> monitor in the Settings page helps you track your usage.
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-6 mt-4">
+                <div className="bg-slate-50 dark:bg-slate-700/50 p-5 rounded-xl border border-slate-200 dark:border-slate-600">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-3 border-b border-slate-200 dark:border-slate-600 pb-2">Reading the Bars</h3>
+                    <ul className="list-disc pl-5 space-y-2">
+                        <li><strong>Tasks Buffer:</strong> Storage consumed by task definitions and metadata.</li>
+                        <li><strong>Logs Buffer:</strong> Space used by daily journal entries and text history.</li>
+                        <li><strong>Observations Buffer:</strong> Space taken by Kanban cards and attached images.</li>
+                    </ul>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-700/50 p-5 rounded-xl border border-slate-200 dark:border-slate-600">
+                    <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-3 border-b border-slate-200 dark:border-slate-600 pb-2">Status Colors</h3>
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-indigo-500 shrink-0"></div>
+                            <span><strong>Healthy (Indigo):</strong> Usage is within limits. Sync is optimal.</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="w-3 h-3 rounded-full bg-red-500 shrink-0"></div>
+                            <span><strong>Critical (Red):</strong> Usage is over 85%. Sync may fail if the 1MB limit is reached.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 7: Data Hygiene & Purging */}
+        <section className="bg-white dark:bg-slate-800 p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm border-l-4 border-l-rose-600">
+          <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
+            <ShieldAlert className="text-rose-600" />
+            Data Hygiene & Purging
+          </h2>
+          <div className="space-y-4 text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
+            <p>
+              Maintain a lean, fast workspace by cleaning up old data. This is especially important for Cloud Sync users to stay within the 1MB document limit.
+            </p>
+            
+            <div className="grid md:grid-cols-3 gap-4">
+                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                    <h3 className="font-black text-[10px] uppercase tracking-widest text-rose-600 dark:text-rose-400 mb-2 flex items-center gap-1.5">
+                        <Trash2 size={12}/> Task Archive
+                    </h3>
+                    <p className="text-xs">Permanently deletes all tasks marked as <strong>Done</strong> or <strong>Archived</strong>, along with every linked update and journal log. Active tasks are untouched.</p>
+                </div>
+                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                    <h3 className="font-black text-[10px] uppercase tracking-widest text-indigo-600 dark:text-indigo-400 mb-2 flex items-center gap-1.5">
+                        <CheckCircle2 size={12}/> Resolved Obs
+                    </h3>
+                    <p className="text-xs">Permanently removes Kanban cards from the <strong>Resolved</strong> column. This is the fastest way to clear up image storage space.</p>
+                </div>
+                <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700">
+                    <h3 className="font-black text-[10px] uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-2 flex items-center gap-1.5">
+                        <History size={12}/> History Trim
+                    </h3>
+                    <p className="text-xs">Removes granular journal logs and task progress comments older than your defined <strong>Retention Window</strong>. Task definitions and statuses remain.</p>
+                </div>
+            </div>
+
+            <div className="bg-rose-50 dark:bg-rose-900/20 p-5 rounded-xl border border-rose-100 dark:border-rose-900/30">
+                <h4 className="font-bold text-rose-800 dark:text-rose-300 mb-2 flex items-center gap-2">
+                    <AlertTriangle size={18} /> CRITICAL: System Behavior
+                </h4>
+                <ul className="list-disc pl-5 space-y-2 text-rose-700 dark:text-rose-400/80">
+                    <li><strong>No Recycle Bin:</strong> Purge actions are <strong>IMMEDIATE and IRREVERSIBLE</strong>. There is no "Undo" once the database has been updated.</li>
+                    <li><strong>Retention Window:</strong> If you select "60 Days" for trimming, all granular progress records from day 61 and older will be erased permanently when the "Trim" button is clicked.</li>
+                    <li><strong>Recovery:</strong> The ONLY way to recover purged data is to import a JSON backup file that was created <em>before</em> the purge took place.</li>
+                </ul>
+                <p className="mt-4 font-bold text-rose-900 dark:text-rose-200">Best Practice: Always click "Backup JSON" at the bottom of Settings before running any purge operation.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Section 8: System Architecture */}
         <section className="bg-white dark:bg-slate-800 p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
           <h2 className="text-xl font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
             <Server className="text-indigo-600 dark:text-indigo-400" />
