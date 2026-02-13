@@ -842,7 +842,16 @@ const App: React.FC = () => {
         <div className="p-4 flex flex-col items-center gap-1 border-b dark:border-slate-800 h-24 justify-center"><FullLogo isSidebarOpen={isSidebarOpen} />{isSidebarOpen && <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-1">{BUILD_VERSION}</span>}</div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
            {[{ mode: ViewMode.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' }, { mode: ViewMode.TASKS, icon: ListTodo, label: 'Daily Tasks' }, { mode: ViewMode.OBSERVATIONS, icon: MessageSquare, label: 'Observations' }].map(item => (<button key={item.mode} onClick={() => setView(item.mode)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === item.mode ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><item.icon size={20} />{isSidebarOpen && <span>{item.label}</span>}</button>))}
-           <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800"><button onClick={() => setView(ViewMode.SETTINGS)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === ViewMode.SETTINGS ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}><SettingsIcon size={20} />{isSidebarOpen && <span>Settings</span>}</button></div>
+           <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
+             <button onClick={() => setView(ViewMode.SETTINGS)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === ViewMode.SETTINGS ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+               <SettingsIcon size={20} />
+               {isSidebarOpen && <span>Settings</span>}
+             </button>
+             <button onClick={() => setView(ViewMode.HELP)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === ViewMode.HELP ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 font-bold' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
+               <HelpCircle size={20} />
+               {isSidebarOpen && <span>User Manual</span>}
+             </button>
+           </div>
         </nav>
         <div className="p-4 border-t border-slate-200 dark:border-slate-800"><button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg w-full flex justify-center">{isSidebarOpen ? <LogOut size={20} className="rotate-180" /> : <Menu size={20} />}</button></div>
       </aside>
