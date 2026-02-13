@@ -761,7 +761,7 @@ const App: React.FC = () => {
                 <div className="flex items-center justify-between px-2">
                     <h3 className="text-sm font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">Weekly Timeline</h3>
                 </div>
-                <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-56 px-1">
+                <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-72 px-1 items-stretch">
                     {weekDays.map(d => {
                         const dayTasks = weekTasks[d] || [], activeCount = dayTasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED).length;
                         const isOffDay = offDays.includes(d);
@@ -785,22 +785,50 @@ const App: React.FC = () => {
                                     </div>
                                 </div>
                                 <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                                    {dayTasks.map(t => (
-                                        <div 
-                                            key={t.id} 
-                                            draggable="true" 
-                                            onDragStart={(e) => handleDragStart(e, t.id)} 
-                                            onDragOver={(e) => e.preventDefault()} 
-                                            onDrop={(e) => { e.stopPropagation(); handleDrop(e, t.id, d); }} 
-                                            onClick={() => setActiveTaskId(t.id)} 
-                                            className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 cursor-pointer select-none transition-all ${t.status === Status.DONE ? 'bg-emerald-50 dark:bg-emerald-900/20 opacity-70' : 'bg-white dark:bg-slate-800'} border-slate-200 dark:border-slate-700`}
-                                        >
-                                            <div className="flex justify-between items-center mb-1">
-                                                <span className="font-mono font-bold flex items-center gap-1">{t.displayId} {t.recurrence && <Repeat size={10} className="text-indigo-400" />}</span>
+                                    {dayTasks.map(t => {
+                                        const isOverdue = t.dueDate && t.dueDate < todayStr && t.status !== Status.DONE && t.status !== Status.ARCHIVED;
+                                        return (
+                                            <div 
+                                                key={t.id} 
+                                                draggable="true" 
+                                                onDragStart={(e) => handleDragStart(e, t.id)} 
+                                                onDragOver={(e) => e.preventDefault()} 
+                                                onDrop={(e) => { e.stopPropagation(); handleDrop(e, t.id, d); }} 
+                                                onClick={() => setActiveTaskId(t.id)} 
+                                                className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 cursor-pointer select-none transition-all flex flex-col gap-2 ${
+                                                    t.status === Status.DONE ? 'bg-emerald-50 dark:bg-emerald-900/20 opacity-70 border-slate-200 dark:border-slate-700' : 
+                                                    isOverdue ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800' :
+                                                    'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                                                }`}
+                                            >
+                                                <div className="flex justify-between items-center">
+                                                    <span className="font-mono font-bold flex items-center gap-1 text-[10px] text-indigo-600 dark:text-indigo-400">
+                                                        {t.displayId} 
+                                                        {t.recurrence && <Repeat size={10} className="text-indigo-400" />}
+                                                    </span>
+                                                    <div className={`w-2 h-2 rounded-full ${t.priority === Priority.HIGH ? 'bg-red-500' : t.priority === Priority.MEDIUM ? 'bg-amber-500' : 'bg-emerald-500'}`} title={`Priority: ${t.priority}`} />
+                                                </div>
+                                                <p className={`line-clamp-2 leading-tight font-bold ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-50' : 'text-slate-700 dark:text-slate-300'}`}>{t.title || t.description}</p>
+                                                
+                                                <div className="flex items-center justify-between mt-1">
+                                                    {isOverdue && (
+                                                        <span className="text-[8px] font-black text-red-600 dark:text-red-400 flex items-center gap-0.5 animate-pulse">
+                                                            <AlertTriangle size={8} /> OVERDUE
+                                                        </span>
+                                                    )}
+                                                    <span 
+                                                        className="ml-auto text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-widest border border-transparent shadow-xs"
+                                                        style={{ 
+                                                            backgroundColor: getStatusColorHex(t.status),
+                                                            color: getContrastYIQ(getStatusColorHex(t.status))
+                                                        }}
+                                                    >
+                                                        {t.status}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <p className={`line-clamp-2 leading-tight font-bold mb-1 ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-50' : ''}`}>{t.title || t.description}</p>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         );
