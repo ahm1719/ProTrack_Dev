@@ -61,7 +61,7 @@ import {
   getStoredDirectoryHandle, 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.8.2 - Task Creation Fixes";
+const BUILD_VERSION = "V4.8.3 - Today Progress Update";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -773,6 +773,11 @@ const App: React.FC = () => {
                     {weekDays.map(d => {
                         const dayTasks = weekTasks[d] || [], activeCount = dayTasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED).length;
                         const isOffDay = offDays.includes(d);
+                        
+                        const isToday = d === todayStr;
+                        const totalToday = dayTasks.length;
+                        const processedToday = dayTasks.filter(t => t.processedDate === d).length;
+
                         return (
                             <div 
                                 key={d} 
@@ -788,6 +793,14 @@ const App: React.FC = () => {
                                     <div className="flex items-center gap-2">
                                         {isOffDay && <span className="bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 text-[9px] px-2 py-0.5 rounded-full font-black tracking-widest border border-rose-200 dark:border-rose-800">OFF</span>}
                                         {activeCount > 0 && <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold px-2 py-0.5 rounded-full">{activeCount}</span>}
+                                        
+                                        {isToday && (
+                                            <span className="bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-[9px] px-2 py-0.5 rounded-full font-black border border-emerald-200 dark:border-emerald-800 flex items-center gap-1" title="Processed / Total Tasks">
+                                                <CheckCircle2 size={10} />
+                                                {processedToday}/{totalToday}
+                                            </span>
+                                        )}
+
                                         {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
                                         <button onClick={(e) => { e.stopPropagation(); setExpandedDay(d); }} className="hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 p-1 rounded transition-colors" title="Expand Day"><Maximize2 size={14} /></button>
                                     </div>
