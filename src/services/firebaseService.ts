@@ -84,6 +84,9 @@ export const syncData = async (actions: SyncAction[]) => {
   const firestore = db;
   const batch = writeBatch(firestore);
 
+  // Helper to remove undefined values which cause Firestore writes to fail
+  const sanitize = (obj: any) => JSON.parse(JSON.stringify(obj));
+
   actions.forEach(action => {
     let collectionName = '';
     if (action.type === 'task') collectionName = 'tasks';
@@ -95,21 +98,21 @@ export const syncData = async (actions: SyncAction[]) => {
         if (action.action === 'delete') {
             batch.delete(ref);
         } else {
-            batch.set(ref, action.data, { merge: true });
+            batch.set(ref, sanitize(action.data), { merge: true });
         }
     } else if (action.type === 'offDays' || action.type === 'config') {
         const ref = doc(firestore, 'protrack', 'user_data');
         if (action.type === 'offDays') batch.set(ref, { offDays: action.data }, { merge: true });
-        if (action.type === 'config') batch.set(ref, { appConfig: action.data }, { merge: true });
+        if (action.type === 'config') batch.set(ref, { appConfig: sanitize(action.data) }, { merge: true });
     } else if (action.type === 'full' && action.data) {
         // Special case: Push all local data to cloud (Initial Setup)
         const data = action.data;
-        data.tasks?.forEach((t: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'tasks', t.id), t));
-        data.logs?.forEach((l: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'logs', l.id), l));
-        data.observations?.forEach((o: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'observations', o.id), o));
+        data.tasks?.forEach((t: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'tasks', t.id), sanitize(t)));
+        data.logs?.forEach((l: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'logs', l.id), sanitize(l)));
+        data.observations?.forEach((o: any) => batch.set(doc(firestore, 'protrack', 'user_data', 'observations', o.id), sanitize(o)));
         batch.set(doc(firestore, 'protrack', 'user_data'), { 
             offDays: data.offDays || [],
-            appConfig: data.appConfig || {}
+            appConfig: sanitize(data.appConfig || {})
         }, { merge: true });
     }
   });

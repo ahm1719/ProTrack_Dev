@@ -61,7 +61,7 @@ import {
   getStoredDirectoryHandle, 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.8.0 - Off-days Update";
+const BUILD_VERSION = "V4.8.1 - Data Persistence Fix";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -378,13 +378,21 @@ const App: React.FC = () => {
         recurrenceConfig = { type: newTaskForm.recurrenceType as any, interval: newTaskForm.recurrenceInterval };
     }
 
-    const newTask: Task = { ...newTaskForm, recurrence: recurrenceConfig, id: uuidv4(), updates: [], createdAt: new Date().toISOString() };
+    const newTask: Task = { 
+        ...newTaskForm, 
+        recurrence: recurrenceConfig, 
+        id: uuidv4(), 
+        updates: [], 
+        createdAt: new Date().toISOString() 
+    };
     
-    setTasks(prev => {
-        const next = [...prev, newTask];
-        if (isSyncEnabled) syncData([{ type: 'task', action: 'create', id: newTask.id, data: newTask }]);
-        return next;
-    });
+    // Update local state first (Optimistic UI)
+    setTasks(prev => [...prev, newTask]);
+
+    // Explicitly sync to cloud if enabled
+    if (isSyncEnabled) {
+        syncData([{ type: 'task', action: 'create', id: newTask.id, data: newTask }]);
+    }
     
     setHighlightedTaskId(newTask.id); 
     setActiveTaskId(newTask.id); 
@@ -746,8 +754,8 @@ const App: React.FC = () => {
                     })}
                 </div>
              </div>
-             {highPriorityDueToday.length > 0 && (<div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-2xl p-6"><h3 className="text-amber-800 dark:text-amber-200 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><AlertTriangle size={18} /> High Priority Due Today ({highPriorityDueToday.length})</h3><div className="grid grid-cols-1 lg:grid-cols-3 gap-4">{highPriorityDueToday.map(t => <div key={t.id}><TaskCard task={t} onUpdateStatus={updateTaskStatus} onOpenTask={() => setActiveTaskId(t.id)} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} statusColors={appConfig.itemColors} /></div>)}</div></div>)}
-             {overdueTasks.length > 0 && (<div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-2xl p-6"><h3 className="text-red-800 dark:text-red-200 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})</h3><div className="grid grid-cols-1 lg:grid-cols-3 gap-4">{overdueTasks.map(t => <div key={t.id}><TaskCard task={t} onUpdateStatus={updateTaskStatus} onOpenTask={() => setActiveTaskId(t.id)} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} statusColors={appConfig.itemColors} /></div>)}</div></div>)}
+             {highPriorityDueToday.length > 0 && (<div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-2xl p-6"><h3 className="text-amber-800 dark:text-amber-200 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><AlertTriangle size={18} /> High Priority Due Today ({highPriorityDueToday.length})</h3><div className="grid grid-cols-1 lg:grid-cols-3 gap-4">{highPriorityDueToday.map(t => <div key={t.id}><TaskCard task={t} onUpdateStatus={updateTaskStatus} onOpenTask={() => setActiveTaskId(t.id)} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} statusColors={appConfig.itemColors} todayStr={todayStr} /></div>)}</div></div>)}
+             {overdueTasks.length > 0 && (<div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 rounded-2xl p-6"><h3 className="text-red-800 dark:text-red-200 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})</h3><div className="grid grid-cols-1 lg:grid-cols-3 gap-4">{overdueTasks.map(t => <div key={t.id}><TaskCard task={t} onUpdateStatus={updateTaskStatus} onOpenTask={() => setActiveTaskId(t.id)} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} statusColors={appConfig.itemColors} todayStr={todayStr} /></div>)}</div></div>)}
           </div>
         );
 
