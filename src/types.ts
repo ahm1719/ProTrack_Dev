@@ -99,7 +99,7 @@ export interface Task {
   createdAt: string;
   attachments?: TaskAttachment[]; // Global task attachments
   order?: number; // For manual sorting in daily view
-  processedDate?: string; // The date (YYYY-MM-DD) when the task was moved to processed in the today view
+  processedDate?: string | null; // The date (YYYY-MM-DD) when the task was moved to processed in the today view
 }
 
 export interface DailyLog {

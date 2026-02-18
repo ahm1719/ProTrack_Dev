@@ -43,14 +43,14 @@ import Settings from './components/Settings';
 import AIChat from './components/AIChat';
 import UserManual from './components/UserManual';
 import TaskDetailModal from './components/TaskDetailModal';
-import DayFocusModal from './components/DayFocusModal'; // Import new component
+import DayFocusModal from './components/DayFocusModal'; 
 import { FullLogo } from './components/Branding';
 
 import { subscribeToCollections, syncData, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 import { performBackup, selectBackupFolder } from './services/backupService';
 
-const BUILD_VERSION = "V3.7.3";
+const BUILD_VERSION = "V3.7.4";
 
 // ... (DEFAULT_CONFIG, getWeekNumber, getStatusColorHex helpers remain same)
 const DEFAULT_CONFIG: AppConfig = {
@@ -866,6 +866,7 @@ const App: React.FC = () => {
                 onClose={() => setFocusModeDate(null)}
                 onUpdateStatus={updateTaskStatus}
                 onUpdateTask={updateTaskFields}
+                onOpenTask={(task) => setSelectedTask(task)} // Pass handler
             />
         )}
 
