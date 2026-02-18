@@ -24,43 +24,51 @@ const MiniCard: React.FC<{
     onUpdateStatus: (id: string, status: string) => void;
     onMove: () => void;
     onOpen: () => void;
-}> = ({ task, type, onUpdateStatus, onMove, onOpen }) => (
-    <div 
-        onClick={onOpen}
-        className="bg-slate-800 border border-slate-700 p-4 rounded-xl shadow-sm hover:border-indigo-500/50 transition-all group cursor-pointer hover:shadow-md hover:bg-slate-800/80"
-    >
-        <div className="flex justify-between items-start mb-2">
-            <div className="flex items-center gap-2">
-                <div className={`w-1.5 h-1.5 rounded-full ${getPriorityColor(task.priority)}`}></div>
-                <span className="font-mono text-[10px] text-slate-400">{task.displayId}</span>
-                {task.status === Status.DONE && <span className="bg-emerald-900/50 text-emerald-400 text-[8px] px-1.5 py-0.5 rounded font-bold uppercase">Done</span>}
+}> = ({ task, type, onUpdateStatus, onMove, onOpen }) => {
+    const isCompleted = task.status === Status.DONE || task.status === Status.ARCHIVED;
+
+    return (
+        <div 
+            onClick={onOpen}
+            className={`flex flex-col p-4 rounded-xl border transition-all cursor-pointer group relative overflow-hidden ${
+                isCompleted 
+                    ? 'bg-slate-800/30 border-slate-700/50 opacity-60 hover:opacity-100 hover:bg-slate-800/50' 
+                    : 'bg-slate-800 border-slate-700 hover:border-indigo-500/50 hover:bg-slate-800/80 shadow-sm hover:shadow-md'
+            }`}
+        >
+            <div className="flex justify-between items-start mb-2">
+                <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${getPriorityColor(task.priority)}`}></div>
+                    <span className={`font-mono text-[10px] ${isCompleted ? 'text-slate-500' : 'text-slate-400'}`}>{task.displayId}</span>
+                    {task.status === Status.DONE && <span className="bg-emerald-900/30 text-emerald-500/80 text-[8px] px-1.5 py-0.5 rounded font-bold uppercase border border-emerald-900/50">Done</span>}
+                </div>
             </div>
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                {/* Optional Status toggles can go here if needed, kept minimal for now */}
+            
+            <h4 className={`font-bold text-sm mb-3 line-clamp-2 leading-snug ${isCompleted ? 'line-through text-slate-500 italic' : 'text-slate-200'}`}>
+                {task.title || task.description}
+            </h4>
+            
+            <div className="flex items-center justify-between mt-auto" onClick={e => e.stopPropagation()}>
+                <div className={`text-[10px] font-medium ${isCompleted ? 'text-slate-600' : 'text-slate-500'}`}>{task.status}</div>
+                {type === 'pool' ? (
+                    <button 
+                        onClick={onMove}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-sm"
+                    >
+                        Process <ArrowRight size={12} />
+                    </button>
+                ) : (
+                    <button 
+                        onClick={onMove}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors"
+                    >
+                        <ArrowLeft size={12} /> Return
+                    </button>
+                )}
             </div>
         </div>
-        <h4 className="text-slate-200 font-bold text-sm mb-3 line-clamp-2 leading-snug">{task.title || task.description}</h4>
-        
-        <div className="flex items-center justify-between mt-4" onClick={e => e.stopPropagation()}>
-            <div className="text-[10px] text-slate-500 font-medium">{task.status}</div>
-            {type === 'pool' ? (
-                <button 
-                    onClick={onMove}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors shadow-sm"
-                >
-                    Process <ArrowRight size={12} />
-                </button>
-            ) : (
-                <button 
-                    onClick={onMove}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors"
-                >
-                    <ArrowLeft size={12} /> Return
-                </button>
-            )}
-        </div>
-    </div>
-);
+    );
+};
 
 const DayFocusModal: React.FC<DayFocusModalProps> = ({ date, tasks, onClose, onUpdateStatus, onUpdateTask, onOpenTask }) => {
   const dateObj = new Date(date);
@@ -80,10 +88,14 @@ const DayFocusModal: React.FC<DayFocusModalProps> = ({ date, tasks, onClose, onU
         // Exclude if explicitly archived (Done tasks usually stay in view if processed today, but if in pool, usually we only want active)
         if (t.status === Status.ARCHIVED) return false;
 
-        // Include if Due <= Today OR Status is In Progress
-        // Also include if it was processed previously? No, pool is "Remaining work"
-        if (t.dueDate && t.dueDate <= date && t.status !== Status.DONE) return true;
-        if (t.status === Status.IN_PROGRESS) return true;
+        // Include if Due on this date (even if Done, so it stays visible as a record of today's work)
+        if (t.dueDate === date) return true;
+
+        // Include if Due BEFORE this date (Overdue) and NOT Done
+        if (t.dueDate && t.dueDate < date && t.status !== Status.DONE) return true;
+
+        // Include if In Progress (even if due later, we are working on it)
+        if (t.status === Status.IN_PROGRESS && t.dueDate !== date) return true;
         
         return false;
     });
