@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask } from '../types';
+import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, TaskUpdate } from '../types';
 import { 
   X, Calendar, Clock, CheckCircle2, AlertTriangle, Send, Paperclip, 
   Trash2, Edit2, Plus, CheckSquare, Square, ChevronLeft, ChevronRight, 
@@ -138,6 +138,34 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         setTempTitle(task.title || '');
         setTempDesc(task.description);
     }, [task]);
+
+    // Group updates by Date
+    const groupedUpdates = useMemo(() => {
+        const groups: Record<string, TaskUpdate[]> = {};
+        
+        // 1. Sort all updates by time ASCENDING (Chronological) for display within the day
+        const chronologicallySortedUpdates = [...task.updates].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        
+        // 2. Group by local date string
+        chronologicallySortedUpdates.forEach(u => {
+            const date = new Date(u.timestamp);
+            const dateKey = date.toLocaleDateString('en-CA'); // YYYY-MM-DD
+            if (!groups[dateKey]) groups[dateKey] = [];
+            groups[dateKey].push(u);
+        });
+        
+        // 3. Return array of groups, sorted by Date DESCENDING (Newest day first)
+        const sortedGroupKeys = Object.keys(groups).sort().reverse();
+        
+        return sortedGroupKeys.map(dateKey => {
+            const dateObj = new Date(dateKey + 'T12:00:00'); // Safe parsing for display
+            return {
+                dateKey,
+                displayDate: dateKey === new Date().toLocaleDateString('en-CA') ? 'Today' : dateObj.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }),
+                updates: groups[dateKey]
+            };
+        });
+    }, [task.updates]);
 
     const handleSaveTitle = () => {
         if (tempTitle.trim() !== (task.title || '')) {
@@ -442,7 +470,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
                             {task.updates.length === 0 && (
                                 <div className="text-center py-10 opacity-50">
                                     <User size={32} className="mx-auto mb-2 text-slate-300 dark:text-slate-600" />
@@ -450,67 +478,83 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                 </div>
                             )}
                             
-                            {[...task.updates].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map(update => {
-                                const isEditing = editingUpdateId === update.id;
-                                return (
-                                    <div key={update.id} className="relative group">
-                                        <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-slate-200 dark:bg-slate-700 ml-3.5"></div>
-                                        <div className="relative flex gap-4">
-                                            <div className="w-7 h-7 rounded-full bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 z-10 text-[10px] font-bold text-slate-500">
-                                                {new Date(update.timestamp).getDate()}
-                                            </div>
-                                            <div className="flex-1 min-w-0 pb-4">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
-                                                        {new Date(update.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        {update.highlightColor && (
-                                                            <span className="ml-2 w-2 h-2 inline-block rounded-full" style={{ backgroundColor: update.highlightColor }} />
-                                                        )}
-                                                    </span>
-                                                    <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-2">
-                                                        <button onClick={() => { setEditingUpdateId(update.id); setEditUpdateContent(update.content); }} className="text-slate-400 hover:text-indigo-500"><Edit2 size={10} /></button>
-                                                        {onDeleteUpdate && <button onClick={() => onDeleteUpdate(task.id, update.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={10} /></button>}
-                                                    </div>
-                                                </div>
-                                                
-                                                {isEditing ? (
-                                                    <div className="bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-900 rounded-lg p-2">
-                                                        <textarea 
-                                                            value={editUpdateContent}
-                                                            onChange={e => setEditUpdateContent(e.target.value)}
-                                                            className="w-full text-xs outline-none resize-none dark:bg-transparent dark:text-white"
-                                                            rows={3}
-                                                        />
-                                                        <div className="flex justify-end gap-2 mt-2">
-                                                            <button onClick={() => setEditingUpdateId(null)} className="text-xs text-slate-500">Cancel</button>
-                                                            <button onClick={() => { onEditUpdate(task.id, update.id, editUpdateContent); setEditingUpdateId(null); }} className="text-xs bg-indigo-600 text-white px-2 py-1 rounded">Save</button>
+                            {groupedUpdates.map(group => (
+                                <div key={group.dateKey} className="relative">
+                                    {/* Sticky Day Header */}
+                                    <div className="sticky top-0 z-10 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-sm py-2 mb-2 border-b border-slate-100 dark:border-slate-800">
+                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-2">
+                                            <Calendar size={10} />
+                                            {group.displayDate}
+                                        </h4>
+                                    </div>
+
+                                    <div className="space-y-0 relative">
+                                        {/* Day connector line */}
+                                        <div className="absolute left-[6px] top-2 bottom-2 w-[2px] bg-slate-200 dark:bg-slate-700/50"></div>
+
+                                        {group.updates.map(update => {
+                                            const isEditing = editingUpdateId === update.id;
+                                            return (
+                                                <div key={update.id} className="relative group pl-6 pb-6 last:pb-2">
+                                                    {/* Timeline Node */}
+                                                    <div className="absolute left-0 top-[3px] w-3.5 h-3.5 rounded-full bg-white dark:bg-slate-900 border-2 border-indigo-200 dark:border-indigo-900 z-10"></div>
+                                                    
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between mb-1.5">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold font-mono">
+                                                                    {new Date(update.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                </span>
+                                                                {update.highlightColor && (
+                                                                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: update.highlightColor }} />
+                                                                )}
+                                                            </div>
+                                                            <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-2 bg-white dark:bg-slate-900 px-1 rounded shadow-sm">
+                                                                <button onClick={() => { setEditingUpdateId(update.id); setEditUpdateContent(update.content); }} className="text-slate-400 hover:text-indigo-500"><Edit2 size={10} /></button>
+                                                                {onDeleteUpdate && <button onClick={() => onDeleteUpdate(task.id, update.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={10} /></button>}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className={`p-3 rounded-lg text-sm leading-relaxed border ${update.highlightColor ? 'border-l-4' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm'}`} 
-                                                        style={update.highlightColor ? { borderLeftColor: update.highlightColor, backgroundColor: `${update.highlightColor}10` } : {}}
-                                                    >
-                                                        <p className="whitespace-pre-wrap text-slate-700 dark:text-slate-300">{update.content}</p>
-                                                        {update.attachments && update.attachments.length > 0 && (
-                                                            <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-black/5 dark:border-white/5">
-                                                                {update.attachments.map(att => (
-                                                                    <button 
-                                                                        key={att.id} 
-                                                                        onClick={() => downloadAttachment(att)}
-                                                                        className="flex items-center gap-1 text-[10px] font-bold bg-white/50 dark:bg-black/20 hover:bg-white dark:hover:bg-slate-700 px-2 py-1 rounded border border-transparent hover:border-slate-200 dark:hover:border-slate-600 transition-all"
-                                                                    >
-                                                                        <FileIcon size={10} /> {att.name}
-                                                                    </button>
-                                                                ))}
+                                                        
+                                                        {isEditing ? (
+                                                            <div className="bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-900 rounded-lg p-2 shadow-sm">
+                                                                <textarea 
+                                                                    value={editUpdateContent}
+                                                                    onChange={e => setEditUpdateContent(e.target.value)}
+                                                                    className="w-full text-xs outline-none resize-none dark:bg-transparent dark:text-white"
+                                                                    rows={3}
+                                                                />
+                                                                <div className="flex justify-end gap-2 mt-2">
+                                                                    <button onClick={() => setEditingUpdateId(null)} className="text-[10px] text-slate-500 hover:text-slate-700 px-2 py-1">Cancel</button>
+                                                                    <button onClick={() => { onEditUpdate(task.id, update.id, editUpdateContent); setEditingUpdateId(null); }} className="text-[10px] bg-indigo-600 text-white px-3 py-1 rounded font-bold hover:bg-indigo-700">Save</button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className={`p-3 rounded-lg text-sm leading-relaxed border ${update.highlightColor ? 'border-l-4' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm'}`} 
+                                                                style={update.highlightColor ? { borderLeftColor: update.highlightColor, backgroundColor: `${update.highlightColor}08` } : {}}
+                                                            >
+                                                                <p className="whitespace-pre-wrap text-slate-700 dark:text-slate-300 text-xs">{update.content}</p>
+                                                                {update.attachments && update.attachments.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-slate-100 dark:border-slate-700/50">
+                                                                        {update.attachments.map(att => (
+                                                                            <button 
+                                                                                key={att.id} 
+                                                                                onClick={() => downloadAttachment(att)}
+                                                                                className="flex items-center gap-1 text-[10px] font-bold bg-slate-50 dark:bg-slate-900 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 px-2 py-1 rounded border border-slate-200 dark:border-slate-700 transition-all text-slate-600 dark:text-slate-400"
+                                                                            >
+                                                                                <FileIcon size={10} /> {att.name}
+                                                                            </button>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
                                                     </div>
-                                                )}
-                                            </div>
-                                        </div>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                );
-                            })}
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
