@@ -101,8 +101,8 @@ const DatePicker = ({
                             {isOff && (
                                 <Umbrella size={10} className="absolute bottom-0.5 right-0.5 text-rose-400 dark:text-rose-600" />
                             )}
-                            {workload > 0 && !isSelected && (
-                                <div className={`absolute -top-1 -right-1 w-4 h-4 text-[8px] font-bold flex items-center justify-center rounded-full text-white ${workloadColor} shadow-sm z-10 border border-white dark:border-slate-800`}>
+                            {workload > 0 && (
+                                <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 text-[10px] font-black flex items-center justify-center rounded-full text-white ${workloadColor} border-2 border-white dark:border-slate-800 shadow-sm z-20`}>
                                     {workload}
                                 </div>
                             )}

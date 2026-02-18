@@ -61,7 +61,7 @@ import {
   getStoredDirectoryHandle, 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.8.4 - Weekend Styling Update";
+const BUILD_VERSION = "V4.8.5 - Build Fix & Badge Patch";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -1036,7 +1036,7 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-auto p-6 bg-slate-50 dark:bg-slate-950 custom-scrollbar relative transition-colors duration-300">{renderContent()}</div>
         
         {/* Task Detail Modal */}
-        {activeTask && (<TaskDetailModal task={activeTask} allTasks={tasks} onClose={() => setActiveTaskId(null)} onUpdateStatus={updateTaskStatus} onUpdateTask={updateTaskFields} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} onDeleteTask={deleteTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} updateTags={appConfig.updateHighlightOptions || []} statusColors={appConfig.itemColors} offDays={offDays} />)}
+        {activeTask && (<TaskDetailModal task={activeTask} allTasks={tasks} onClose={() => setActiveTaskId(null)} onUpdateStatus={updateTaskStatus} onUpdateTask={updateTaskFields} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} onDeleteTask={deleteTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} updateTags={appConfig.updateHighlightOptions || []} statusColors={appConfig.itemColors || {}} offDays={offDays} />)}
         
         {/* New Task Modal */}
         {showNewTaskModal && (
