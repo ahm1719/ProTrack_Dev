@@ -51,7 +51,7 @@ import { subscribeToCollections, syncData, initFirebase } from './services/fireb
 import { generateWeeklySummary } from './services/geminiService';
 import { performBackup, selectBackupFolder } from './services/backupService';
 
-const BUILD_VERSION = "V3.8.0";
+const BUILD_VERSION = "V4.8.4";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -118,9 +118,11 @@ const App: React.FC = () => {
   const [modalError, setModalError] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('protrack_theme') === 'dark';
+      const saved = localStorage.getItem('protrack_theme');
+      // Default to true (Dark Mode) if not set, restoring baseline
+      return saved ? saved === 'dark' : true;
     }
-    return false;
+    return true;
   });
 
   // Backup State
@@ -457,7 +459,7 @@ const App: React.FC = () => {
       case Status.NOT_STARTED:
         return 'bg-pink-500/20 border-pink-500/50 text-pink-300';
       default:
-        return 'bg-slate-700/50 border-slate-600 text-slate-300';
+        return 'bg-slate-200 dark:bg-slate-700/50 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300';
     }
   };
 
@@ -553,34 +555,34 @@ const App: React.FC = () => {
                 <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Weekly Timeline</h3>
                 <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar">
                     {weekDays.map(d => (
-                        <div key={d} className={`min-w-[280px] w-[280px] p-4 rounded-xl border flex flex-col transition-all snap-start ${d === todayStr ? 'bg-indigo-600 border-indigo-500 shadow-lg shadow-indigo-900/50 scale-105 z-10' : 'bg-slate-900 border-slate-800'}`}>
-                            <div className="flex justify-between items-start mb-4 border-b border-white/10 pb-2">
+                        <div key={d} className={`min-w-[280px] w-[280px] p-4 rounded-xl border flex flex-col transition-all snap-start ${d === todayStr ? 'bg-indigo-600 border-indigo-500 shadow-lg shadow-indigo-900/50 scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'}`}>
+                            <div className="flex justify-between items-start mb-4 border-b border-slate-100 dark:border-slate-700/50 pb-2">
                                 <div>
-                                    <span className={`block text-[10px] font-bold uppercase tracking-widest ${d === todayStr ? 'text-indigo-200' : 'text-slate-500'}`}>{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
-                                    <span className={`text-xl font-bold ${d === todayStr ? 'text-white' : 'text-slate-300'}`}>{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                                    <span className={`block text-[10px] font-bold uppercase tracking-widest ${d === todayStr ? 'text-indigo-200' : 'text-slate-500 dark:text-slate-400'}`}>{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
+                                    <span className={`text-xl font-bold ${d === todayStr ? 'text-white' : 'text-slate-800 dark:text-slate-200'}`}>{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                                 </div>
                                 {d === todayStr && <span className="bg-white/20 text-white text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider backdrop-blur-sm">Today</span>}
-                                {d !== todayStr && <Maximize2 size={12} className="text-slate-600" />}
+                                {d !== todayStr && <Maximize2 size={12} className="text-slate-400 dark:text-slate-600" />}
                             </div>
                             <div className="flex-1 space-y-2 min-h-[120px]">
                                 {weekTasks[d]?.length ? weekTasks[d].map(t => (
                                     <div 
                                       key={t.id} 
                                       onClick={() => setSelectedTask(t)} 
-                                      className="bg-slate-800/50 p-2.5 rounded-lg border border-slate-700/50 hover:border-indigo-500/50 transition-all cursor-pointer group"
+                                      className="bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-indigo-500/50 dark:hover:border-indigo-500/50 transition-all cursor-pointer group"
                                     >
                                         <div className="flex justify-between items-start mb-1">
-                                            <span className="text-[10px] font-mono text-slate-400 font-bold">{t.displayId}</span>
+                                            <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 font-bold">{t.displayId}</span>
                                             <div className={`w-2 h-2 rounded-full ${t.status === Status.IN_PROGRESS ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
                                         </div>
-                                        <p className="text-xs text-slate-200 line-clamp-2 font-medium leading-snug">{t.description}</p>
+                                        <p className="text-xs text-slate-700 dark:text-slate-200 line-clamp-2 font-medium leading-snug">{t.description}</p>
                                         <div className="mt-2 flex justify-end">
                                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${getStatusColorMini(t.status)}`}>
                                                 {t.status}
                                             </span>
                                         </div>
                                     </div>
-                                )) : <div className="h-full flex items-center justify-center text-[10px] text-slate-600 italic">No tasks due</div>}
+                                )) : <div className="h-full flex items-center justify-center text-[10px] text-slate-400 dark:text-slate-600 italic">No tasks due</div>}
                             </div>
                         </div>
                     ))}
@@ -589,20 +591,20 @@ const App: React.FC = () => {
 
              <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-3 gap-8 pb-6">
                  {/* Left Column: Task List */}
-                 <div className="xl:col-span-2 flex flex-col bg-slate-900/50 rounded-2xl border border-slate-800 overflow-hidden shadow-inner">
-                     <div className="bg-slate-900 p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4 shrink-0">
-                        <div className="flex bg-slate-800 p-1 rounded-xl">
+                 <div className="xl:col-span-2 flex flex-col bg-slate-100/50 dark:bg-slate-800/20 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-inner">
+                     <div className="bg-white dark:bg-slate-800 p-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4 shrink-0">
+                        <div className="flex bg-slate-100 dark:bg-slate-700/50 p-1 rounded-xl">
                             {['active', 'upcoming', 'archive'].map((tab) => (
                                 <button 
                                     key={tab}
                                     onClick={() => setActiveTaskTab(tab as any)} 
-                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${activeTaskTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${activeTaskTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600'}`}
                                 >
                                     {tab}
                                 </button>
                             ))}
                         </div>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{filteredTasks.length} ITEMS</span>
+                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{filteredTasks.length} ITEMS</span>
                      </div>
                      
                      <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
@@ -621,7 +623,7 @@ const App: React.FC = () => {
                             ))}
                          </div>
                          {filteredTasks.length === 0 && (
-                            <div className="flex flex-col items-center justify-center py-20 text-slate-600 opacity-50">
+                            <div className="flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-600 opacity-50">
                                 <ListTodo size={48} className="mb-4" />
                                 <p className="font-bold">No tasks match your criteria</p>
                             </div>
@@ -630,7 +632,7 @@ const App: React.FC = () => {
                  </div>
 
                  {/* Right Column: History & Calendar */}
-                 <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg overflow-hidden flex flex-col h-full">
+                 <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                         <DailyJournal 
                             tasks={tasks} 
@@ -724,7 +726,7 @@ const App: React.FC = () => {
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
            {[
              { mode: ViewMode.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
-             { mode: ViewMode.TASKS, icon: ListTodo, label: 'Daily Tasks' },
+             { mode: ViewMode.TASKS, icon: ListTodo, label: 'Daily Workspace' },
              { mode: ViewMode.JOURNAL, icon: Calendar, label: 'Journal' },
              { mode: ViewMode.OBSERVATIONS, icon: MessageSquare, label: 'Observations' },
            ].map(item => (
