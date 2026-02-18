@@ -1,5 +1,4 @@
 
-// ... (imports remain the same)
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -18,7 +17,8 @@ import {
   Layers,
   Calendar,
   Briefcase,
-  Repeat
+  Repeat,
+  Maximize2
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -43,14 +43,16 @@ import Settings from './components/Settings';
 import AIChat from './components/AIChat';
 import UserManual from './components/UserManual';
 import TaskDetailModal from './components/TaskDetailModal';
+import DayFocusModal from './components/DayFocusModal'; // Import new component
 import { FullLogo } from './components/Branding';
 
 import { subscribeToCollections, syncData, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 import { performBackup, selectBackupFolder } from './services/backupService';
 
-const BUILD_VERSION = "V3.7.1";
+const BUILD_VERSION = "V3.7.3";
 
+// ... (DEFAULT_CONFIG, getWeekNumber, getStatusColorHex helpers remain same)
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
   taskPriorities: Object.values(Priority),
@@ -104,7 +106,9 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
-  const [activeTaskTab, setActiveTaskTab] = useState<'current' | 'completed'>('current');
+  
+  // Updated Tab State
+  const [activeTaskTab, setActiveTaskTab] = useState<'active' | 'upcoming' | 'archive'>('active');
   
   const [currentTime, setCurrentTime] = useState(new Date());
   
@@ -112,6 +116,10 @@ const App: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  
+  // New State for Focus View
+  const [focusModeDate, setFocusModeDate] = useState<string | null>(null);
+
   const [generatedReport, setGeneratedReport] = useState('');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -141,11 +149,9 @@ const App: React.FC = () => {
     recurrenceInterval: 1
   });
 
-  // Initialization
+  // Initialization & Effects
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
-    
-    // Load local storage
     const localAppConfig = localStorage.getItem('protrack_app_config');
     if (localAppConfig) {
       try {
@@ -153,7 +159,6 @@ const App: React.FC = () => {
         setAppConfig({ ...DEFAULT_CONFIG, ...parsed });
       } catch (e) { console.error("Config parse error", e); }
     }
-
     const localData = localStorage.getItem('protrack_data');
     if (localData) {
       try {
@@ -164,7 +169,6 @@ const App: React.FC = () => {
         setOffDays(parsed.offDays || []);
       } catch (e) { console.error("Data parse error", e); }
     }
-
     const savedConfig = localStorage.getItem('protrack_firebase_config');
     if (savedConfig) {
       try {
@@ -172,18 +176,14 @@ const App: React.FC = () => {
         if (initFirebase(config)) setIsSyncEnabled(true);
       } catch (e) { console.error("Firebase init failed", e); }
     }
-
-    // Theme check
     const savedTheme = localStorage.getItem('protrack_theme');
     if (savedTheme === 'dark') {
         setIsDarkMode(true);
         document.documentElement.classList.add('dark');
     }
-
     return () => clearInterval(timer);
   }, []);
 
-  // Sync Listeners
   useEffect(() => {
     if (isSyncEnabled) {
       const unsubscribe = subscribeToCollections({
@@ -197,45 +197,27 @@ const App: React.FC = () => {
     }
   }, [isSyncEnabled]);
 
-  // Dark Mode Toggle
-  const toggleTheme = (isDark: boolean) => {
-    setIsDarkMode(isDark);
-    if (isDark) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('protrack_theme', 'dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('protrack_theme', 'light');
-    }
-  };
-
-  // Data Persistence Helper
+  // Handlers
   const persistData = (newTasks: Task[], newLogs: DailyLog[], newObs: Observation[], newOffDays: string[]) => {
     setTasks(newTasks);
     setLogs(newLogs);
     setObservations(newObs);
     setOffDays(newOffDays);
-    
-    // Save to LocalStorage
     localStorage.setItem('protrack_data', JSON.stringify({ tasks: newTasks, logs: newLogs, observations: newObs, offDays: newOffDays }));
   };
 
-  // CRUD Handlers
   const handleCreateTask = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     setModalError(null);
-
     const isDuplicate = tasks.some(t => t.displayId.toLowerCase() === newTaskForm.displayId.toLowerCase());
     if (isDuplicate) {
       setModalError(`Duplicate Display ID: "${newTaskForm.displayId}" already exists.`);
       return;
     }
-
     let recurrenceConfig: RecurrenceConfig | undefined = undefined;
     if (newTaskForm.recurrenceType !== 'none') {
         recurrenceConfig = { type: newTaskForm.recurrenceType as any, interval: newTaskForm.recurrenceInterval };
     }
-
     const newTask: Task = {
       ...newTaskForm,
       recurrence: recurrenceConfig,
@@ -243,12 +225,10 @@ const App: React.FC = () => {
       updates: [],
       createdAt: new Date().toISOString()
     };
-    
     const updatedTasks = [...tasks, newTask];
     setTasks(updatedTasks);
     localStorage.setItem('protrack_data', JSON.stringify({ tasks: updatedTasks, logs, observations, offDays }));
     if (isSyncEnabled) syncData([{ type: 'task', action: 'create', id: newTask.id, data: newTask }]);
-
     setShowNewTaskModal(false);
     setNewTaskForm({
       source: `CW${getWeekNumber(new Date())}`,
@@ -273,13 +253,6 @@ const App: React.FC = () => {
   };
 
   const updateTaskFields = (id: string, fields: Partial<Task>) => {
-    if (fields.displayId) {
-       const isDuplicate = tasks.some(t => t.id !== id && t.displayId.toLowerCase() === fields.displayId?.toLowerCase());
-       if (isDuplicate) {
-          alert(`Error: Display ID "${fields.displayId}" is already taken.`);
-          return;
-       }
-    }
     const updatedTasks = tasks.map(t => t.id === id ? { ...t, ...fields } : t);
     setTasks(updatedTasks);
     localStorage.setItem('protrack_data', JSON.stringify({ tasks: updatedTasks, logs, observations, offDays }));
@@ -290,15 +263,12 @@ const App: React.FC = () => {
     const timestamp = new Date().toISOString();
     const updateId = uuidv4();
     const update = { id: updateId, timestamp, content, attachments, highlightColor };
-    
     const updatedTasks = tasks.map(t => t.id === id ? { ...t, updates: [...t.updates, update] } : t);
     const newLog: DailyLog = { id: uuidv4(), date: new Date().toLocaleDateString('en-CA'), taskId: id, content };
     const updatedLogs = [...logs, newLog];
-
     setTasks(updatedTasks);
     setLogs(updatedLogs);
     localStorage.setItem('protrack_data', JSON.stringify({ tasks: updatedTasks, logs: updatedLogs, observations, offDays }));
-    
     if (isSyncEnabled) {
         syncData([
             { type: 'task', action: 'update', id, data: { updates: updatedTasks.find(t=>t.id===id)?.updates } },
@@ -322,142 +292,120 @@ const App: React.FC = () => {
       }
       return t;
     });
-
     const newLogs = logs.map(l => {
-      if (l.taskId === taskId) {
-        const originalTask = tasks.find(t => t.id === taskId);
-        const originalUpdate = originalTask?.updates.find(u => u.id === updateId);
-        if (l.content === originalUpdate?.content) {
-            return { 
-                ...l, 
-                content, 
-                date: timestamp ? timestamp.split('T')[0] : l.date 
-            };
+        if (l.taskId === taskId) { 
+            const originalTask = tasks.find(t => t.id === taskId);
+            const originalUpdate = originalTask?.updates.find(u => u.id === updateId);
+            if (l.content === originalUpdate?.content) {
+                return { ...l, content, date: timestamp ? timestamp.split('T')[0] : l.date };
+            }
         }
-      }
-      return l;
+        return l;
     });
-
     setTasks(newTasks);
     setLogs(newLogs);
     localStorage.setItem('protrack_data', JSON.stringify({ tasks: newTasks, logs: newLogs, observations, offDays }));
-    
     if (isSyncEnabled) {
         const updatedTask = newTasks.find(t => t.id === taskId);
         syncData([{ type: 'task', action: 'update', id: taskId, data: { updates: updatedTask?.updates } }]);
-        const logToSync = newLogs.find(l => l.taskId === taskId && l.content === content); 
-        if (logToSync) syncData([{ type: 'log', action: 'update', id: logToSync.id, data: logToSync }]);
     }
   };
 
   const handleDeleteUpdate = (taskId: string, updateId: string) => {
-    if (!confirm('Delete this history record?')) return;
-    
-    const task = tasks.find(t => t.id === taskId);
-    const update = task?.updates.find(u => u.id === updateId);
-    
-    const newTasks = tasks.map(t => {
-      if (t.id === taskId) {
-        return { ...t, updates: t.updates.filter(u => u.id !== updateId) };
-      }
-      return t;
-    });
-
-    const newLogs = logs.filter(l => !(l.taskId === taskId && l.content === update?.content));
-    
-    setTasks(newTasks);
-    setLogs(newLogs);
-    localStorage.setItem('protrack_data', JSON.stringify({ tasks: newTasks, logs: newLogs, observations, offDays }));
-
-    if (isSyncEnabled) {
-        syncData([
-            { type: 'task', action: 'update', id: taskId, data: { updates: newTasks.find(t=>t.id===taskId)?.updates } }
-        ]);
-    }
+      if (!confirm('Delete?')) return;
+      const newTasks = tasks.map(t => t.id === taskId ? { ...t, updates: t.updates.filter(u => u.id !== updateId) } : t);
+      setTasks(newTasks);
+      localStorage.setItem('protrack_data', JSON.stringify({ tasks: newTasks, logs, observations, offDays }));
+      if (isSyncEnabled) syncData([{ type: 'task', action: 'update', id: taskId, data: { updates: newTasks.find(t=>t.id===taskId)?.updates } }]);
   };
 
   const deleteTask = (id: string) => {
-    setTasks(prev => {
-        const next = prev.filter(t => t.id !== id);
-        localStorage.setItem('protrack_data', JSON.stringify({ tasks: next, logs, observations, offDays }));
-        if (isSyncEnabled) syncData([{ type: 'task', action: 'delete', id }]);
-        return next;
-    });
-    setSelectedTask(null);
+      setTasks(prev => {
+          const next = prev.filter(t => t.id !== id);
+          localStorage.setItem('protrack_data', JSON.stringify({ tasks: next, logs, observations, offDays }));
+          if(isSyncEnabled) syncData([{ type: 'task', action: 'delete', id }]);
+          return next;
+      });
+      setSelectedTask(null);
   };
 
-  // Journal Handlers
+  // Missing Log Handlers
   const handleAddLog = (log: Omit<DailyLog, 'id'>) => {
-      const newLog = { ...log, id: uuidv4() };
-      const newLogs = [...logs, newLog];
-      setLogs(newLogs);
-      localStorage.setItem('protrack_data', JSON.stringify({ tasks, logs: newLogs, observations, offDays }));
-      if (isSyncEnabled) syncData([{ type: 'log', action: 'create', id: newLog.id, data: newLog }]);
+    const newLog = { ...log, id: uuidv4() };
+    const updatedLogs = [...logs, newLog];
+    setLogs(updatedLogs);
+    persistData(tasks, updatedLogs, observations, offDays);
+    if (isSyncEnabled) syncData([{ type: 'log', action: 'create', id: newLog.id, data: newLog }]);
   };
 
   const handleEditLog = (logId: string, taskId: string, content: string, date: string) => {
-    const newLogs = logs.map(l => l.id === logId ? { ...l, taskId, content, date } : l);
-    setLogs(newLogs);
-    localStorage.setItem('protrack_data', JSON.stringify({ tasks, logs: newLogs, observations, offDays }));
+    const updatedLogs = logs.map(l => l.id === logId ? { ...l, taskId, content, date } : l);
+    setLogs(updatedLogs);
+    persistData(tasks, updatedLogs, observations, offDays);
     if (isSyncEnabled) syncData([{ type: 'log', action: 'update', id: logId, data: { taskId, content, date } }]);
   };
 
   const handleDeleteLog = (logId: string) => {
-    if (confirm('Delete this journal entry?')) {
-      const newLogs = logs.filter(l => l.id !== logId);
-      setLogs(newLogs);
-      localStorage.setItem('protrack_data', JSON.stringify({ tasks, logs: newLogs, observations, offDays }));
-      if (isSyncEnabled) syncData([{ type: 'log', action: 'delete', id: logId }]);
-    }
+    if (!confirm('Delete this entry?')) return;
+    const updatedLogs = logs.filter(l => l.id !== logId);
+    setLogs(updatedLogs);
+    persistData(tasks, updatedLogs, observations, offDays);
+    if (isSyncEnabled) syncData([{ type: 'log', action: 'delete', id: logId }]);
   };
 
-  // Observations Handlers
-  const handleAddObservation = (obs: Observation) => {
-      const newObs = [...observations, obs];
-      setObservations(newObs);
-      localStorage.setItem('protrack_data', JSON.stringify({ tasks, logs, observations: newObs, offDays }));
-      if (isSyncEnabled) syncData([{ type: 'observation', action: 'create', id: obs.id, data: obs }]);
+  const toggleOffDay = (date: string) => {
+    const newOffDays = offDays.includes(date) 
+      ? offDays.filter(d => d !== date)
+      : [...offDays, date];
+    setOffDays(newOffDays);
+    persistData(tasks, logs, observations, newOffDays);
+    if (isSyncEnabled) syncData([{ type: 'offDays', action: 'update', data: newOffDays }]);
   };
-  
+
+  // Missing Observation Handlers
+  const handleAddObservation = (obs: Observation) => {
+    const updatedObs = [...observations, obs];
+    setObservations(updatedObs);
+    persistData(tasks, logs, updatedObs, offDays);
+    if (isSyncEnabled) syncData([{ type: 'observation', action: 'create', id: obs.id, data: obs }]);
+  };
+
   const handleEditObservation = (obs: Observation) => {
-      const newObs = observations.map(o => o.id === obs.id ? obs : o);
-      setObservations(newObs);
-      localStorage.setItem('protrack_data', JSON.stringify({ tasks, logs, observations: newObs, offDays }));
-      if (isSyncEnabled) syncData([{ type: 'observation', action: 'update', id: obs.id, data: obs }]);
+    const updatedObs = observations.map(o => o.id === obs.id ? obs : o);
+    setObservations(updatedObs);
+    persistData(tasks, logs, updatedObs, offDays);
+    if (isSyncEnabled) syncData([{ type: 'observation', action: 'update', id: obs.id, data: obs }]);
   };
 
   const handleDeleteObservation = (id: string) => {
-      if (confirm('Delete this observation?')) {
-          const newObs = observations.filter(o => o.id !== id);
-          setObservations(newObs);
-          localStorage.setItem('protrack_data', JSON.stringify({ tasks, logs, observations: newObs, offDays }));
-          if (isSyncEnabled) syncData([{ type: 'observation', action: 'delete', id }]);
-      }
+    if (!confirm('Delete observation?')) return;
+    const updatedObs = observations.filter(o => o.id !== id);
+    setObservations(updatedObs);
+    persistData(tasks, logs, updatedObs, offDays);
+    if (isSyncEnabled) syncData([{ type: 'observation', action: 'delete', id }]);
   };
 
-  // Config Handler
+  // Missing Config Handler
   const handleUpdateAppConfig = (newConfig: AppConfig) => {
     setAppConfig(newConfig);
     localStorage.setItem('protrack_app_config', JSON.stringify(newConfig));
     if (isSyncEnabled) syncData([{ type: 'config', action: 'update', data: newConfig }]);
   };
-  
-  // Off Days
-  const toggleOffDay = (date: string) => {
-      const newOffDays = offDays.includes(date) ? offDays.filter(d => d !== date) : [...offDays, date];
-      setOffDays(newOffDays);
-      localStorage.setItem('protrack_data', JSON.stringify({ tasks, logs, observations, offDays: newOffDays }));
-      if (isSyncEnabled) syncData([{ type: 'offDays', action: 'update', data: newOffDays }]);
+
+  const toggleTheme = (isDark: boolean) => {
+    setIsDarkMode(isDark);
+    if (isDark) {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('protrack_theme', 'dark');
+    } else {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('protrack_theme', 'light');
+    }
   };
 
-  // Computed
-  const activeProjects = useMemo(() => {
-    const projects = tasks
-      .filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED)
-      .map(t => t.projectId);
-    return Array.from(new Set(projects)).filter(Boolean);
-  }, [tasks]);
-
+  // --- Helpers for view data ---
+  const activeProjects = useMemo(() => Array.from(new Set(tasks.map(t => t.projectId).filter(Boolean))), [tasks]);
+  
   const suggestNextId = (projectId: string) => {
     const projectTasks = tasks.filter(t => t.projectId === projectId);
     let maxSeq = 0;
@@ -472,11 +420,37 @@ const App: React.FC = () => {
 
   const filteredTasks = useMemo(() => {
     const q = searchQuery.toLowerCase();
-    const base = tasks.filter(t => 
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Base filter by search
+    let base = tasks.filter(t => 
         (t.description.toLowerCase().includes(q) || t.displayId.toLowerCase().includes(q) || (t.title && t.title.toLowerCase().includes(q)))
     );
-    if (activeTaskTab === 'current') return base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
-    return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
+
+    switch (activeTaskTab) {
+        case 'active':
+            // Status is NOT Done/Archived AND (Due <= Today OR No Date)
+            return base.filter(t => 
+                t.status !== Status.DONE && 
+                t.status !== Status.ARCHIVED && 
+                (!t.dueDate || t.dueDate <= today)
+            );
+        case 'upcoming':
+            // Status is NOT Done/Archived AND Due > Today
+            return base.filter(t => 
+                t.status !== Status.DONE && 
+                t.status !== Status.ARCHIVED && 
+                (t.dueDate && t.dueDate > today)
+            );
+        case 'archive':
+            // Status IS Done or Archived
+            return base.filter(t => 
+                t.status === Status.DONE || 
+                t.status === Status.ARCHIVED
+            );
+        default:
+            return base;
+    }
   }, [tasks, searchQuery, activeTaskTab]);
 
   const statusSummary = useMemo(() => {
@@ -543,7 +517,6 @@ const App: React.FC = () => {
                             </button>
                         </div>
                   </div>
-
                   <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
                       <div className="flex justify-between items-end mb-6">
                         <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
@@ -554,8 +527,6 @@ const App: React.FC = () => {
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase ml-2">Active Tasks</span>
                         </div>
                       </div>
-                      
-                      {/* Segmented Progress Bar */}
                       <div className="h-8 bg-slate-50 dark:bg-slate-900 rounded-xl overflow-hidden flex shadow-inner mb-8 border border-slate-100 dark:border-slate-800">
                         {statusSummary.map((s) => s.count > 0 && (
                             <div 
@@ -566,7 +537,6 @@ const App: React.FC = () => {
                             ></div>
                         ))}
                       </div>
-
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                           {statusSummary.map(s => (
                               <div key={s.label} className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 p-4 rounded-xl flex flex-col justify-between hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-100 dark:hover:border-indigo-900 transition-all group">
@@ -582,7 +552,6 @@ const App: React.FC = () => {
                           ))}
                       </div>
                    </div>
-
                    {overdueTasks.length > 0 && (
                       <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-2xl p-6">
                           <h3 className="text-red-800 dark:text-red-300 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
@@ -617,28 +586,37 @@ const App: React.FC = () => {
                     </button>
                  </div>
 
-                 {/* Rest of TASKS view remains the same... */}
                  <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-48">
                     {weekDays.map(d => {
                         const isToday = d === new Date().toLocaleDateString('en-CA');
                         return (
-                            <div key={d} className={`min-w-[240px] w-[240px] p-4 rounded-2xl border flex flex-col transition-all ${isToday ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-100 dark:ring-indigo-900/40 shadow-md scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'}`}>
-                                <div className="flex justify-between items-start mb-2 border-b dark:border-slate-700 pb-2 border-slate-100">
+                            <div key={d} className={`relative min-w-[240px] w-[240px] p-4 rounded-2xl border flex flex-col transition-all group ${isToday ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-100 dark:ring-indigo-900/40 shadow-md scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'}`}>
+                                <div className="flex justify-between items-start mb-2 border-b dark:border-slate-700 pb-2 border-slate-100 relative">
                                     <div>
                                         <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
                                         <span className="text-lg font-bold text-slate-800 dark:text-slate-200">{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                                     </div>
-                                    {isToday && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
+                                    <div className="flex items-center gap-2">
+                                        {isToday && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
+                                        <button 
+                                            onClick={() => setFocusModeDate(d)}
+                                            className="text-slate-300 dark:text-slate-600 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-1"
+                                            title="Open Focus View"
+                                        >
+                                            <Maximize2 size={14} />
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                                     {weekTasks[d]?.length ? weekTasks[d].map(t => (
                                         <div 
                                           key={t.id} 
                                           onClick={() => setSelectedTask(t)} 
-                                          className="p-2.5 rounded-lg border dark:border-slate-700 text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 dark:hover:ring-indigo-600 transition-all cursor-pointer group bg-white dark:bg-slate-700"
+                                          className="p-2.5 rounded-lg border dark:border-slate-700 text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 dark:hover:ring-indigo-600 transition-all cursor-pointer group/card bg-white dark:bg-slate-700"
                                         >
                                             <div className="flex justify-between items-center mb-1">
                                               <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{t.displayId}</span>
+                                              <div className={`w-1.5 h-1.5 rounded-full ${t.status === Status.DONE ? 'bg-emerald-500' : t.status === Status.IN_PROGRESS ? 'bg-amber-500' : 'bg-slate-300'}`} />
                                             </div>
                                             <p className="line-clamp-2 leading-tight text-slate-600 dark:text-slate-400">{t.title || t.description}</p>
                                         </div>
@@ -653,10 +631,11 @@ const App: React.FC = () => {
                     <div className="xl:col-span-2 flex flex-col bg-slate-100/50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-inner">
                         <div className="bg-white dark:bg-slate-800 p-5 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
                             <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
-                                <button onClick={() => setActiveTaskTab('current')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'current' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Active Tasks</button>
-                                <button onClick={() => setActiveTaskTab('completed')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'completed' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Archive & Done</button>
+                                <button onClick={() => setActiveTaskTab('active')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'active' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Active</button>
+                                <button onClick={() => setActiveTaskTab('upcoming')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'upcoming' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Upcoming</button>
+                                <button onClick={() => setActiveTaskTab('archive')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'archive' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Archive</button>
                             </div>
-                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{filteredTasks.length} {activeTaskTab} ITEMS</span>
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{filteredTasks.length} ITEMS</span>
                         </div>
                         <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -689,18 +668,6 @@ const App: React.FC = () => {
                                 onUpdateTask={updateTaskFields} 
                                 offDays={offDays} 
                                 onToggleOffDay={toggleOffDay}
-                                onToggleOffDayRange={(dates) => {
-                                    const newOffDays = Array.from(new Set([...offDays, ...dates]));
-                                    setOffDays(newOffDays);
-                                    localStorage.setItem('protrack_data', JSON.stringify({ tasks, logs, observations, offDays: newOffDays }));
-                                    if(isSyncEnabled) syncData([{ type: 'offDays', action: 'update', data: newOffDays }]);
-                                }}
-                                onClearOffDays={(dates) => {
-                                    const newOffDays = offDays.filter(d => !dates.includes(d));
-                                    setOffDays(newOffDays);
-                                    localStorage.setItem('protrack_data', JSON.stringify({ tasks, logs, observations, offDays: newOffDays }));
-                                    if(isSyncEnabled) syncData([{ type: 'offDays', action: 'update', data: newOffDays }]);
-                                }}
                                 onEditLog={handleEditLog}
                                 onDeleteLog={handleDeleteLog}
                                 searchQuery={searchQuery}
@@ -712,49 +679,8 @@ const App: React.FC = () => {
           );
       }
 
-      if (view === ViewMode.OBSERVATIONS) {
-          return (
-              <ObservationsLog 
-                observations={observations} 
-                onAddObservation={handleAddObservation} 
-                onEditObservation={handleEditObservation} 
-                onDeleteObservation={handleDeleteObservation} 
-                columns={appConfig.observationStatuses}
-                itemColors={appConfig.itemColors} 
-              />
-          );
-      }
-
-      if (view === ViewMode.SETTINGS) {
-          return (
-              <Settings 
-                tasks={tasks} 
-                logs={logs} 
-                observations={observations} 
-                offDays={offDays}
-                onImportData={(d) => { persistData(d.tasks || [], d.logs || [], d.observations || [], d.offDays || []); alert('Data Imported'); }}
-                onSyncConfigUpdate={c => setIsSyncEnabled(!!c)} 
-                isSyncEnabled={isSyncEnabled} 
-                appConfig={appConfig} 
-                onUpdateConfig={handleUpdateAppConfig} 
-                onPurgeData={(nT, nL, nO) => persistData(nT, nL, nO, offDays)} 
-                isDarkMode={isDarkMode}
-                onToggleTheme={toggleTheme}
-                backupSettings={backupSettings}
-                setBackupSettings={setBackupSettings}
-                onSetupBackupFolder={async () => {
-                    const handle = await selectBackupFolder();
-                    if (handle) {
-                        setBackupHandle(handle);
-                        setBackupSettings(prev => ({ ...prev, folderName: handle.name }));
-                    }
-                }}
-                backupStatus={backupStatus}
-                onVerifyBackupPermission={() => backupHandle && performBackup(backupHandle, { tasks, logs, observations, offDays, appConfig })}
-              />
-          );
-      }
-
+      if (view === ViewMode.OBSERVATIONS) return <ObservationsLog observations={observations} onAddObservation={handleAddObservation} onEditObservation={handleEditObservation} onDeleteObservation={handleDeleteObservation} columns={appConfig.observationStatuses} itemColors={appConfig.itemColors} />;
+      if (view === ViewMode.SETTINGS) return <Settings tasks={tasks} logs={logs} observations={observations} offDays={offDays} onImportData={(d) => { persistData(d.tasks || [], d.logs || [], d.observations || [], d.offDays || []); alert('Data Imported'); }} onSyncConfigUpdate={c => setIsSyncEnabled(!!c)} isSyncEnabled={isSyncEnabled} appConfig={appConfig} onUpdateConfig={handleUpdateAppConfig} onPurgeData={(nT, nL, nO) => persistData(nT, nL, nO, offDays)} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} backupSettings={backupSettings} setBackupSettings={setBackupSettings} onSetupBackupFolder={async () => { const handle = await selectBackupFolder(); if (handle) { setBackupHandle(handle); setBackupSettings(prev => ({ ...prev, folderName: handle.name })); } }} backupStatus={backupStatus} onVerifyBackupPermission={() => backupHandle && performBackup(backupHandle, { tasks, logs, observations, offDays, appConfig })} />;
       if (view === ViewMode.HELP) return <UserManual />;
 
       return null;
@@ -929,6 +855,17 @@ const App: React.FC = () => {
                 updateTags={appConfig.updateHighlightOptions || []}
                 statusColors={appConfig.itemColors || {}}
                 offDays={offDays}
+            />
+        )}
+
+        {/* Focus View Modal */}
+        {focusModeDate && (
+            <DayFocusModal 
+                date={focusModeDate}
+                tasks={tasks}
+                onClose={() => setFocusModeDate(null)}
+                onUpdateStatus={updateTaskStatus}
+                onUpdateTask={updateTaskFields}
             />
         )}
 
