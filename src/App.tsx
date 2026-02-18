@@ -61,7 +61,7 @@ import {
   getStoredDirectoryHandle, 
 } from './services/backupService';
 
-const BUILD_VERSION = "V4.8.3 - Today Progress Update";
+const BUILD_VERSION = "V4.8.4 - Weekend Styling Update";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -778,17 +778,34 @@ const App: React.FC = () => {
                         const totalToday = dayTasks.length;
                         const processedToday = dayTasks.filter(t => t.processedDate === d).length;
 
+                        // Create local date object for consistent display and weekend calculation
+                        const [y, m, dayVal] = d.split('-').map(Number);
+                        const dateObj = new Date(y, m - 1, dayVal);
+                        const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+
                         return (
                             <div 
                                 key={d} 
-                                className={`min-w-[280px] w-[280px] p-4 rounded-2xl border ${d === todayStr ? 'bg-indigo-50 dark:bg-indigo-950 border-indigo-200 dark:border-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-500/30 shadow-md scale-105 z-10' : isOffDay ? 'bg-rose-50/30 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/30 grayscale-[0.5]' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'} flex flex-col transition-all`}
+                                className={`min-w-[280px] w-[280px] p-4 rounded-2xl border ${
+                                    isToday 
+                                        ? 'bg-indigo-50 dark:bg-indigo-950 border-indigo-200 dark:border-indigo-500 ring-2 ring-indigo-100 dark:ring-indigo-500/30 shadow-md scale-105 z-10' 
+                                        : isOffDay 
+                                            ? 'bg-rose-50/30 dark:bg-rose-900/10 border-rose-100 dark:border-rose-900/30 grayscale-[0.5]' 
+                                            : isWeekend
+                                                ? 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800'
+                                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'
+                                } flex flex-col transition-all`}
                                 onDragOver={(e) => e.preventDefault()}
                                 onDrop={(e) => handleDrop(e, null, d)}
                             >
                                 <div className="flex justify-between items-start mb-3 border-b pb-2 border-slate-100 dark:border-slate-700">
                                     <div>
-                                        <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
-                                        <span className={`text-lg font-bold ${isOffDay ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-100'}`}>{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                                        <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{dateObj.toLocaleDateString([], { weekday: 'long' })}</span>
+                                        <span className={`text-lg font-bold ${
+                                            isOffDay ? 'text-rose-600 dark:text-rose-400' : 
+                                            (isWeekend && !isToday) ? 'text-slate-500 dark:text-slate-400' :
+                                            'text-slate-800 dark:text-slate-100'
+                                        }`}>{dateObj.toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {isOffDay && <span className="bg-rose-100 dark:bg-rose-900/50 text-rose-600 dark:text-rose-400 text-[9px] px-2 py-0.5 rounded-full font-black tracking-widest border border-rose-200 dark:border-rose-800">OFF</span>}
