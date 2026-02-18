@@ -16,6 +16,8 @@ interface DailyJournalProps {
   searchQuery?: string;
   onEditLog: (logId: string, taskId: string, content: string, date: string) => void;
   onDeleteLog: (logId: string) => void;
+  onHighlightTask?: (taskId: string) => void;
+  onOpenTask?: (task: Task, logContent: string) => void;
 }
 
 const getStartOfWeek = (date: Date) => {
@@ -227,7 +229,8 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays, tasks, rangeStart, 
 const DailyJournal: React.FC<DailyJournalProps> = ({ 
     tasks, logs, onAddLog, onUpdateTask, offDays = [], 
     onToggleOffDay, onToggleOffDayRange, onClearOffDays, 
-    searchQuery = '', onEditLog, onDeleteLog 
+    searchQuery = '', onEditLog, onDeleteLog,
+    onHighlightTask, onOpenTask
 }) => {
   const [entryDate, setEntryDate] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [logContent, setLogContent] = useState('');
@@ -481,7 +484,10 @@ const DailyJournal: React.FC<DailyJournalProps> = ({
                                     </div>
                                 </div>
                             ) : (
-                                <div className={`bg-white dark:bg-slate-800 p-3 rounded-lg border shadow-sm hover:shadow-md transition-all relative ${isStatusChange ? 'border-indigo-100 dark:border-indigo-900 bg-indigo-50/20' : dateIsOff ? 'border-rose-100 dark:border-rose-900/20 opacity-80' : 'border-slate-200 dark:border-slate-700'}`}>
+                                <div 
+                                    onClick={() => task && onHighlightTask?.(task.id)}
+                                    className={`bg-white dark:bg-slate-800 p-3 rounded-lg border shadow-sm hover:shadow-md transition-all relative cursor-pointer active:scale-95 ${isStatusChange ? 'border-indigo-100 dark:border-indigo-900 bg-indigo-50/20' : dateIsOff ? 'border-rose-100 dark:border-rose-900/20 opacity-80' : 'border-slate-200 dark:border-slate-700'}`}
+                                >
                                     <div className="flex justify-between items-start">
                                         <div className="flex flex-wrap gap-1.5 items-center mb-1 max-w-[85%]">
                                             {task && (
@@ -489,7 +495,14 @@ const DailyJournal: React.FC<DailyJournalProps> = ({
                                                     <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${dateIsOff ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'}`}>
                                                         {task.displayId}
                                                     </span>
-                                                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate max-w-[150px] sm:max-w-[250px]" title={task.title || task.description}>
+                                                    <span 
+                                                        className="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate max-w-[150px] sm:max-w-[250px] hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline cursor-pointer" 
+                                                        title={task.title || task.description}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onOpenTask?.(task, log.content);
+                                                        }}
+                                                    >
                                                         {task.title || task.description}
                                                     </span>
                                                 </>
@@ -498,7 +511,8 @@ const DailyJournal: React.FC<DailyJournalProps> = ({
                                         </div>
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button 
-                                                onClick={() => { 
+                                                onClick={(e) => { 
+                                                    e.stopPropagation();
                                                     setEditingLogId(log.id); 
                                                     setEditContent(log.content); 
                                                     setEditTaskId(log.taskId);
@@ -508,7 +522,15 @@ const DailyJournal: React.FC<DailyJournalProps> = ({
                                             >
                                                 <Edit2 size={12}/>
                                             </button>
-                                            <button onClick={() => onDeleteLog(log.id)} className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded"><Trash2 size={12}/></button>
+                                            <button 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onDeleteLog(log.id);
+                                                }} 
+                                                className="p-1 text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded"
+                                            >
+                                                <Trash2 size={12}/>
+                                            </button>
                                         </div>
                                     </div>
                                     <p className={`text-xs leading-relaxed whitespace-pre-wrap ${isStatusChange ? 'text-indigo-700 dark:text-indigo-300 font-medium italic' : 'text-slate-700 dark:text-slate-300'}`}>

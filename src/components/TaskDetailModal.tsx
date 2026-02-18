@@ -23,6 +23,7 @@ interface TaskDetailModalProps {
   updateTags: HighlightOption[];
   statusColors: Record<string, string>;
   offDays: string[];
+  initialHighlightContent?: string | null;
 }
 
 const DatePicker = ({ 
@@ -116,7 +117,7 @@ const DatePicker = ({
 
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ 
     task, allTasks, onClose, onUpdateStatus, onUpdateTask, onAddUpdate, onEditUpdate, onDeleteUpdate, onDeleteTask,
-    availableStatuses, availablePriorities, updateTags, statusColors, offDays
+    availableStatuses, availablePriorities, updateTags, statusColors, offDays, initialHighlightContent
 }) => {
     const [newUpdate, setNewUpdate] = useState('');
     const [selectedTag, setSelectedTag] = useState<string>('');
@@ -533,8 +534,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
 
                                         {group.updates.map(update => {
                                             const isEditing = editingUpdateId === update.id;
+                                            const isHighlighted = initialHighlightContent && update.content === initialHighlightContent;
+                                            
                                             return (
-                                                <div key={update.id} className="relative group pl-6 pb-6 last:pb-2">
+                                                <div 
+                                                    key={update.id} 
+                                                    className="relative group pl-6 pb-6 last:pb-2"
+                                                    ref={el => { if (isHighlighted) el?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }}
+                                                >
                                                     {/* Timeline Node & Inline Tag Selector */}
                                                     <div className="absolute left-0 top-[3px] z-20">
                                                         <button 
@@ -626,8 +633,8 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                                                 </div>
                                                             </div>
                                                         ) : (
-                                                            <div className={`p-3 rounded-lg text-sm leading-relaxed border ${update.highlightColor ? 'border-l-4' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm'}`} 
-                                                                style={update.highlightColor ? { borderLeftColor: update.highlightColor, backgroundColor: `${update.highlightColor}08` } : {}}
+                                                            <div className={`p-3 rounded-lg text-sm leading-relaxed border ${update.highlightColor ? 'border-l-4' : ''} ${isHighlighted ? 'border-indigo-400 ring-2 ring-indigo-200 dark:ring-indigo-900 bg-indigo-50/50 dark:bg-indigo-900/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm'}`} 
+                                                                style={update.highlightColor ? { borderLeftColor: update.highlightColor, backgroundColor: isHighlighted ? undefined : `${update.highlightColor}08` } : {}}
                                                             >
                                                                 <p className="whitespace-pre-wrap text-slate-700 dark:text-slate-300 text-xs">{update.content}</p>
                                                                 {update.attachments && update.attachments.length > 0 && (

@@ -18,6 +18,7 @@ interface TaskCardProps {
   statusColors?: Record<string, string>;
   onDelete?: (id: string) => void;
   todayStr?: string;
+  isHighlighted?: boolean;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ 
@@ -30,7 +31,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
   availablePriorities = Object.values(Priority),
   updateTags = [],
   statusColors = {},
-  todayStr = new Date().toLocaleDateString('en-CA')
+  todayStr = new Date().toLocaleDateString('en-CA'),
+  isHighlighted = false
 }) => {
   const latestUpdate = useMemo(() => {
     if (!task.updates || task.updates.length === 0) return null;
@@ -115,6 +117,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     <div 
         onClick={onOpenTask}
         className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm transition-all duration-300 hover:shadow-md cursor-pointer flex flex-col group relative overflow-hidden border ${
+          isHighlighted ? 'ring-2 ring-indigo-500 shadow-xl scale-[1.02] border-indigo-300 dark:border-indigo-600' :
           isCompleted ? 'opacity-60 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700' : 
           isOverdue ? 'border-red-400 dark:border-red-600 bg-red-50/20 dark:bg-red-900/10 ring-1 ring-red-100 dark:ring-red-900/30' :
           'border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-700'

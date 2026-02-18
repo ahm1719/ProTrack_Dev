@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   ListTodo, 
@@ -17,7 +16,6 @@ import {
   Layers,
   Calendar,
   Briefcase,
-  Repeat,
   Maximize2
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -33,7 +31,7 @@ import {
   ViewMode, 
   TaskAttachment,
   BackupSettings,
-  RecurrenceConfig
+  TaskUpdate
 } from './types';
 
 import TaskCard from './components/TaskCard';
@@ -52,7 +50,6 @@ import { performBackup, selectBackupFolder } from './services/backupService';
 
 const BUILD_VERSION = "V3.7.4";
 
-// ... (DEFAULT_CONFIG, getWeekNumber, getStatusColorHex helpers remain same)
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
   taskPriorities: Object.values(Priority),
@@ -84,16 +81,6 @@ const getWeekNumber = (d: Date): number => {
   return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 };
 
-const getStatusColorHex = (s: string) => {
-    switch (s) {
-        case Status.DONE: return '#10b981';
-        case Status.IN_PROGRESS: return '#3b82f6';
-        case Status.WAITING: return '#f59e0b';
-        case Status.ARCHIVED: return '#64748b';
-        default: return '#e2e8f0';
-    }
-};
-
 const App: React.FC = () => {
   // State
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -107,23 +94,31 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
   
-  // Updated Tab State
   const [activeTaskTab, setActiveTaskTab] = useState<'active' | 'upcoming' | 'archive'>('active');
   
   const [currentTime, setCurrentTime] = useState(new Date());
   
   // Modals & UI State
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [highlightedUpdateContent, setHighlightedUpdateContent] = useState<string | null>(null);
+  
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   
-  // New State for Focus View
+  // Focus View
   const [focusModeDate, setFocusModeDate] = useState<string | null>(null);
+  
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
 
   const [generatedReport, setGeneratedReport] = useState('');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('protrack_theme') === 'dark';
+    }
+    return false;
+  });
 
   // Backup State
   const [backupSettings, setBackupSettings] = useState<BackupSettings>({
@@ -144,21 +139,28 @@ const App: React.FC = () => {
     description: '',
     dueDate: new Date().toISOString().split('T')[0],
     status: Status.NOT_STARTED as string,
-    priority: Priority.MEDIUM as string,
-    recurrenceType: 'none',
-    recurrenceInterval: 1
+    priority: Priority.MEDIUM as string
   });
 
-  // Initialization & Effects
+  // Effects
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    const savedConfig = localStorage.getItem('protrack_firebase_config');
     const localAppConfig = localStorage.getItem('protrack_app_config');
+    const savedBackup = localStorage.getItem('protrack_backup_settings');
+    
     if (localAppConfig) {
       try {
         const parsed = JSON.parse(localAppConfig);
         setAppConfig({ ...DEFAULT_CONFIG, ...parsed });
       } catch (e) { console.error("Config parse error", e); }
     }
+
+    if (savedBackup) {
+      try { setBackupSettings(JSON.parse(savedBackup)); } 
+      catch (e) { console.error("Backup settings parse error", e); }
+    }
+
     const localData = localStorage.getItem('protrack_data');
     if (localData) {
       try {
@@ -169,243 +171,89 @@ const App: React.FC = () => {
         setOffDays(parsed.offDays || []);
       } catch (e) { console.error("Data parse error", e); }
     }
-    const savedConfig = localStorage.getItem('protrack_firebase_config');
+
     if (savedConfig) {
       try {
         const config = JSON.parse(savedConfig);
         if (initFirebase(config)) setIsSyncEnabled(true);
       } catch (e) { console.error("Firebase init failed", e); }
     }
-    const savedTheme = localStorage.getItem('protrack_theme');
-    if (savedTheme === 'dark') {
-        setIsDarkMode(true);
-        document.documentElement.classList.add('dark');
-    }
     return () => clearInterval(timer);
   }, []);
 
+  // Theme Effect
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('protrack_theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
+
+  // Sync Subscription
   useEffect(() => {
     if (isSyncEnabled) {
       const unsubscribe = subscribeToCollections({
         onTasks: (cloudTasks) => setTasks(cloudTasks),
         onLogs: (cloudLogs) => setLogs(cloudLogs),
         onObservations: (cloudObs) => setObservations(cloudObs),
-        onOffDays: (cloudOffDays) => setOffDays(cloudOffDays),
-        onConfig: (cloudConfig) => setAppConfig(cloudConfig)
+        onOffDays: (cloudOff) => setOffDays(cloudOff),
+        onConfig: (cloudConf) => setAppConfig(cloudConf)
       });
       return () => { if (unsubscribe) unsubscribe(); };
     }
   }, [isSyncEnabled]);
 
-  // Handlers
+  // Backup Effect
+  useEffect(() => {
+    let intervalId: any;
+    if (backupSettings.enabled && backupSettings.folderName && backupHandle) {
+       intervalId = setInterval(async () => {
+           setBackupStatus('running');
+           const success = await performBackup(backupHandle, { tasks, logs, observations, offDays, appConfig });
+           if (success) {
+               const now = new Date().toISOString();
+               setBackupSettings(prev => ({ ...prev, lastBackup: now }));
+               localStorage.setItem('protrack_backup_settings', JSON.stringify({ ...backupSettings, lastBackup: now }));
+               setBackupStatus('idle');
+           } else {
+               setBackupStatus('permission_needed');
+           }
+       }, backupSettings.intervalMinutes * 60 * 1000);
+    }
+    return () => clearInterval(intervalId);
+  }, [backupSettings, backupHandle, tasks, logs, observations, offDays, appConfig]);
+
   const persistData = (newTasks: Task[], newLogs: DailyLog[], newObs: Observation[], newOffDays: string[]) => {
     setTasks(newTasks);
     setLogs(newLogs);
     setObservations(newObs);
     setOffDays(newOffDays);
     localStorage.setItem('protrack_data', JSON.stringify({ tasks: newTasks, logs: newLogs, observations: newObs, offDays: newOffDays }));
-  };
-
-  const handleCreateTask = (e: React.FormEvent | React.KeyboardEvent) => {
-    e.preventDefault();
-    setModalError(null);
-    const isDuplicate = tasks.some(t => t.displayId.toLowerCase() === newTaskForm.displayId.toLowerCase());
-    if (isDuplicate) {
-      setModalError(`Duplicate Display ID: "${newTaskForm.displayId}" already exists.`);
-      return;
-    }
-    let recurrenceConfig: RecurrenceConfig | undefined = undefined;
-    if (newTaskForm.recurrenceType !== 'none') {
-        recurrenceConfig = { type: newTaskForm.recurrenceType as any, interval: newTaskForm.recurrenceInterval };
-    }
-    const newTask: Task = {
-      ...newTaskForm,
-      recurrence: recurrenceConfig,
-      id: uuidv4(),
-      updates: [],
-      createdAt: new Date().toISOString()
-    };
-    const updatedTasks = [...tasks, newTask];
-    setTasks(updatedTasks);
-    localStorage.setItem('protrack_data', JSON.stringify({ tasks: updatedTasks, logs, observations, offDays }));
-    if (isSyncEnabled) syncData([{ type: 'task', action: 'create', id: newTask.id, data: newTask }]);
-    setShowNewTaskModal(false);
-    setNewTaskForm({
-      source: `CW${getWeekNumber(new Date())}`,
-      projectId: '',
-      displayId: '',
-      title: '',
-      description: '',
-      dueDate: new Date().toISOString().split('T')[0],
-      status: appConfig.taskStatuses[0] || Status.NOT_STARTED,
-      priority: appConfig.taskPriorities[1] || Priority.MEDIUM,
-      recurrenceType: 'none',
-      recurrenceInterval: 1
-    });
-    setView(ViewMode.TASKS);
-  };
-
-  const updateTaskStatus = (id: string, status: string) => {
-    const updatedTasks = tasks.map(t => t.id === id ? { ...t, status } : t);
-    setTasks(updatedTasks);
-    localStorage.setItem('protrack_data', JSON.stringify({ tasks: updatedTasks, logs, observations, offDays }));
-    if (isSyncEnabled) syncData([{ type: 'task', action: 'update', id, data: { status } }]);
-  };
-
-  const updateTaskFields = (id: string, fields: Partial<Task>) => {
-    const updatedTasks = tasks.map(t => t.id === id ? { ...t, ...fields } : t);
-    setTasks(updatedTasks);
-    localStorage.setItem('protrack_data', JSON.stringify({ tasks: updatedTasks, logs, observations, offDays }));
-    if (isSyncEnabled) syncData([{ type: 'task', action: 'update', id, data: fields }]);
-  };
-
-  const addUpdateToTask = (id: string, content: string, attachments?: TaskAttachment[], highlightColor?: string) => {
-    const timestamp = new Date().toISOString();
-    const updateId = uuidv4();
-    const update = { id: updateId, timestamp, content, attachments, highlightColor };
-    const updatedTasks = tasks.map(t => t.id === id ? { ...t, updates: [...t.updates, update] } : t);
-    const newLog: DailyLog = { id: uuidv4(), date: new Date().toLocaleDateString('en-CA'), taskId: id, content };
-    const updatedLogs = [...logs, newLog];
-    setTasks(updatedTasks);
-    setLogs(updatedLogs);
-    localStorage.setItem('protrack_data', JSON.stringify({ tasks: updatedTasks, logs: updatedLogs, observations, offDays }));
+    
     if (isSyncEnabled) {
-        syncData([
-            { type: 'task', action: 'update', id, data: { updates: updatedTasks.find(t=>t.id===id)?.updates } },
-            { type: 'log', action: 'create', id: newLog.id, data: newLog }
-        ]);
+        // We use full sync for simplicity here, but ideally we'd use granular syncData calls in each handler
+        syncData([{ type: 'full', action: 'overwrite', data: { tasks: newTasks, logs: newLogs, observations: newObs, offDays: newOffDays, appConfig } }]);
     }
   };
 
-  const handleEditUpdate = (taskId: string, updateId: string, content: string, timestamp?: string, highlightColor?: string | null) => {
-    const newTasks = tasks.map(t => {
-      if (t.id === taskId) {
-        return {
-          ...t,
-          updates: t.updates.map(u => u.id === updateId ? { 
-              ...u, 
-              content, 
-              timestamp: timestamp || u.timestamp,
-              highlightColor: highlightColor === undefined ? u.highlightColor : (highlightColor === null ? undefined : highlightColor)
-          } : u)
-        };
+  const handleSetupBackup = async () => {
+      const handle = await selectBackupFolder();
+      if (handle) {
+          setBackupHandle(handle);
+          setBackupSettings(prev => ({ ...prev, folderName: handle.name, enabled: true }));
+          localStorage.setItem('protrack_backup_settings', JSON.stringify({ ...backupSettings, folderName: handle.name, enabled: true }));
       }
-      return t;
-    });
-    const newLogs = logs.map(l => {
-        if (l.taskId === taskId) { 
-            const originalTask = tasks.find(t => t.id === taskId);
-            const originalUpdate = originalTask?.updates.find(u => u.id === updateId);
-            if (l.content === originalUpdate?.content) {
-                return { ...l, content, date: timestamp ? timestamp.split('T')[0] : l.date };
-            }
-        }
-        return l;
-    });
-    setTasks(newTasks);
-    setLogs(newLogs);
-    localStorage.setItem('protrack_data', JSON.stringify({ tasks: newTasks, logs: newLogs, observations, offDays }));
-    if (isSyncEnabled) {
-        const updatedTask = newTasks.find(t => t.id === taskId);
-        syncData([{ type: 'task', action: 'update', id: taskId, data: { updates: updatedTask?.updates } }]);
-    }
   };
 
-  const handleDeleteUpdate = (taskId: string, updateId: string) => {
-      if (!confirm('Delete?')) return;
-      const newTasks = tasks.map(t => t.id === taskId ? { ...t, updates: t.updates.filter(u => u.id !== updateId) } : t);
-      setTasks(newTasks);
-      localStorage.setItem('protrack_data', JSON.stringify({ tasks: newTasks, logs, observations, offDays }));
-      if (isSyncEnabled) syncData([{ type: 'task', action: 'update', id: taskId, data: { updates: newTasks.find(t=>t.id===taskId)?.updates } }]);
-  };
+  const activeProjects = useMemo(() => {
+    const projects = tasks
+      .filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED)
+      .map(t => t.projectId);
+    return Array.from(new Set(projects)).filter(Boolean);
+  }, [tasks]);
 
-  const deleteTask = (id: string) => {
-      setTasks(prev => {
-          const next = prev.filter(t => t.id !== id);
-          localStorage.setItem('protrack_data', JSON.stringify({ tasks: next, logs, observations, offDays }));
-          if(isSyncEnabled) syncData([{ type: 'task', action: 'delete', id }]);
-          return next;
-      });
-      setSelectedTask(null);
-  };
-
-  // Missing Log Handlers
-  const handleAddLog = (log: Omit<DailyLog, 'id'>) => {
-    const newLog = { ...log, id: uuidv4() };
-    const updatedLogs = [...logs, newLog];
-    setLogs(updatedLogs);
-    persistData(tasks, updatedLogs, observations, offDays);
-    if (isSyncEnabled) syncData([{ type: 'log', action: 'create', id: newLog.id, data: newLog }]);
-  };
-
-  const handleEditLog = (logId: string, taskId: string, content: string, date: string) => {
-    const updatedLogs = logs.map(l => l.id === logId ? { ...l, taskId, content, date } : l);
-    setLogs(updatedLogs);
-    persistData(tasks, updatedLogs, observations, offDays);
-    if (isSyncEnabled) syncData([{ type: 'log', action: 'update', id: logId, data: { taskId, content, date } }]);
-  };
-
-  const handleDeleteLog = (logId: string) => {
-    if (!confirm('Delete this entry?')) return;
-    const updatedLogs = logs.filter(l => l.id !== logId);
-    setLogs(updatedLogs);
-    persistData(tasks, updatedLogs, observations, offDays);
-    if (isSyncEnabled) syncData([{ type: 'log', action: 'delete', id: logId }]);
-  };
-
-  const toggleOffDay = (date: string) => {
-    const newOffDays = offDays.includes(date) 
-      ? offDays.filter(d => d !== date)
-      : [...offDays, date];
-    setOffDays(newOffDays);
-    persistData(tasks, logs, observations, newOffDays);
-    if (isSyncEnabled) syncData([{ type: 'offDays', action: 'update', data: newOffDays }]);
-  };
-
-  // Missing Observation Handlers
-  const handleAddObservation = (obs: Observation) => {
-    const updatedObs = [...observations, obs];
-    setObservations(updatedObs);
-    persistData(tasks, logs, updatedObs, offDays);
-    if (isSyncEnabled) syncData([{ type: 'observation', action: 'create', id: obs.id, data: obs }]);
-  };
-
-  const handleEditObservation = (obs: Observation) => {
-    const updatedObs = observations.map(o => o.id === obs.id ? obs : o);
-    setObservations(updatedObs);
-    persistData(tasks, logs, updatedObs, offDays);
-    if (isSyncEnabled) syncData([{ type: 'observation', action: 'update', id: obs.id, data: obs }]);
-  };
-
-  const handleDeleteObservation = (id: string) => {
-    if (!confirm('Delete observation?')) return;
-    const updatedObs = observations.filter(o => o.id !== id);
-    setObservations(updatedObs);
-    persistData(tasks, logs, updatedObs, offDays);
-    if (isSyncEnabled) syncData([{ type: 'observation', action: 'delete', id }]);
-  };
-
-  // Missing Config Handler
-  const handleUpdateAppConfig = (newConfig: AppConfig) => {
-    setAppConfig(newConfig);
-    localStorage.setItem('protrack_app_config', JSON.stringify(newConfig));
-    if (isSyncEnabled) syncData([{ type: 'config', action: 'update', data: newConfig }]);
-  };
-
-  const toggleTheme = (isDark: boolean) => {
-    setIsDarkMode(isDark);
-    if (isDark) {
-        document.documentElement.classList.add('dark');
-        localStorage.setItem('protrack_theme', 'dark');
-    } else {
-        document.documentElement.classList.remove('dark');
-        localStorage.setItem('protrack_theme', 'light');
-    }
-  };
-
-  // --- Helpers for view data ---
-  const activeProjects = useMemo(() => Array.from(new Set(tasks.map(t => t.projectId).filter(Boolean))), [tasks]);
-  
   const suggestNextId = (projectId: string) => {
     const projectTasks = tasks.filter(t => t.projectId === projectId);
     let maxSeq = 0;
@@ -415,44 +263,135 @@ const App: React.FC = () => {
       const seq = parseInt(seqStr);
       if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
     });
-    return projectId ? `${projectId}-${maxSeq + 1}` : '';
+    return projectId ? `${projectId}-${(maxSeq + 1).toString().padStart(2, '0')}` : '';
   };
 
-  const filteredTasks = useMemo(() => {
-    const q = searchQuery.toLowerCase();
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Base filter by search
-    let base = tasks.filter(t => 
-        (t.description.toLowerCase().includes(q) || t.displayId.toLowerCase().includes(q) || (t.title && t.title.toLowerCase().includes(q)))
-    );
+  const handleCreateTask = (e: React.FormEvent | React.KeyboardEvent) => {
+    e.preventDefault();
+    setModalError(null);
 
-    switch (activeTaskTab) {
-        case 'active':
-            // Status is NOT Done/Archived AND (Due <= Today OR No Date)
-            return base.filter(t => 
-                t.status !== Status.DONE && 
-                t.status !== Status.ARCHIVED && 
-                (!t.dueDate || t.dueDate <= today)
-            );
-        case 'upcoming':
-            // Status is NOT Done/Archived AND Due > Today
-            return base.filter(t => 
-                t.status !== Status.DONE && 
-                t.status !== Status.ARCHIVED && 
-                (t.dueDate && t.dueDate > today)
-            );
-        case 'archive':
-            // Status IS Done or Archived
-            return base.filter(t => 
-                t.status === Status.DONE || 
-                t.status === Status.ARCHIVED
-            );
-        default:
-            return base;
+    const isDuplicate = tasks.some(t => t.displayId.toLowerCase() === newTaskForm.displayId.toLowerCase());
+    if (isDuplicate) {
+      setModalError(`Duplicate Display ID: "${newTaskForm.displayId}" already exists.`);
+      return;
     }
-  }, [tasks, searchQuery, activeTaskTab]);
 
+    const newTask: Task = {
+      ...newTaskForm,
+      id: uuidv4(),
+      updates: [],
+      createdAt: new Date().toISOString()
+    };
+    persistData([...tasks, newTask], logs, observations, offDays);
+    setHighlightedTaskId(newTask.id);
+    setShowNewTaskModal(false);
+    setNewTaskForm({
+      source: `CW${getWeekNumber(new Date())}`,
+      projectId: '',
+      displayId: '',
+      title: '',
+      description: '',
+      dueDate: new Date().toISOString().split('T')[0],
+      status: appConfig.taskStatuses[0] || Status.NOT_STARTED,
+      priority: appConfig.taskPriorities[1] || Priority.MEDIUM
+    });
+    setView(ViewMode.TASKS);
+  };
+
+  const updateTaskStatus = (id: string, status: string) => {
+    const updated = tasks.map(t => t.id === id ? { ...t, status } : t);
+    persistData(updated, logs, observations, offDays);
+  };
+
+  const updateTaskFields = (id: string, fields: Partial<Task>) => {
+    if (fields.displayId) {
+       const isDuplicate = tasks.some(t => t.id !== id && t.displayId.toLowerCase() === fields.displayId?.toLowerCase());
+       if (isDuplicate) {
+          alert(`Error: Display ID "${fields.displayId}" is already taken.`);
+          return;
+       }
+    }
+    const updated = tasks.map(t => t.id === id ? { ...t, ...fields } : t);
+    persistData(updated, logs, observations, offDays);
+  };
+
+  const addUpdateToTask = (id: string, content: string, attachments?: TaskAttachment[], highlightColor?: string) => {
+    const timestamp = new Date().toISOString();
+    const updateId = uuidv4();
+    const updated = tasks.map(t => t.id === id ? { ...t, updates: [...t.updates, { id: updateId, timestamp, content, attachments, highlightColor }] } : t);
+    const newLog: DailyLog = { id: uuidv4(), date: new Date().toLocaleDateString('en-CA'), taskId: id, content };
+    persistData(updated, [...logs, newLog], observations, offDays);
+  };
+
+  const handleEditUpdate = (taskId: string, updateId: string, content: string, timestamp?: string, highlightColor?: string | null) => {
+    const newTasks = tasks.map(t => {
+      if (t.id === taskId) {
+        return {
+          ...t,
+          updates: t.updates.map(u => u.id === updateId ? { ...u, content, timestamp: timestamp || u.timestamp, highlightColor: highlightColor === null ? undefined : (highlightColor || u.highlightColor) } : u)
+        };
+      }
+      return t;
+    });
+
+    // Also update linked log if exists
+    const newLogs = logs.map(l => {
+        if (l.taskId === taskId) {
+             // Logic to find corresponding log is fuzzy without direct link ID, assuming content match or simple sync
+             const originalTask = tasks.find(t => t.id === taskId);
+             const originalUpdate = originalTask?.updates.find(u => u.id === updateId);
+             if (originalUpdate && l.content === originalUpdate.content) {
+                 return { ...l, content, date: timestamp ? timestamp.split('T')[0] : l.date };
+             }
+        }
+        return l;
+    });
+
+    persistData(newTasks, newLogs, observations, offDays);
+  };
+
+  const handleDeleteUpdate = (taskId: string, updateId: string) => {
+    if (!confirm('Delete this history record?')) return;
+    
+    const task = tasks.find(t => t.id === taskId);
+    const update = task?.updates.find(u => u.id === updateId);
+    
+    const newTasks = tasks.map(t => {
+      if (t.id === taskId) {
+        return { ...t, updates: t.updates.filter(u => u.id !== updateId) };
+      }
+      return t;
+    });
+
+    const newLogs = logs.filter(l => !(l.taskId === taskId && l.content === update?.content));
+    persistData(newTasks, newLogs, observations, offDays);
+  };
+
+  const deleteTask = (id: string) => {
+    persistData(tasks.filter(t => t.id !== id), logs, observations, offDays);
+    if (selectedTask?.id === id) setSelectedTask(null);
+  };
+
+  const handleEditLog = (logId: string, taskId: string, content: string, date: string) => {
+    const newLogs = logs.map(l => l.id === logId ? { ...l, taskId, content, date } : l);
+    persistData(tasks, newLogs, observations, offDays);
+  };
+
+  const handleDeleteLog = (logId: string) => {
+    if (confirm('Delete this journal entry?')) {
+      const newLogs = logs.filter(l => l.id !== logId);
+      persistData(tasks, newLogs, observations, offDays);
+    }
+  };
+
+  const handleUpdateAppConfig = (newConfig: AppConfig) => {
+    setAppConfig(newConfig);
+    localStorage.setItem('protrack_app_config', JSON.stringify(newConfig));
+    if (isSyncEnabled) syncData([{ type: 'config', action: 'update', data: newConfig }]);
+  };
+
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  
   const statusSummary = useMemo(() => {
     return appConfig.taskStatuses.map(s => ({
       label: s,
@@ -460,273 +399,256 @@ const App: React.FC = () => {
     }));
   }, [tasks, appConfig.taskStatuses]);
 
-  const overdueTasks = useMemo(() => {
-      const todayStr = new Date().toLocaleDateString('en-CA');
-      return tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate && t.dueDate < todayStr);
-  }, [tasks]);
+  const overdueTasks = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate && t.dueDate < todayStr), [tasks, todayStr]);
 
-  const weeklyFocusCount = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED).length;
-
-  const weekDays = useMemo(() => {
-    const days = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() + i);
-      days.push(d.toLocaleDateString('en-CA'));
+  const filteredTasks = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    const base = tasks.filter(t => 
+        t.description.toLowerCase().includes(q) || 
+        t.displayId.toLowerCase().includes(q) || 
+        (t.title && t.title.toLowerCase().includes(q))
+    );
+    
+    if (activeTaskTab === 'active') {
+        // Show active tasks not done/archived, OR completed tasks updated today
+        return base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
     }
-    return days;
-  }, []);
-
-  const weekTasks = useMemo(() => {
-    const map: Record<string, Task[]> = {};
-    weekDays.forEach(d => {
-      map[d] = tasks.filter(t => t.dueDate === d && t.status !== Status.DONE && t.status !== Status.ARCHIVED);
-    });
-    return map;
-  }, [tasks, weekDays]);
+    if (activeTaskTab === 'upcoming') {
+        // Just an example filter, can be customized
+        return base.filter(t => t.dueDate && t.dueDate > todayStr && t.status !== Status.DONE && t.status !== Status.ARCHIVED);
+    }
+    if (activeTaskTab === 'archive') {
+        return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
+    }
+    return base;
+  }, [tasks, searchQuery, activeTaskTab, todayStr]);
 
   const renderContent = () => {
-      if (view === ViewMode.DASHBOARD) {
-          return (
-              <div className="space-y-6 animate-fade-in">
-                  <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
-                      <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                            <div className="flex flex-col gap-4">
-                                <div className="flex flex-wrap gap-2">
-                                    {appConfig.observationStatuses.slice(0, 3).map(s => (
-                                        <div key={s} className="bg-white/10 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-bold border border-white/10 flex items-center gap-1">
-                                            <span className="opacity-70">{s}:</span>
-                                            <span>{observations.filter(o => o.status === s).length}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div>
-                                     <h1 className="text-3xl font-bold flex items-baseline gap-2">
-                                        {currentTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                                        <span className="text-indigo-200 font-mono text-lg">CW {getWeekNumber(currentTime)}</span>
-                                     </h1>
-                                     <p className="text-indigo-100 opacity-80 text-sm">{currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</p>
-                                </div>
+    switch (view) {
+      case ViewMode.DASHBOARD:
+        return (
+          <div className="space-y-6 animate-fade-in pb-10">
+             <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-wrap gap-2">
+                            <div className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold border border-white/10 flex items-center gap-2 cursor-pointer hover:bg-white/20 transition-colors" onClick={() => setView(ViewMode.TASKS)}>
+                                <Target size={12} />
+                                <span>{tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED).length} Active Tasks</span>
                             </div>
-                            <button onClick={async () => {
-                                setIsGeneratingReport(true); setShowReportModal(true);
-                                try { const r = await generateWeeklySummary(tasks, logs, appConfig); setGeneratedReport(r); } 
-                                catch (e: any) { setGeneratedReport(e.message); } finally { setIsGeneratingReport(false); }
-                            }} className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-6 py-2.5 rounded-xl transition-all text-sm font-bold border border-white/10 shadow-lg backdrop-blur-sm">
-                                <Sparkles size={18} /> Weekly Report
-                            </button>
+                            <div className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold border border-white/10 flex items-center gap-2 cursor-pointer hover:bg-white/20 transition-colors" onClick={() => setView(ViewMode.OBSERVATIONS)}>
+                                <MessageSquare size={12} />
+                                <span>{observations.filter(o => o.status === ObservationStatus.NEW).length} New Obs</span>
+                            </div>
                         </div>
-                  </div>
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <div className="flex justify-between items-end mb-6">
-                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                            <Layers size={14} /> Task Distribution
-                        </p>
-                        <div className="text-right">
-                            <span className="text-2xl font-black text-slate-800 dark:text-slate-200">{weeklyFocusCount}</span>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase ml-2">Active Tasks</span>
-                        </div>
-                      </div>
-                      <div className="h-8 bg-slate-50 dark:bg-slate-900 rounded-xl overflow-hidden flex shadow-inner mb-8 border border-slate-100 dark:border-slate-800">
-                        {statusSummary.map((s) => s.count > 0 && (
-                            <div 
-                                key={s.label} 
-                                style={{ width: `${tasks.length > 0 ? (s.count / tasks.length) * 100 : 0}%`, backgroundColor: appConfig.itemColors?.[s.label] || getStatusColorHex(s.label) }} 
-                                className="h-full border-r border-white/20 last:border-0 relative group transition-all hover:opacity-90 flex items-center justify-center" 
-                                title={`${s.label}: ${s.count}`}
-                            ></div>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                          {statusSummary.map(s => (
-                              <div key={s.label} className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 p-4 rounded-xl flex flex-col justify-between hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-100 dark:hover:border-indigo-900 transition-all group">
-                                  <div className="flex items-center justify-between mb-2">
-                                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: appConfig.itemColors?.[s.label] || getStatusColorHex(s.label) }}></div>
-                                      <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500">{Math.round((s.count / tasks.length) * 100) || 0}%</span>
-                                  </div>
-                                  <div>
-                                      <span className="text-2xl font-black text-slate-800 dark:text-slate-200 block">{s.count}</span>
-                                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider group-hover:text-indigo-500 dark:group-hover:text-indigo-400 truncate block">{s.label}</span>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                   </div>
-                   {overdueTasks.length > 0 && (
-                      <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-2xl p-6">
-                          <h3 className="text-red-800 dark:text-red-300 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
-                              <AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})
-                          </h3>
-                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                              {overdueTasks.map(t => (
-                                  <TaskCard 
-                                    key={t.id} 
-                                    task={t} 
-                                    onUpdateStatus={updateTaskStatus} 
-                                    onOpenTask={() => setSelectedTask(t)}
-                                    availableStatuses={appConfig.taskStatuses} 
-                                    availablePriorities={appConfig.taskPriorities} 
-                                    statusColors={appConfig.itemColors || {}}
-                                  />
-                              ))}
-                          </div>
-                      </div>
-                   )}
-              </div>
-          );
-      }
-      
-      if (view === ViewMode.TASKS) {
-          return (
-              <div className="h-full flex flex-col space-y-6 animate-fade-in">
-                 <div className="flex justify-between items-center">
-                    <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Daily Workspace</h1>
-                    <button onClick={() => setShowNewTaskModal(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 dark:shadow-none font-bold">
-                        <Plus size={20} /> New Task
-                    </button>
-                 </div>
-
-                 <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-48">
-                    {weekDays.map(d => {
-                        const isToday = d === new Date().toLocaleDateString('en-CA');
-                        return (
-                            <div key={d} className={`relative min-w-[240px] w-[240px] p-4 rounded-2xl border flex flex-col transition-all group ${isToday ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 ring-2 ring-indigo-100 dark:ring-indigo-900/40 shadow-md scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'}`}>
-                                <div className="flex justify-between items-start mb-2 border-b dark:border-slate-700 pb-2 border-slate-100 relative">
-                                    <div>
-                                        <span className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
-                                        <span className="text-lg font-bold text-slate-800 dark:text-slate-200">{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {isToday && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
-                                        <button 
-                                            onClick={() => setFocusModeDate(d)}
-                                            className="text-slate-300 dark:text-slate-600 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors p-1"
-                                            title="Open Focus View"
-                                        >
-                                            <Maximize2 size={14} />
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                                    {weekTasks[d]?.length ? weekTasks[d].map(t => (
-                                        <div 
-                                          key={t.id} 
-                                          onClick={() => setSelectedTask(t)} 
-                                          className="p-2.5 rounded-lg border dark:border-slate-700 text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 dark:hover:ring-indigo-600 transition-all cursor-pointer group/card bg-white dark:bg-slate-700"
-                                        >
-                                            <div className="flex justify-between items-center mb-1">
-                                              <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{t.displayId}</span>
-                                              <div className={`w-1.5 h-1.5 rounded-full ${t.status === Status.DONE ? 'bg-emerald-500' : t.status === Status.IN_PROGRESS ? 'bg-amber-500' : 'bg-slate-300'}`} />
-                                            </div>
-                                            <p className="line-clamp-2 leading-tight text-slate-600 dark:text-slate-400">{t.title || t.description}</p>
-                                        </div>
-                                    )) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 dark:text-slate-600 italic">No deadlines</div>}
-                                </div>
-                            </div>
-                        );
-                    })}
-                 </div>
-
-                 <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-3 gap-8">
-                    <div className="xl:col-span-2 flex flex-col bg-slate-100/50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-inner">
-                        <div className="bg-white dark:bg-slate-800 p-5 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
-                            <div className="flex bg-slate-100 dark:bg-slate-700 p-1 rounded-xl">
-                                <button onClick={() => setActiveTaskTab('active')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'active' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Active</button>
-                                <button onClick={() => setActiveTaskTab('upcoming')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'upcoming' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Upcoming</button>
-                                <button onClick={() => setActiveTaskTab('archive')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'archive' ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>Archive</button>
-                            </div>
-                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{filteredTasks.length} ITEMS</span>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {filteredTasks.map(t => (
-                                    <TaskCard 
-                                        key={t.id} 
-                                        task={t} 
-                                        onUpdateStatus={updateTaskStatus} 
-                                        onOpenTask={() => setSelectedTask(t)}
-                                        availableStatuses={appConfig.taskStatuses} 
-                                        availablePriorities={appConfig.taskPriorities} 
-                                        statusColors={appConfig.itemColors || {}}
-                                    />
-                                ))}
-                            </div>
-                            {filteredTasks.length === 0 && (
-                                <div className="flex flex-col items-center justify-center py-20 text-slate-300 dark:text-slate-600 opacity-50">
-                                    <ListTodo size={48} className="mb-4" />
-                                    <p className="font-bold">No tasks match your criteria</p>
-                                </div>
-                            )}
+                        <div>
+                             <h1 className="text-3xl font-bold flex items-baseline gap-2">
+                                {currentTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                <span className="text-indigo-200 font-mono text-lg">CW {getWeekNumber(currentTime)}</span>
+                             </h1>
+                             <p className="text-indigo-100 opacity-80 text-sm">{currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</p>
                         </div>
                     </div>
-                    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden flex flex-col h-full">
-                        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                            <DailyJournal 
-                                tasks={tasks} 
-                                logs={logs} 
-                                onAddLog={handleAddLog} 
-                                onUpdateTask={updateTaskFields} 
-                                offDays={offDays} 
-                                onToggleOffDay={toggleOffDay}
-                                onEditLog={handleEditLog}
-                                onDeleteLog={handleDeleteLog}
-                                searchQuery={searchQuery}
+                    <div className="flex gap-2">
+                         <button onClick={() => setFocusModeDate(todayStr)} className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white px-5 py-2.5 rounded-xl transition-all text-sm font-bold shadow-lg shadow-indigo-800/20">
+                            <Maximize2 size={18} /> Focus Mode
+                        </button>
+                        <button onClick={async () => {
+                            setIsGeneratingReport(true); setShowReportModal(true);
+                            try { const r = await generateWeeklySummary(tasks, logs, appConfig); setGeneratedReport(r); } 
+                            catch (e: any) { setGeneratedReport(e.message); } finally { setIsGeneratingReport(false); }
+                        }} className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-5 py-2.5 rounded-xl transition-all text-sm font-bold border border-white/10 shadow-lg backdrop-blur-sm">
+                            <Sparkles size={18} /> AI Report
+                        </button>
+                    </div>
+                </div>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {statusSummary.map(s => (
+                    <div key={s.label} className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 p-4 rounded-xl flex items-center justify-between hover:border-indigo-200 dark:hover:border-indigo-700 transition-all group">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-indigo-500 dark:group-hover:text-indigo-400 truncate max-w-[120px]">{s.label}</span>
+                            <span className="text-2xl font-black text-slate-800 dark:text-slate-100">{s.count}</span>
+                        </div>
+                        <div className="p-2 bg-slate-50 dark:bg-slate-700/50 rounded-lg group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/20 text-slate-400 group-hover:text-indigo-500 transition-colors">
+                            <Layers size={20} />
+                        </div>
+                    </div>
+                ))}
+             </div>
+
+             {overdueTasks.length > 0 && (
+                <div className="bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/30 rounded-2xl p-6">
+                    <h3 className="text-red-800 dark:text-red-400 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
+                        <AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {overdueTasks.map(t => (
+                            <TaskCard 
+                                key={t.id} 
+                                task={t} 
+                                onUpdateStatus={updateTaskStatus} 
+                                onOpenTask={() => setSelectedTask(t)} 
+                                availableStatuses={appConfig.taskStatuses}
+                                statusColors={appConfig.itemColors || {}}
                             />
-                        </div>
+                        ))}
                     </div>
+                </div>
+             )}
+          </div>
+        );
+
+      case ViewMode.TASKS:
+        return (
+          <div className="h-full flex flex-col space-y-6 animate-fade-in">
+             <div className="flex justify-between items-center shrink-0">
+                <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Tasks</h1>
+                <button onClick={() => setShowNewTaskModal(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 dark:shadow-none font-bold text-sm">
+                    <Plus size={18} /> New Task
+                </button>
+             </div>
+
+             <div className="flex-1 min-h-0 flex flex-col bg-slate-100/50 dark:bg-slate-800/20 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-inner">
+                 <div className="bg-white dark:bg-slate-800 p-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4 shrink-0">
+                    <div className="flex bg-slate-100 dark:bg-slate-700/50 p-1 rounded-xl">
+                        {['active', 'upcoming', 'archive'].map((tab) => (
+                            <button 
+                                key={tab}
+                                onClick={() => setActiveTaskTab(tab as any)} 
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${activeTaskTab === tab ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                            >
+                                {tab}
+                            </button>
+                        ))}
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{filteredTasks.length} ITEMS</span>
                  </div>
-              </div>
-          );
-      }
+                 
+                 <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {filteredTasks.map(t => (
+                            <TaskCard 
+                                key={t.id} 
+                                task={t} 
+                                onUpdateStatus={updateTaskStatus} 
+                                onOpenTask={() => setSelectedTask(t)}
+                                availableStatuses={appConfig.taskStatuses}
+                                availablePriorities={appConfig.taskPriorities}
+                                statusColors={appConfig.itemColors || {}}
+                                isHighlighted={highlightedTaskId === t.id}
+                            />
+                        ))}
+                     </div>
+                     {filteredTasks.length === 0 && (
+                        <div className="flex flex-col items-center justify-center py-20 text-slate-300 dark:text-slate-600 opacity-50">
+                            <ListTodo size={48} className="mb-4" />
+                            <p className="font-bold">No tasks match your criteria</p>
+                        </div>
+                     )}
+                 </div>
+             </div>
+          </div>
+        );
+        
+      case ViewMode.JOURNAL:
+        return (
+            <DailyJournal 
+                tasks={tasks} 
+                logs={logs} 
+                onAddLog={(l) => persistData(tasks, [...logs, { ...l, id: uuidv4() }], observations, offDays)} 
+                onUpdateTask={updateTaskFields} 
+                offDays={offDays} 
+                onToggleOffDay={(d) => persistData(tasks, logs, observations, offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d])}
+                onToggleOffDayRange={(dates) => persistData(tasks, logs, observations, Array.from(new Set([...offDays, ...dates])))}
+                onClearOffDays={(dates) => persistData(tasks, logs, observations, offDays.filter(d => !dates.includes(d)))}
+                onEditLog={handleEditLog}
+                onDeleteLog={handleDeleteLog}
+                searchQuery={searchQuery}
+                onHighlightTask={(id) => {
+                    const task = tasks.find(t => t.id === id);
+                    if (task) setSelectedTask(task);
+                }}
+                onOpenTask={(task, logContent) => {
+                    setSelectedTask(task);
+                    setHighlightedUpdateContent(logContent);
+                }}
+            />
+        );
 
-      if (view === ViewMode.OBSERVATIONS) return <ObservationsLog observations={observations} onAddObservation={handleAddObservation} onEditObservation={handleEditObservation} onDeleteObservation={handleDeleteObservation} columns={appConfig.observationStatuses} itemColors={appConfig.itemColors} />;
-      if (view === ViewMode.SETTINGS) return <Settings tasks={tasks} logs={logs} observations={observations} offDays={offDays} onImportData={(d) => { persistData(d.tasks || [], d.logs || [], d.observations || [], d.offDays || []); alert('Data Imported'); }} onSyncConfigUpdate={c => setIsSyncEnabled(!!c)} isSyncEnabled={isSyncEnabled} appConfig={appConfig} onUpdateConfig={handleUpdateAppConfig} onPurgeData={(nT, nL, nO) => persistData(nT, nL, nO, offDays)} isDarkMode={isDarkMode} onToggleTheme={toggleTheme} backupSettings={backupSettings} setBackupSettings={setBackupSettings} onSetupBackupFolder={async () => { const handle = await selectBackupFolder(); if (handle) { setBackupHandle(handle); setBackupSettings(prev => ({ ...prev, folderName: handle.name })); } }} backupStatus={backupStatus} onVerifyBackupPermission={() => backupHandle && performBackup(backupHandle, { tasks, logs, observations, offDays, appConfig })} />;
-      if (view === ViewMode.HELP) return <UserManual />;
-
-      return null;
+      case ViewMode.OBSERVATIONS:
+        return <ObservationsLog observations={observations} onAddObservation={o => persistData(tasks, logs, [...observations, o], offDays)} onEditObservation={o => persistData(tasks, logs, observations.map(x => x.id === o.id ? o : x), offDays)} onDeleteObservation={id => persistData(tasks, logs, observations.filter(x => x.id !== id), offDays)} columns={appConfig.observationStatuses} itemColors={appConfig.itemColors} />;
+      case ViewMode.SETTINGS:
+        return (
+          <Settings 
+            tasks={tasks} 
+            logs={logs} 
+            observations={observations} 
+            onImportData={(d) => persistData(d.tasks, d.logs, d.observations, d.offDays || [])} 
+            onSyncConfigUpdate={c => setIsSyncEnabled(!!c)} 
+            isSyncEnabled={isSyncEnabled} 
+            appConfig={appConfig} 
+            onUpdateConfig={handleUpdateAppConfig} 
+            onPurgeData={(newTasks, newLogs, newObs) => persistData(newTasks, newLogs, newObs, offDays)} 
+            backupSettings={backupSettings}
+            setBackupSettings={setBackupSettings}
+            onSetupBackupFolder={handleSetupBackup}
+            backupStatus={backupStatus}
+            onVerifyBackupPermission={() => backupHandle && performBackup(backupHandle, { tasks, logs, observations, offDays, appConfig })}
+            isDarkMode={isDarkMode}
+            onToggleTheme={setIsDarkMode}
+          />
+        );
+      case ViewMode.HELP:
+        return <UserManual />;
+      default:
+        return null;
+    }
   };
 
   return (
-    <div className={`flex h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden transition-colors ${isDarkMode ? 'dark' : ''}`}>
-      <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 transition-all duration-300 flex flex-col z-20`}>
-        <div className="p-4 flex flex-col items-center gap-1 border-b dark:border-slate-700 h-24 justify-center">
+    <div className={`flex h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans overflow-hidden transition-colors duration-300`}>
+      <aside className={`${isSidebarOpen ? 'w-64' : 'w-20'} bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 transition-all duration-300 flex flex-col z-20 shadow-xl`}>
+        <div className="p-4 flex flex-col items-center gap-1 border-b dark:border-slate-800 h-24 justify-center">
            <FullLogo isSidebarOpen={isSidebarOpen} />
-           {isSidebarOpen && <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">{BUILD_VERSION}</span>}
+           {isSidebarOpen && <span className="text-[10px] font-mono text-slate-400 dark:text-slate-600 font-bold uppercase tracking-widest">{BUILD_VERSION}</span>}
         </div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
            {[
              { mode: ViewMode.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
-             { mode: ViewMode.TASKS, icon: ListTodo, label: 'Daily Tasks' },
+             { mode: ViewMode.TASKS, icon: ListTodo, label: 'Tasks' },
+             { mode: ViewMode.JOURNAL, icon: Calendar, label: 'Journal' },
              { mode: ViewMode.OBSERVATIONS, icon: MessageSquare, label: 'Observations' },
            ].map(item => (
-             <button key={item.mode} onClick={() => setView(item.mode)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === item.mode ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+             <button key={item.mode} onClick={() => setView(item.mode)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === item.mode ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900'}`}>
                 <item.icon size={20} />
                 {isSidebarOpen && <span>{item.label}</span>}
              </button>
            ))}
-           <div className="pt-4 mt-4 border-t dark:border-slate-700">
-             <button onClick={() => setView(ViewMode.SETTINGS)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === ViewMode.SETTINGS ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+           <div className="pt-4 mt-4 border-t dark:border-slate-800">
+             <button onClick={() => setView(ViewMode.SETTINGS)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === ViewMode.SETTINGS ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900'}`}>
                 <SettingsIcon size={20} />
                 {isSidebarOpen && <span>Settings</span>}
              </button>
-             <button onClick={() => setView(ViewMode.HELP)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === ViewMode.HELP ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}>
+             <button onClick={() => setView(ViewMode.HELP)} className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all ${view === ViewMode.HELP ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-bold' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900'}`}>
                 <HelpCircle size={20} />
-                {isSidebarOpen && <span>User Guide</span>}
+                {isSidebarOpen && <span>Guide</span>}
              </button>
            </div>
         </nav>
-        <div className="p-4 border-t dark:border-slate-700">
-           <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg w-full flex justify-center">
+        <div className="p-4 border-t dark:border-slate-800">
+           <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-lg w-full flex justify-center">
               {isSidebarOpen ? <LogOut size={20} className="rotate-180" /> : <Menu size={20} />}
            </button>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <div className="h-16 bg-white dark:bg-slate-800 border-b dark:border-slate-700 flex items-center justify-between px-6 shrink-0 z-10 transition-colors">
+        <div className="h-16 bg-white dark:bg-slate-950 border-b dark:border-slate-800 flex items-center justify-between px-6 shrink-0 z-10 transition-colors">
            <div className="relative max-w-md w-full">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" placeholder="Search tasks, logs, projects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border-none rounded-lg text-sm outline-none dark:text-white" />
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+              <input type="text" placeholder="Search tasks, logs, projects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border-none rounded-lg text-sm outline-none text-slate-700 dark:text-slate-200" />
            </div>
            <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`}></div>
@@ -740,14 +662,14 @@ const App: React.FC = () => {
         {/* New Task Modal */}
         {showNewTaskModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-             <form onSubmit={handleCreateTask} className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in">
-                <div className="p-5 border-b dark:border-slate-700 flex justify-between items-center bg-indigo-600 text-white">
+             <form onSubmit={handleCreateTask} className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in border dark:border-slate-800">
+                <div className="p-5 border-b dark:border-slate-800 flex justify-between items-center bg-indigo-600 text-white">
                    <h2 className="font-bold flex items-center gap-2"><Plus size={20}/> Create New Task</h2>
                    <button type="button" onClick={() => setShowNewTaskModal(false)}><X size={20}/></button>
                 </div>
                 <div className="p-6 space-y-4">
                    {modalError && (
-                     <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl flex items-center gap-2 text-xs font-bold">
+                     <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-400 px-4 py-3 rounded-xl flex items-center gap-2 text-xs font-bold">
                         <AlertTriangle size={16} /> {modalError}
                      </div>
                    )}
@@ -755,16 +677,18 @@ const App: React.FC = () => {
                       <div className="space-y-1">
                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Source (CW)</label>
                          <div className="relative">
-                            <input required value={newTaskForm.source} onChange={e => setNewTaskForm({...newTaskForm, source: e.target.value})} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900" />
+                            <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input required value={newTaskForm.source} onChange={e => setNewTaskForm({...newTaskForm, source: e.target.value})} className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:text-white" />
                          </div>
                       </div>
                       <div className="space-y-1">
                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Project ID</label>
                          <div className="relative">
+                            <Briefcase size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                             <input required list="active-projects" value={newTaskForm.projectId} onChange={e => {
                                 const pid = e.target.value;
                                 setNewTaskForm({...newTaskForm, projectId: pid, displayId: suggestNextId(pid)});
-                            }} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900" />
+                            }} placeholder="Project Name..." className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:text-white" />
                             <datalist id="active-projects">
                                {activeProjects.map(p => <option key={p} value={p} />)}
                             </datalist>
@@ -773,21 +697,21 @@ const App: React.FC = () => {
                    </div>
                    <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Display ID</label>
-                      <input required value={newTaskForm.displayId} onChange={e => setNewTaskForm({...newTaskForm, displayId: e.target.value})} placeholder="PRJ-001..." className="w-full px-3 py-2 text-sm font-mono bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900" />
+                      <input required value={newTaskForm.displayId} onChange={e => setNewTaskForm({...newTaskForm, displayId: e.target.value})} placeholder="PRJ-001..." className="w-full px-3 py-2 text-sm font-mono bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:text-white font-bold" />
                    </div>
                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Task Title</label>
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Title</label>
                       <input 
+                        required
                         value={newTaskForm.title} 
                         onChange={e => setNewTaskForm({...newTaskForm, title: e.target.value})} 
-                        placeholder="Short summary for the card..." 
-                        className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
+                        placeholder="Task title..." 
+                        className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:text-white" 
                       />
                    </div>
                    <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Description</label>
                       <textarea 
-                        required 
                         value={newTaskForm.description} 
                         onChange={e => setNewTaskForm({...newTaskForm, description: e.target.value})} 
                         onKeyDown={(e) => {
@@ -796,42 +720,25 @@ const App: React.FC = () => {
                             }
                         }}
                         rows={3} 
-                        className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 resize-none" 
+                        placeholder="What needs to be done? (Ctrl+Enter to create)" 
+                        className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 resize-none dark:text-white" 
                       />
                    </div>
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Due Date</label>
-                         <input type="date" value={newTaskForm.dueDate} onChange={e => setNewTaskForm({...newTaskForm, dueDate: e.target.value})} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900" />
+                         <input type="date" value={newTaskForm.dueDate} onChange={e => setNewTaskForm({...newTaskForm, dueDate: e.target.value})} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:text-white" />
                       </div>
                       <div className="space-y-1">
                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Priority</label>
-                         <select value={newTaskForm.priority} onChange={e => setNewTaskForm({...newTaskForm, priority: e.target.value})} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900">
+                         <select value={newTaskForm.priority} onChange={e => setNewTaskForm({...newTaskForm, priority: e.target.value})} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:text-white">
                             {appConfig.taskPriorities.map(p => <option key={p} value={p}>{p}</option>)}
                          </select>
                       </div>
                    </div>
-                   <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                            <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                                <Repeat size={12} /> Recurrence
-                            </label>
-                            <select 
-                                value={newTaskForm.recurrenceType}
-                                onChange={(e) => setNewTaskForm({...newTaskForm, recurrenceType: e.target.value})}
-                                className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
-                            >
-                                <option value="none">None</option>
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly">Monthly</option>
-                                <option value="yearly">Yearly</option>
-                            </select>
-                        </div>
-                   </div>
                 </div>
-                <div className="p-4 border-t dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex justify-end gap-3">
-                   <button type="button" onClick={() => setShowNewTaskModal(false)} className="px-4 py-2 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-all">Cancel</button>
+                <div className="p-4 border-t dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex justify-end gap-3">
+                   <button type="button" onClick={() => setShowNewTaskModal(false)} className="px-4 py-2 text-slate-600 dark:text-slate-400 font-bold hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg transition-all">Cancel</button>
                    <button type="submit" className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all">Create Task</button>
                 </div>
              </form>
@@ -841,7 +748,7 @@ const App: React.FC = () => {
         {/* Task Detail Modal */}
         {selectedTask && (
             <TaskDetailModal 
-                task={tasks.find(t => t.id === selectedTask.id) || selectedTask}
+                task={selectedTask}
                 allTasks={tasks}
                 onClose={() => setSelectedTask(null)}
                 onUpdateStatus={updateTaskStatus}
@@ -855,10 +762,11 @@ const App: React.FC = () => {
                 updateTags={appConfig.updateHighlightOptions || []}
                 statusColors={appConfig.itemColors || {}}
                 offDays={offDays}
+                initialHighlightContent={highlightedUpdateContent}
             />
         )}
 
-        {/* Focus View Modal */}
+        {/* Focus Mode Modal */}
         {focusModeDate && (
             <DayFocusModal 
                 date={focusModeDate}
@@ -866,23 +774,32 @@ const App: React.FC = () => {
                 onClose={() => setFocusModeDate(null)}
                 onUpdateStatus={updateTaskStatus}
                 onUpdateTask={updateTaskFields}
-                onOpenTask={(task) => setSelectedTask(task)} // Pass handler
+                onOpenTask={setSelectedTask}
             />
         )}
 
         {/* Report Modal */}
         {showReportModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in">
-                <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center bg-indigo-600 text-white">
+             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden border dark:border-slate-800">
+                <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-indigo-600 text-white">
                    <h2 className="font-bold flex items-center gap-2"><Sparkles size={18}/> Weekly AI Report</h2>
                    <button onClick={() => setShowReportModal(false)}><X size={20}/></button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-6 text-slate-700 dark:text-slate-300">
-                   {isGeneratingReport ? <div className="flex flex-col items-center justify-center py-12 gap-4"><div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div><p>Analyzing week...</p></div> : <div className="prose prose-sm dark:prose-invert max-w-none">{generatedReport.split('\n').map((line, i) => <p key={i}>{line}</p>)}</div>}
+                <div className="flex-1 overflow-y-auto p-6 dark:text-slate-300">
+                   {isGeneratingReport ? (
+                       <div className="flex flex-col items-center justify-center py-12 gap-4">
+                           <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                           <p>Analyzing {appConfig.aiReportConfig?.periodType === 'current_week' ? 'this week' : 'tasks'}...</p>
+                       </div>
+                    ) : (
+                        <div className="prose prose-sm max-w-none dark:prose-invert">
+                            {generatedReport.split('\n').map((line, i) => <p key={i}>{line}</p>)}
+                        </div>
+                    )}
                 </div>
-                <div className="p-4 border-t dark:border-slate-700 flex justify-end gap-2 bg-slate-50 dark:bg-slate-900">
-                   <button onClick={() => { navigator.clipboard.writeText(generatedReport); alert('Copied!'); }} className="px-4 py-2 text-slate-600 dark:text-slate-400 font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700">Copy</button>
+                <div className="p-4 border-t dark:border-slate-800 flex justify-end gap-2 bg-slate-50 dark:bg-slate-950">
+                   <button onClick={() => { navigator.clipboard.writeText(generatedReport); alert('Copied!'); }} className="px-4 py-2 text-slate-600 dark:text-slate-400 font-bold rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800">Copy</button>
                    <button onClick={() => setShowReportModal(false)} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700">Close</button>
                 </div>
              </div>
