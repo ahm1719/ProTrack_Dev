@@ -483,8 +483,17 @@ const DailyJournal: React.FC<DailyJournalProps> = ({
                             ) : (
                                 <div className={`bg-white dark:bg-slate-800 p-3 rounded-lg border shadow-sm hover:shadow-md transition-all relative ${isStatusChange ? 'border-indigo-100 dark:border-indigo-900 bg-indigo-50/20' : dateIsOff ? 'border-rose-100 dark:border-rose-900/20 opacity-80' : 'border-slate-200 dark:border-slate-700'}`}>
                                     <div className="flex justify-between items-start">
-                                        <div className="flex flex-wrap gap-1.5 items-center mb-1">
-                                            {task && <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${dateIsOff ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'}`}>{task.displayId}</span>}
+                                        <div className="flex flex-wrap gap-1.5 items-center mb-1 max-w-[85%]">
+                                            {task && (
+                                                <>
+                                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${dateIsOff ? 'bg-rose-50 dark:bg-rose-900/30 text-rose-500' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'}`}>
+                                                        {task.displayId}
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate max-w-[150px] sm:max-w-[250px]" title={task.title || task.description}>
+                                                        {task.title || task.description}
+                                                    </span>
+                                                </>
+                                            )}
                                             {isStatusChange && <span className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-indigo-100 dark:border-indigo-900 flex items-center gap-1"><History size={8}/> System Event</span>}
                                         </div>
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
