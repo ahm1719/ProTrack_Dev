@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
@@ -15,7 +16,8 @@ import {
   Target,
   Layers,
   Calendar,
-  Briefcase
+  Briefcase,
+  Repeat
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -28,9 +30,9 @@ import {
   Status, 
   ObservationStatus, 
   ViewMode, 
-  FirebaseConfig,
   TaskAttachment,
-  BackupSettings
+  BackupSettings,
+  RecurrenceConfig
 } from './types';
 
 import TaskCard from './components/TaskCard';
@@ -46,7 +48,7 @@ import { subscribeToCollections, syncData, initFirebase } from './services/fireb
 import { generateWeeklySummary } from './services/geminiService';
 import { performBackup, selectBackupFolder } from './services/backupService';
 
-const BUILD_VERSION = "V3.6.0";
+const BUILD_VERSION = "V3.7.0";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -77,6 +79,16 @@ const getWeekNumber = (d: Date): number => {
   date.setUTCDate(date.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
   return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
+
+const getStatusColorHex = (s: string) => {
+    switch (s) {
+        case Status.DONE: return '#10b981';
+        case Status.IN_PROGRESS: return '#3b82f6';
+        case Status.WAITING: return '#f59e0b';
+        case Status.ARCHIVED: return '#64748b';
+        default: return '#e2e8f0';
+    }
 };
 
 const App: React.FC = () => {
@@ -119,10 +131,13 @@ const App: React.FC = () => {
     source: `CW${getWeekNumber(new Date())}`,
     projectId: '',
     displayId: '',
+    title: '',
     description: '',
     dueDate: new Date().toISOString().split('T')[0],
     status: Status.NOT_STARTED as string,
-    priority: Priority.MEDIUM as string
+    priority: Priority.MEDIUM as string,
+    recurrenceType: 'none',
+    recurrenceInterval: 1
   });
 
   // Initialization
@@ -215,8 +230,14 @@ const App: React.FC = () => {
       return;
     }
 
+    let recurrenceConfig: RecurrenceConfig | undefined = undefined;
+    if (newTaskForm.recurrenceType !== 'none') {
+        recurrenceConfig = { type: newTaskForm.recurrenceType as any, interval: newTaskForm.recurrenceInterval };
+    }
+
     const newTask: Task = {
       ...newTaskForm,
+      recurrence: recurrenceConfig,
       id: uuidv4(),
       updates: [],
       createdAt: new Date().toISOString()
@@ -232,10 +253,13 @@ const App: React.FC = () => {
       source: `CW${getWeekNumber(new Date())}`,
       projectId: '',
       displayId: '',
+      title: '',
       description: '',
       dueDate: new Date().toISOString().split('T')[0],
       status: appConfig.taskStatuses[0] || Status.NOT_STARTED,
-      priority: appConfig.taskPriorities[1] || Priority.MEDIUM
+      priority: appConfig.taskPriorities[1] || Priority.MEDIUM,
+      recurrenceType: 'none',
+      recurrenceInterval: 1
     });
     setView(ViewMode.TASKS);
   };
@@ -302,7 +326,6 @@ const App: React.FC = () => {
       if (l.taskId === taskId) {
         const originalTask = tasks.find(t => t.id === taskId);
         const originalUpdate = originalTask?.updates.find(u => u.id === updateId);
-        // Loose matching by content since we don't store updateId in logs
         if (l.content === originalUpdate?.content) {
             return { 
                 ...l, 
@@ -521,25 +544,38 @@ const App: React.FC = () => {
                   </div>
 
                   <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-6 flex items-center gap-2">
-                          <Layers size={14} /> Weekly Status Distribution
-                      </p>
+                      <div className="flex justify-between items-end mb-6">
+                        <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                            <Layers size={14} /> Task Distribution
+                        </p>
+                        <div className="text-right">
+                            <span className="text-2xl font-black text-slate-800 dark:text-slate-200">{weeklyFocusCount}</span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase ml-2">Active Tasks</span>
+                        </div>
+                      </div>
+                      
+                      {/* Segmented Progress Bar */}
+                      <div className="h-8 bg-slate-50 dark:bg-slate-900 rounded-xl overflow-hidden flex shadow-inner mb-8 border border-slate-100 dark:border-slate-800">
+                        {statusSummary.map((s) => s.count > 0 && (
+                            <div 
+                                key={s.label} 
+                                style={{ width: `${tasks.length > 0 ? (s.count / tasks.length) * 100 : 0}%`, backgroundColor: appConfig.itemColors?.[s.label] || getStatusColorHex(s.label) }} 
+                                className="h-full border-r border-white/20 last:border-0 relative group transition-all hover:opacity-90 flex items-center justify-center" 
+                                title={`${s.label}: ${s.count}`}
+                            ></div>
+                        ))}
+                      </div>
+
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                          <div className="bg-indigo-600 p-4 rounded-xl flex flex-col justify-between shadow-md shadow-indigo-100 dark:shadow-none">
-                              <span className="text-[10px] font-bold text-indigo-100 uppercase tracking-wider">Active Backlog</span>
-                              <div className="flex items-end justify-between mt-2">
-                                  <span className="text-3xl font-black text-white">{weeklyFocusCount}</span>
-                                  <Target size={20} className="text-indigo-300" />
-                              </div>
-                          </div>
                           {statusSummary.map(s => (
                               <div key={s.label} className="bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-700 p-4 rounded-xl flex flex-col justify-between hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-100 dark:hover:border-indigo-900 transition-all group">
-                                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider group-hover:text-indigo-500 dark:group-hover:text-indigo-400 truncate">{s.label}</span>
-                                  <div className="flex items-end justify-between mt-2">
-                                      <span className="text-3xl font-black text-slate-800 dark:text-slate-200">{s.count}</span>
-                                      <div className="p-1 bg-white dark:bg-slate-800 rounded border border-slate-100 dark:border-slate-700 shadow-xs">
-                                          <div className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600 group-hover:bg-indigo-400" />
-                                      </div>
+                                  <div className="flex items-center justify-between mb-2">
+                                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: appConfig.itemColors?.[s.label] || getStatusColorHex(s.label) }}></div>
+                                      <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500">{Math.round((s.count / tasks.length) * 100) || 0}%</span>
+                                  </div>
+                                  <div>
+                                      <span className="text-2xl font-black text-slate-800 dark:text-slate-200 block">{s.count}</span>
+                                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider group-hover:text-indigo-500 dark:group-hover:text-indigo-400 truncate block">{s.label}</span>
                                   </div>
                               </div>
                           ))}
@@ -574,12 +610,13 @@ const App: React.FC = () => {
           return (
               <div className="h-full flex flex-col space-y-6 animate-fade-in">
                  <div className="flex justify-between items-center">
-                    <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Daily Tasks</h1>
+                    <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Daily Workspace</h1>
                     <button onClick={() => setShowNewTaskModal(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 dark:shadow-none font-bold">
                         <Plus size={20} /> New Task
                     </button>
                  </div>
 
+                 {/* Rest of TASKS view remains the same... */}
                  <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-48">
                     {weekDays.map(d => {
                         const isToday = d === new Date().toLocaleDateString('en-CA');
@@ -791,18 +828,16 @@ const App: React.FC = () => {
                       <div className="space-y-1">
                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Source (CW)</label>
                          <div className="relative">
-                            <Calendar size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input required value={newTaskForm.source} onChange={e => setNewTaskForm({...newTaskForm, source: e.target.value})} className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900" />
+                            <input required value={newTaskForm.source} onChange={e => setNewTaskForm({...newTaskForm, source: e.target.value})} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900" />
                          </div>
                       </div>
                       <div className="space-y-1">
                          <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Project ID</label>
                          <div className="relative">
-                            <Briefcase size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                             <input required list="active-projects" value={newTaskForm.projectId} onChange={e => {
                                 const pid = e.target.value;
                                 setNewTaskForm({...newTaskForm, projectId: pid, displayId: suggestNextId(pid)});
-                            }} placeholder="Project Name..." className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900" />
+                            }} className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900" />
                             <datalist id="active-projects">
                                {activeProjects.map(p => <option key={p} value={p} />)}
                             </datalist>
@@ -812,6 +847,15 @@ const App: React.FC = () => {
                    <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Display ID</label>
                       <input required value={newTaskForm.displayId} onChange={e => setNewTaskForm({...newTaskForm, displayId: e.target.value})} placeholder="PRJ-001..." className="w-full px-3 py-2 text-sm font-mono bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900" />
+                   </div>
+                   <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Task Title</label>
+                      <input 
+                        value={newTaskForm.title} 
+                        onChange={e => setNewTaskForm({...newTaskForm, title: e.target.value})} 
+                        placeholder="Short summary for the card..." 
+                        className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
+                      />
                    </div>
                    <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Description</label>
@@ -825,7 +869,6 @@ const App: React.FC = () => {
                             }
                         }}
                         rows={3} 
-                        placeholder="What needs to be done? (Ctrl+Enter to create)" 
                         className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 resize-none" 
                       />
                    </div>
@@ -840,6 +883,24 @@ const App: React.FC = () => {
                             {appConfig.taskPriorities.map(p => <option key={p} value={p}>{p}</option>)}
                          </select>
                       </div>
+                   </div>
+                   <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                                <Repeat size={12} /> Recurrence
+                            </label>
+                            <select 
+                                value={newTaskForm.recurrenceType}
+                                onChange={(e) => setNewTaskForm({...newTaskForm, recurrenceType: e.target.value})}
+                                className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 dark:text-white border dark:border-slate-700 rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900"
+                            >
+                                <option value="none">None</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                        </div>
                    </div>
                 </div>
                 <div className="p-4 border-t dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex justify-end gap-3">
