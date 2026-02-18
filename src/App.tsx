@@ -16,7 +16,10 @@ import {
   Layers,
   Calendar,
   Briefcase,
-  Maximize2
+  Maximize2,
+  CheckCircle2,
+  Clock,
+  ArrowRight
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -48,7 +51,7 @@ import { subscribeToCollections, syncData, initFirebase } from './services/fireb
 import { generateWeeklySummary } from './services/geminiService';
 import { performBackup, selectBackupFolder } from './services/backupService';
 
-const BUILD_VERSION = "V3.7.4";
+const BUILD_VERSION = "V3.8.0";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -423,6 +426,41 @@ const App: React.FC = () => {
     return base;
   }, [tasks, searchQuery, activeTaskTab, todayStr]);
 
+  // Weekly Timeline Logic
+  const weekDays = useMemo(() => {
+    const days = [];
+    // Start from today for the next 7 days
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      days.push(d.toLocaleDateString('en-CA'));
+    }
+    return days;
+  }, [todayStr]);
+
+  const weekTasks = useMemo(() => {
+    const map: Record<string, Task[]> = {};
+    weekDays.forEach(d => {
+      map[d] = tasks.filter(t => t.dueDate === d && t.status !== Status.DONE && t.status !== Status.ARCHIVED);
+    });
+    return map;
+  }, [tasks, weekDays]);
+
+  const getStatusColorMini = (s: string) => {
+    switch (s) {
+      case Status.DONE:
+        return 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300';
+      case Status.IN_PROGRESS:
+        return 'bg-amber-500 text-slate-900 font-bold';
+      case Status.WAITING:
+        return 'bg-amber-500/20 border-amber-500/50 text-amber-300';
+      case Status.NOT_STARTED:
+        return 'bg-pink-500/20 border-pink-500/50 text-pink-300';
+      default:
+        return 'bg-slate-700/50 border-slate-600 text-slate-300';
+    }
+  };
+
   const renderContent = () => {
     switch (view) {
       case ViewMode.DASHBOARD:
@@ -504,49 +542,118 @@ const App: React.FC = () => {
         return (
           <div className="h-full flex flex-col space-y-6 animate-fade-in">
              <div className="flex justify-between items-center shrink-0">
-                <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Tasks</h1>
+                <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Daily Workspace</h1>
                 <button onClick={() => setShowNewTaskModal(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 dark:shadow-none font-bold text-sm">
                     <Plus size={18} /> New Task
                 </button>
              </div>
 
-             <div className="flex-1 min-h-0 flex flex-col bg-slate-100/50 dark:bg-slate-800/20 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-inner">
-                 <div className="bg-white dark:bg-slate-800 p-4 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4 shrink-0">
-                    <div className="flex bg-slate-100 dark:bg-slate-700/50 p-1 rounded-xl">
-                        {['active', 'upcoming', 'archive'].map((tab) => (
-                            <button 
-                                key={tab}
-                                onClick={() => setActiveTaskTab(tab as any)} 
-                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${activeTaskTab === tab ? 'bg-white dark:bg-slate-600 text-indigo-600 dark:text-indigo-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-                            >
-                                {tab}
-                            </button>
-                        ))}
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{filteredTasks.length} ITEMS</span>
-                 </div>
-                 
-                 <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {filteredTasks.map(t => (
-                            <TaskCard 
-                                key={t.id} 
-                                task={t} 
-                                onUpdateStatus={updateTaskStatus} 
-                                onOpenTask={() => setSelectedTask(t)}
-                                availableStatuses={appConfig.taskStatuses}
-                                availablePriorities={appConfig.taskPriorities}
-                                statusColors={appConfig.itemColors || {}}
-                                isHighlighted={highlightedTaskId === t.id}
-                            />
-                        ))}
-                     </div>
-                     {filteredTasks.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-20 text-slate-300 dark:text-slate-600 opacity-50">
-                            <ListTodo size={48} className="mb-4" />
-                            <p className="font-bold">No tasks match your criteria</p>
+             {/* Weekly Timeline */}
+             <div className="shrink-0 space-y-2">
+                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Weekly Timeline</h3>
+                <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar">
+                    {weekDays.map(d => (
+                        <div key={d} className={`min-w-[280px] w-[280px] p-4 rounded-xl border flex flex-col transition-all snap-start ${d === todayStr ? 'bg-indigo-600 border-indigo-500 shadow-lg shadow-indigo-900/50 scale-105 z-10' : 'bg-slate-900 border-slate-800'}`}>
+                            <div className="flex justify-between items-start mb-4 border-b border-white/10 pb-2">
+                                <div>
+                                    <span className={`block text-[10px] font-bold uppercase tracking-widest ${d === todayStr ? 'text-indigo-200' : 'text-slate-500'}`}>{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
+                                    <span className={`text-xl font-bold ${d === todayStr ? 'text-white' : 'text-slate-300'}`}>{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                                </div>
+                                {d === todayStr && <span className="bg-white/20 text-white text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider backdrop-blur-sm">Today</span>}
+                                {d !== todayStr && <Maximize2 size={12} className="text-slate-600" />}
+                            </div>
+                            <div className="flex-1 space-y-2 min-h-[120px]">
+                                {weekTasks[d]?.length ? weekTasks[d].map(t => (
+                                    <div 
+                                      key={t.id} 
+                                      onClick={() => setSelectedTask(t)} 
+                                      className="bg-slate-800/50 p-2.5 rounded-lg border border-slate-700/50 hover:border-indigo-500/50 transition-all cursor-pointer group"
+                                    >
+                                        <div className="flex justify-between items-start mb-1">
+                                            <span className="text-[10px] font-mono text-slate-400 font-bold">{t.displayId}</span>
+                                            <div className={`w-2 h-2 rounded-full ${t.status === Status.IN_PROGRESS ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                                        </div>
+                                        <p className="text-xs text-slate-200 line-clamp-2 font-medium leading-snug">{t.description}</p>
+                                        <div className="mt-2 flex justify-end">
+                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${getStatusColorMini(t.status)}`}>
+                                                {t.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )) : <div className="h-full flex items-center justify-center text-[10px] text-slate-600 italic">No tasks due</div>}
+                            </div>
                         </div>
-                     )}
+                    ))}
+                </div>
+             </div>
+
+             <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-3 gap-8 pb-6">
+                 {/* Left Column: Task List */}
+                 <div className="xl:col-span-2 flex flex-col bg-slate-900/50 rounded-2xl border border-slate-800 overflow-hidden shadow-inner">
+                     <div className="bg-slate-900 p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4 shrink-0">
+                        <div className="flex bg-slate-800 p-1 rounded-xl">
+                            {['active', 'upcoming', 'archive'].map((tab) => (
+                                <button 
+                                    key={tab}
+                                    onClick={() => setActiveTaskTab(tab as any)} 
+                                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${activeTaskTab === tab ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-700'}`}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{filteredTasks.length} ITEMS</span>
+                     </div>
+                     
+                     <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {filteredTasks.map(t => (
+                                <TaskCard 
+                                    key={t.id} 
+                                    task={t} 
+                                    onUpdateStatus={updateTaskStatus} 
+                                    onOpenTask={() => setSelectedTask(t)}
+                                    availableStatuses={appConfig.taskStatuses}
+                                    availablePriorities={appConfig.taskPriorities}
+                                    statusColors={appConfig.itemColors || {}}
+                                    isHighlighted={highlightedTaskId === t.id}
+                                />
+                            ))}
+                         </div>
+                         {filteredTasks.length === 0 && (
+                            <div className="flex flex-col items-center justify-center py-20 text-slate-600 opacity-50">
+                                <ListTodo size={48} className="mb-4" />
+                                <p className="font-bold">No tasks match your criteria</p>
+                            </div>
+                         )}
+                     </div>
+                 </div>
+
+                 {/* Right Column: History & Calendar */}
+                 <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-lg overflow-hidden flex flex-col h-full">
+                    <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                        <DailyJournal 
+                            tasks={tasks} 
+                            logs={logs} 
+                            onAddLog={(l) => persistData(tasks, [...logs, { ...l, id: uuidv4() }], observations, offDays)} 
+                            onUpdateTask={updateTaskFields} 
+                            offDays={offDays} 
+                            onToggleOffDay={(d) => persistData(tasks, logs, observations, offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d])}
+                            onToggleOffDayRange={(dates) => persistData(tasks, logs, observations, Array.from(new Set([...offDays, ...dates])))}
+                            onClearOffDays={(dates) => persistData(tasks, logs, observations, offDays.filter(d => !dates.includes(d)))}
+                            onEditLog={handleEditLog}
+                            onDeleteLog={handleDeleteLog}
+                            searchQuery={searchQuery}
+                            onHighlightTask={(id) => {
+                                const task = tasks.find(t => t.id === id);
+                                if (task) setSelectedTask(task);
+                            }}
+                            onOpenTask={(task, logContent) => {
+                                setSelectedTask(task);
+                                setHighlightedUpdateContent(logContent);
+                            }}
+                        />
+                    </div>
                  </div>
              </div>
           </div>
@@ -617,7 +724,7 @@ const App: React.FC = () => {
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
            {[
              { mode: ViewMode.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
-             { mode: ViewMode.TASKS, icon: ListTodo, label: 'Tasks' },
+             { mode: ViewMode.TASKS, icon: ListTodo, label: 'Daily Tasks' },
              { mode: ViewMode.JOURNAL, icon: Calendar, label: 'Journal' },
              { mode: ViewMode.OBSERVATIONS, icon: MessageSquare, label: 'Observations' },
            ].map(item => (
