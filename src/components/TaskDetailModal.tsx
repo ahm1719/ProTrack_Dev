@@ -286,8 +286,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     const progress = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in" onMouseDown={onClose}>
-            <div className="bg-white dark:bg-slate-900 w-full max-w-4xl h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col" onMouseDown={e => e.stopPropagation()}>
+        <div 
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in" 
+            onClick={onClose}
+        >
+            <div 
+                className="bg-white dark:bg-slate-900 w-full max-w-4xl h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col" 
+                onClick={e => e.stopPropagation()}
+            >
                 {/* Header */}
                 <div className="p-6 border-b dark:border-slate-800 flex flex-col gap-4 bg-slate-50 dark:bg-slate-950">
                     <div className="flex justify-between items-start">

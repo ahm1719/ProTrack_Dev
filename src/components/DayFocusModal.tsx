@@ -98,8 +98,14 @@ const DayFocusModal: React.FC<DayFocusModalProps> = ({ date, tasks, onClose, onU
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[60] flex items-center justify-center p-6 animate-fade-in">
-        <div className="bg-slate-900 w-full max-w-7xl h-[90vh] rounded-3xl shadow-2xl border border-slate-800 flex flex-col overflow-hidden relative">
+    <div 
+        className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[60] flex items-center justify-center p-6 animate-fade-in"
+        onClick={onClose}
+    >
+        <div 
+            className="bg-slate-900 w-full max-w-7xl h-[90vh] rounded-3xl shadow-2xl border border-slate-800 flex flex-col overflow-hidden relative"
+            onClick={(e) => e.stopPropagation()}
+        >
             
             {/* Header */}
             <div className="p-6 bg-slate-900 border-b border-slate-800 flex justify-between items-center shrink-0">
