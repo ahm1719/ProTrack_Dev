@@ -4,7 +4,7 @@ import { Task, Status, Priority, TaskAttachment, HighlightOption, Subtask, TaskU
 import { 
   X, Calendar, Clock, CheckCircle2, AlertTriangle, Send, Paperclip, 
   Trash2, Edit2, Plus, CheckSquare, Square, ChevronLeft, ChevronRight, 
-  Umbrella, Save, File as FileIcon, User, ListChecks
+  Umbrella, Save, File as FileIcon, User, ListChecks, Tag, Palette
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -126,8 +126,16 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
     const [tempDesc, setTempDesc] = useState(task.description);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [newSubtask, setNewSubtask] = useState('');
+    
+    // Editing State
     const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
     const [editUpdateContent, setEditUpdateContent] = useState('');
+    const [editUpdateDate, setEditUpdateDate] = useState('');
+    const [editUpdateColor, setEditUpdateColor] = useState<string>('');
+    
+    // Inline Actions
+    const [activeTagDropdownId, setActiveTagDropdownId] = useState<string | null>(null);
+
     const [pendingAttachments, setPendingAttachments] = useState<TaskAttachment[]>([]);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -217,6 +225,31 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
         setNewUpdate('');
         setSelectedTag('');
         setPendingAttachments([]);
+    };
+
+    const startEditingUpdate = (update: TaskUpdate) => {
+        setEditingUpdateId(update.id);
+        setEditUpdateContent(update.content);
+        setEditUpdateColor(update.highlightColor || '');
+        
+        // Helper to formatting ISO to YYYY-MM-DDTHH:MM local time
+        const d = new Date(update.timestamp);
+        const pad = (n: number) => n < 10 ? '0' + n : n;
+        const localIso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        setEditUpdateDate(localIso);
+    };
+
+    const saveEditedUpdate = (updateId: string) => {
+        // Handle timezone properly when saving back to ISO
+        const dateObj = new Date(editUpdateDate);
+        if (isNaN(dateObj.getTime())) {
+            alert("Invalid date");
+            return;
+        }
+        const newTimestamp = dateObj.toISOString();
+        
+        onEditUpdate(task.id, updateId, editUpdateContent, newTimestamp, editUpdateColor || null);
+        setEditingUpdateId(null);
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -496,8 +529,35 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                             const isEditing = editingUpdateId === update.id;
                                             return (
                                                 <div key={update.id} className="relative group pl-6 pb-6 last:pb-2">
-                                                    {/* Timeline Node */}
-                                                    <div className="absolute left-0 top-[3px] w-3.5 h-3.5 rounded-full bg-white dark:bg-slate-900 border-2 border-indigo-200 dark:border-indigo-900 z-10"></div>
+                                                    {/* Timeline Node & Inline Tag Selector */}
+                                                    <div className="absolute left-0 top-[3px] z-20">
+                                                        <button 
+                                                            onClick={() => setActiveTagDropdownId(activeTagDropdownId === update.id ? null : update.id)}
+                                                            className={`w-3.5 h-3.5 rounded-full border-2 transition-transform hover:scale-110 ${update.highlightColor ? 'border-transparent' : 'border-indigo-200 dark:border-indigo-900 bg-white dark:bg-slate-900'}`}
+                                                            style={update.highlightColor ? { backgroundColor: update.highlightColor } : {}}
+                                                            title="Change Color Tag"
+                                                        />
+                                                        {activeTagDropdownId === update.id && (
+                                                            <div className="absolute top-5 left-0 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-2 z-30 w-32 grid grid-cols-4 gap-1 animate-fade-in">
+                                                                <button onClick={() => { onEditUpdate(task.id, update.id, update.content, update.timestamp, null); setActiveTagDropdownId(null); }} className="w-5 h-5 rounded-full border border-slate-300 dark:border-slate-600 bg-white dark:bg-black/20 hover:scale-110 transition-transform relative" title="Clear Tag">
+                                                                    <div className="absolute inset-0 m-auto w-3 h-[1px] bg-red-500 rotate-45"></div>
+                                                                </button>
+                                                                {updateTags.map(tag => (
+                                                                    <button 
+                                                                        key={tag.id}
+                                                                        onClick={() => { onEditUpdate(task.id, update.id, update.content, update.timestamp, tag.color); setActiveTagDropdownId(null); }}
+                                                                        className="w-5 h-5 rounded-full hover:scale-110 transition-transform border border-transparent hover:border-slate-300 dark:hover:border-slate-500"
+                                                                        style={{ backgroundColor: tag.color }}
+                                                                        title={tag.label}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        {/* Click overlay to close dropdown */}
+                                                        {activeTagDropdownId === update.id && (
+                                                            <div className="fixed inset-0 z-20" onClick={() => setActiveTagDropdownId(null)} />
+                                                        )}
+                                                    </div>
                                                     
                                                     <div className="flex-1 min-w-0">
                                                         <div className="flex items-center justify-between mb-1.5">
@@ -505,27 +565,58 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                                                                 <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold font-mono">
                                                                     {new Date(update.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                                 </span>
-                                                                {update.highlightColor && (
-                                                                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: update.highlightColor }} />
-                                                                )}
                                                             </div>
                                                             <div className="flex opacity-0 group-hover:opacity-100 transition-opacity gap-2 bg-white dark:bg-slate-900 px-1 rounded shadow-sm">
-                                                                <button onClick={() => { setEditingUpdateId(update.id); setEditUpdateContent(update.content); }} className="text-slate-400 hover:text-indigo-500"><Edit2 size={10} /></button>
+                                                                <button onClick={() => startEditingUpdate(update)} className="text-slate-400 hover:text-indigo-500"><Edit2 size={10} /></button>
                                                                 {onDeleteUpdate && <button onClick={() => onDeleteUpdate(task.id, update.id)} className="text-slate-400 hover:text-red-500"><Trash2 size={10} /></button>}
                                                             </div>
                                                         </div>
                                                         
                                                         {isEditing ? (
-                                                            <div className="bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-900 rounded-lg p-2 shadow-sm">
+                                                            <div className="bg-white dark:bg-slate-800 border border-indigo-200 dark:border-indigo-900 rounded-lg p-2 shadow-sm space-y-2">
                                                                 <textarea 
                                                                     value={editUpdateContent}
                                                                     onChange={e => setEditUpdateContent(e.target.value)}
-                                                                    className="w-full text-xs outline-none resize-none dark:bg-transparent dark:text-white"
+                                                                    className="w-full text-xs outline-none resize-none dark:bg-transparent dark:text-white p-1"
                                                                     rows={3}
                                                                 />
+                                                                
+                                                                <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
+                                                                    <div className="flex-1">
+                                                                        <label className="text-[8px] font-bold text-slate-400 uppercase block mb-1">Date & Time</label>
+                                                                        <input 
+                                                                            type="datetime-local"
+                                                                            value={editUpdateDate}
+                                                                            onChange={e => setEditUpdateDate(e.target.value)}
+                                                                            className="w-full text-[10px] p-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-slate-700 dark:text-slate-300"
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="text-[8px] font-bold text-slate-400 uppercase block mb-1">Tag</label>
+                                                                        <div className="flex gap-1">
+                                                                            <button 
+                                                                                onClick={() => setEditUpdateColor('')} 
+                                                                                className={`w-5 h-5 rounded border ${!editUpdateColor ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 bg-white dark:bg-slate-900'} flex items-center justify-center`}
+                                                                                title="No Tag"
+                                                                            >
+                                                                                <X size={10} className="text-slate-400"/>
+                                                                            </button>
+                                                                            {updateTags.slice(0, 3).map(tag => (
+                                                                                <button 
+                                                                                    key={tag.id}
+                                                                                    onClick={() => setEditUpdateColor(tag.color)}
+                                                                                    className={`w-5 h-5 rounded border ${editUpdateColor === tag.color ? 'border-black dark:border-white scale-110' : 'border-transparent'}`}
+                                                                                    style={{ backgroundColor: tag.color }}
+                                                                                    title={tag.label}
+                                                                                />
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
                                                                 <div className="flex justify-end gap-2 mt-2">
                                                                     <button onClick={() => setEditingUpdateId(null)} className="text-[10px] text-slate-500 hover:text-slate-700 px-2 py-1">Cancel</button>
-                                                                    <button onClick={() => { onEditUpdate(task.id, update.id, editUpdateContent); setEditingUpdateId(null); }} className="text-[10px] bg-indigo-600 text-white px-3 py-1 rounded font-bold hover:bg-indigo-700">Save</button>
+                                                                    <button onClick={() => saveEditedUpdate(update.id)} className="text-[10px] bg-indigo-600 text-white px-3 py-1 rounded font-bold hover:bg-indigo-700">Save</button>
                                                                 </div>
                                                             </div>
                                                         ) : (
