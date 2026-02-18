@@ -51,7 +51,7 @@ import { subscribeToCollections, syncData, initFirebase } from './services/fireb
 import { generateWeeklySummary } from './services/geminiService';
 import { performBackup, selectBackupFolder } from './services/backupService';
 
-const BUILD_VERSION = "V4.8.4";
+const BUILD_VERSION = "V4.8.5";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -545,9 +545,14 @@ const App: React.FC = () => {
           <div className="h-full flex flex-col space-y-6 animate-fade-in">
              <div className="flex justify-between items-center shrink-0">
                 <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Daily Workspace</h1>
-                <button onClick={() => setShowNewTaskModal(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 dark:shadow-none font-bold text-sm">
-                    <Plus size={18} /> New Task
-                </button>
+                <div className="flex gap-3">
+                    <button onClick={() => setFocusModeDate(todayStr)} className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white px-5 py-2.5 rounded-xl transition-all text-sm font-bold shadow-lg shadow-indigo-800/20">
+                        <Maximize2 size={18} /> Focus Mode
+                    </button>
+                    <button onClick={() => setShowNewTaskModal(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 dark:shadow-none font-bold text-sm">
+                        <Plus size={18} /> New Task
+                    </button>
+                </div>
              </div>
 
              {/* Weekly Timeline */}
@@ -726,7 +731,7 @@ const App: React.FC = () => {
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto custom-scrollbar">
            {[
              { mode: ViewMode.DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
-             { mode: ViewMode.TASKS, icon: ListTodo, label: 'Daily Workspace' },
+             { mode: ViewMode.TASKS, icon: ListTodo, label: 'Daily Tasks' },
              { mode: ViewMode.JOURNAL, icon: Calendar, label: 'Journal' },
              { mode: ViewMode.OBSERVATIONS, icon: MessageSquare, label: 'Observations' },
            ].map(item => (
