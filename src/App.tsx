@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
@@ -862,7 +863,7 @@ const App: React.FC = () => {
         {/* Task Detail Modal */}
         {selectedTask && (
             <TaskDetailModal 
-                task={selectedTask}
+                task={tasks.find(t => t.id === selectedTask.id) || selectedTask}
                 allTasks={tasks}
                 onClose={() => setSelectedTask(null)}
                 onUpdateStatus={updateTaskStatus}
