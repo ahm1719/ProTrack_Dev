@@ -14,7 +14,8 @@ import {
   Target,
   AlertTriangle,
   Calendar,
-  Briefcase
+  Briefcase,
+  X
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -45,7 +46,7 @@ import { FullLogo, LogoSymbol } from './components/Branding';
 import { subscribeToCollections, syncData, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V3.6.1";
+const BUILD_VERSION = "V3.6.2";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
