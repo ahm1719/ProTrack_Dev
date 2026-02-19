@@ -11,7 +11,7 @@ interface SettingsProps {
   logs: DailyLog[];
   observations: Observation[];
   offDays?: string[];
-  onImportData: (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[]; offDays?: string[] }) => void;
+  onImportData: (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[]; offDays?: string[]; appConfig?: AppConfig }) => void;
   onSyncConfigUpdate: (config: FirebaseConfig | null) => void;
   isSyncEnabled: boolean;
   appConfig: AppConfig;
