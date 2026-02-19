@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
   ListTodo, 
@@ -20,7 +20,8 @@ import {
   Maximize2,
   CheckCircle2,
   Clock,
-  ArrowRight
+  ArrowRight,
+  GripHorizontal
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -52,7 +53,7 @@ import { subscribeToCollections, syncData, initFirebase } from './services/fireb
 import { generateWeeklySummary } from './services/geminiService';
 import { performBackup, selectBackupFolder } from './services/backupService';
 
-const BUILD_VERSION = "V4.8.5";
+const BUILD_VERSION = "V4.9.0";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -114,13 +115,16 @@ const App: React.FC = () => {
   
   const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
 
+  // Timeline Resize State
+  const [timelineHeight, setTimelineHeight] = useState(340);
+  const isResizingRef = useRef(false);
+
   const [generatedReport, setGeneratedReport] = useState('');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('protrack_theme');
-      // Default to true (Dark Mode) if not set, restoring baseline
       return saved ? saved === 'dark' : true;
     }
     return true;
@@ -154,6 +158,7 @@ const App: React.FC = () => {
     const savedConfig = localStorage.getItem('protrack_firebase_config');
     const localAppConfig = localStorage.getItem('protrack_app_config');
     const savedBackup = localStorage.getItem('protrack_backup_settings');
+    const savedTimelineHeight = localStorage.getItem('protrack_timeline_height');
     
     if (localAppConfig) {
       try {
@@ -165,6 +170,11 @@ const App: React.FC = () => {
     if (savedBackup) {
       try { setBackupSettings(JSON.parse(savedBackup)); } 
       catch (e) { console.error("Backup settings parse error", e); }
+    }
+
+    if (savedTimelineHeight) {
+      try { setTimelineHeight(parseInt(savedTimelineHeight, 10)); }
+      catch (e) { console.error("Timeline height parse error", e); }
     }
 
     const localData = localStorage.getItem('protrack_data');
@@ -211,6 +221,42 @@ const App: React.FC = () => {
     }
   }, [isSyncEnabled]);
 
+  // Timeline Resizing Logic
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      e.preventDefault(); // Prevent text selection
+      setTimelineHeight(prev => {
+        const newHeight = Math.max(200, Math.min(800, prev + e.movementY));
+        return newHeight;
+      });
+    };
+
+    const handleMouseUp = () => {
+      if (isResizingRef.current) {
+        isResizingRef.current = false;
+        document.body.style.cursor = 'default';
+        document.body.style.userSelect = 'auto';
+        localStorage.setItem('protrack_timeline_height', timelineHeight.toString()); // Save on release
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [timelineHeight]); // Dependency on timelineHeight for localStorage sync isn't strictly needed for the drag logic but ensures freshness
+
+  // Save timeline height when it changes (debounced ideal, but simple setItem on mouseUp handles it well)
+  useEffect(() => {
+      if (!isResizingRef.current) {
+          localStorage.setItem('protrack_timeline_height', timelineHeight.toString());
+      }
+  }, [timelineHeight]);
+
   // Backup Effect
   useEffect(() => {
     let intervalId: any;
@@ -239,7 +285,6 @@ const App: React.FC = () => {
     localStorage.setItem('protrack_data', JSON.stringify({ tasks: newTasks, logs: newLogs, observations: newObs, offDays: newOffDays }));
     
     if (isSyncEnabled) {
-        // We use full sync for simplicity here, but ideally we'd use granular syncData calls in each handler
         syncData([{ type: 'full', action: 'overwrite', data: { tasks: newTasks, logs: newLogs, observations: newObs, offDays: newOffDays, appConfig } }]);
     }
   };
@@ -340,10 +385,8 @@ const App: React.FC = () => {
       return t;
     });
 
-    // Also update linked log if exists
     const newLogs = logs.map(l => {
         if (l.taskId === taskId) {
-             // Logic to find corresponding log is fuzzy without direct link ID, assuming content match or simple sync
              const originalTask = tasks.find(t => t.id === taskId);
              const originalUpdate = originalTask?.updates.find(u => u.id === updateId);
              if (originalUpdate && l.content === originalUpdate.content) {
@@ -416,11 +459,9 @@ const App: React.FC = () => {
     );
     
     if (activeTaskTab === 'active') {
-        // Show active tasks not done/archived, OR completed tasks updated today
         return base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
     }
     if (activeTaskTab === 'upcoming') {
-        // Just an example filter, can be customized
         return base.filter(t => t.dueDate && t.dueDate > todayStr && t.status !== Status.DONE && t.status !== Status.ARCHIVED);
     }
     if (activeTaskTab === 'archive') {
@@ -432,7 +473,6 @@ const App: React.FC = () => {
   // Weekly Timeline Logic
   const weekDays = useMemo(() => {
     const days = [];
-    // Start from today for the next 7 days
     for (let i = 0; i < 7; i++) {
       const d = new Date();
       d.setDate(d.getDate() + i);
@@ -543,8 +583,8 @@ const App: React.FC = () => {
 
       case ViewMode.TASKS:
         return (
-          <div className="h-full flex flex-col space-y-6 animate-fade-in">
-             <div className="flex justify-between items-center shrink-0">
+          <div className="h-full flex flex-col animate-fade-in">
+             <div className="flex justify-between items-center shrink-0 mb-4">
                 <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Daily Workspace</h1>
                 <div className="flex gap-3">
                     <button onClick={() => setFocusModeDate(todayStr)} className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white px-5 py-2.5 rounded-xl transition-all text-sm font-bold shadow-lg shadow-indigo-800/20">
@@ -556,13 +596,17 @@ const App: React.FC = () => {
                 </div>
              </div>
 
-             {/* Weekly Timeline */}
-             <div className="shrink-0 space-y-2">
-                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Weekly Timeline</h3>
-                <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar">
+             {/* Weekly Timeline - Resizable */}
+             <div className="shrink-0 flex flex-col" style={{ height: timelineHeight }}>
+                <h3 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 shrink-0">Weekly Timeline</h3>
+                
+                <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar flex-1 items-stretch">
                     {weekDays.map(d => (
-                        <div key={d} className={`min-w-[280px] w-[280px] p-4 rounded-xl border flex flex-col transition-all snap-start ${d === todayStr ? 'bg-indigo-600 border-indigo-500 shadow-lg shadow-indigo-900/50 scale-105 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'}`}>
-                            <div className="flex justify-between items-start mb-4 border-b border-slate-100 dark:border-slate-700/50 pb-2">
+                        <div 
+                            key={d} 
+                            className={`min-w-[280px] w-[280px] p-4 rounded-xl border flex flex-col transition-all snap-start h-full ${d === todayStr ? 'bg-indigo-600 border-indigo-500 shadow-xl shadow-indigo-900/50 ring-4 ring-indigo-100 dark:ring-indigo-900/30 z-10' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm'}`}
+                        >
+                            <div className="flex justify-between items-start mb-4 border-b border-slate-100 dark:border-slate-700/50 pb-2 shrink-0">
                                 <div>
                                     <span className={`block text-[10px] font-bold uppercase tracking-widest ${d === todayStr ? 'text-indigo-200' : 'text-slate-500 dark:text-slate-400'}`}>{new Date(d).toLocaleDateString([], { weekday: 'long' })}</span>
                                     <span className={`text-xl font-bold ${d === todayStr ? 'text-white' : 'text-slate-800 dark:text-slate-200'}`}>{new Date(d).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
@@ -570,7 +614,9 @@ const App: React.FC = () => {
                                 {d === todayStr && <span className="bg-white/20 text-white text-[9px] px-2 py-0.5 rounded font-bold uppercase tracking-wider backdrop-blur-sm">Today</span>}
                                 {d !== todayStr && <Maximize2 size={12} className="text-slate-400 dark:text-slate-600" />}
                             </div>
-                            <div className="flex-1 space-y-2 min-h-[120px]">
+                            
+                            {/* Scrollable Task List Inside Card */}
+                            <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar min-h-0">
                                 {weekTasks[d]?.length ? weekTasks[d].map(t => (
                                     <div 
                                       key={t.id} 
@@ -593,6 +639,18 @@ const App: React.FC = () => {
                         </div>
                     ))}
                 </div>
+             </div>
+
+             {/* Draggable Divider */}
+             <div 
+                className="h-2 w-full cursor-row-resize flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors mb-4 mt-1 group shrink-0"
+                onMouseDown={() => {
+                    isResizingRef.current = true;
+                    document.body.style.cursor = 'row-resize';
+                    document.body.style.userSelect = 'none';
+                }}
+             >
+                <div className="w-16 h-1 rounded-full bg-slate-200 dark:bg-slate-700 group-hover:bg-indigo-400 transition-colors" />
              </div>
 
              <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-3 gap-8 pb-6">
