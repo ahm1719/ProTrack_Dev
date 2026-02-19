@@ -49,7 +49,7 @@ import { FullLogo } from './components/Branding';
 import { subscribeToCollections, syncData, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V4.9.1";
+const BUILD_VERSION = "V4.9.2";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -828,7 +828,7 @@ const App: React.FC = () => {
         {/* Task Detail Modal */}
         {selectedTask && (
             <TaskDetailModal 
-                task={selectedTask}
+                task={tasks.find(t => t.id === selectedTask.id) || selectedTask}
                 allTasks={tasks}
                 onClose={() => setSelectedTask(null)}
                 onUpdateStatus={updateTaskStatus}
